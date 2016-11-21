@@ -13,6 +13,8 @@
 #define BUFFER_LENGTH (NUM_PIXELS * NUM_CHANNELS)
 #define BUFFER_BYTES  (BUFFER_LENGTH * sizeof(uint16_t))
 
+#define READINGS_TO_DISPLAY 16
+
 volatile int bufn, obufn;
 uint16_t buf[NUM_BUFFERS][BUFFER_LENGTH];
 
@@ -25,8 +27,7 @@ void ADC_Handler() {
     ADC->ADC_RNCR = BUFFER_LENGTH;
   }
 }
-
-void setup() {
+void initializeBuffers() {
   Serial.begin(9600);
   //SerialUSB.begin(0); // start USB
   //while (!SerialUSB); // wait for it to be ready
@@ -55,14 +56,20 @@ void setup() {
   ADC->ADC_CR = 2;
 }
 
+void setup() {
+  initializeBuffers();
+}
+
 void loop() {
   int t = millis();
-  for (long i = 0; i < 2500; i++) {
+  for (long i = 0; i < 250; i++) {
     while (obufn == bufn);                                      // wait for buffer to be full
     //SerialUSB.write((uint8_t *)buf[obufn], BUFFER_BYTES);     // send it, length in bytes
-    obufn = (obufn + 1) % NUM_BUFFERS ;                         // set next buffer for waiting
+    obufn = (obufn + 1) % NUM_BUFFERS;                          // set next buffer for waiting
   }
   t = millis() - t;
+
+/*
   Serial.print   ("2,500 lines x [4 channels x ");
   Serial.print   (BUFFER_LENGTH/NUM_CHANNELS);
   Serial.print   (" pixels] read in ");
@@ -70,5 +77,22 @@ void loop() {
   Serial.print   ("ms, pixel rate (4 channels): ");
   Serial.print   (2500.0*BUFFER_LENGTH/NUM_CHANNELS/t);
   Serial.println ("khz");
+  Serial.println();
+
+  */
+
+  Serial.print ("Buffer ");
+  Serial.print (obufn);
+  Serial.print (": ");
+ 
+  
+  for (int k = 0; k < READINGS_TO_DISPLAY; k++) {
+    char numbuf[10];
+    sprintf(numbuf, "0x%04X, ", buf[obufn][k]);
+    Serial.print (numbuf);
+    //Serial.print (", ");
+  }
+  Serial.println();
+
 }
 
