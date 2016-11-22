@@ -7,16 +7,21 @@
 
 
 #define NUM_CHANNELS  4
-#define NUM_PIXELS    2048
+#define NUM_PIXELS    32
 
 #define NUM_BUFFERS   4
 #define BUFFER_LENGTH (NUM_PIXELS * NUM_CHANNELS)
 #define BUFFER_BYTES  (BUFFER_LENGTH * sizeof(uint16_t))
 
-#define READINGS_TO_DISPLAY 16
+#define READINGS_TO_DISPLAY 4
 
 volatile int bufn, obufn;
 uint16_t buf[NUM_BUFFERS][BUFFER_LENGTH];
+
+const int buttonPin = 26;     // the number of the pushbutton pin
+const int ledPin = 22;      // the number of the LED pin
+
+int buttonState = 0;
 
 void ADC_Handler() {
   // move DMA pointers to next buffer
@@ -28,7 +33,7 @@ void ADC_Handler() {
   }
 }
 void initializeBuffers() {
-  Serial.begin(9600);
+  SerialUSB.begin(200000);
   //SerialUSB.begin(0); // start USB
   //while (!SerialUSB); // wait for it to be ready
 
@@ -58,41 +63,54 @@ void initializeBuffers() {
 
 void setup() {
   initializeBuffers();
+  analogReadResolution(12);
+  // initialize the LED pin as an output:
+  pinMode(ledPin, OUTPUT);
+  // initialize the pushbutton pin as an input:
+  pinMode(buttonPin, INPUT);
 }
 
 void loop() {
+  // read the state of the pushbutton value:
+  buttonState = digitalRead(buttonPin);
+  if (buttonState == LOW) {
+    digitalWrite(ledPin, LOW);
+    return;
+  }
+  digitalWrite(ledPin, HIGH);
+  SerialUSB.write("Hi");
   int t = millis();
-  for (long i = 0; i < 250; i++) {
+  for (long i = 0; i < 64; i++) {
     while (obufn == bufn);                                      // wait for buffer to be full
-    //SerialUSB.write((uint8_t *)buf[obufn], BUFFER_BYTES);     // send it, length in bytes
+    SerialUSB.write((uint8_t *)buf[obufn], BUFFER_BYTES);     // send it, length in bytes
     obufn = (obufn + 1) % NUM_BUFFERS;                          // set next buffer for waiting
   }
   t = millis() - t;
-
+  digitalWrite(ledPin, LOW);
 /*
-  Serial.print   ("2,500 lines x [4 channels x ");
-  Serial.print   (BUFFER_LENGTH/NUM_CHANNELS);
-  Serial.print   (" pixels] read in ");
-  Serial.print   (t);
-  Serial.print   ("ms, pixel rate (4 channels): ");
-  Serial.print   (2500.0*BUFFER_LENGTH/NUM_CHANNELS/t);
-  Serial.println ("khz");
-  Serial.println();
+  SerialUSB.print   ("2,500 lines x [4 channels x ");
+  SerialUSB.print   (BUFFER_LENGTH/NUM_CHANNELS);
+  SerialUSB.print   (" pixels] read in ");
+  SerialUSB.print   (t);
+  SerialUSB.print   ("ms, pixel rate (4 channels): ");
+  SerialUSB.print   (2500.0*BUFFER_LENGTH/NUM_CHANNELS/t);
+  SerialUSB.println ("khz");
+  SerialUSB.println();
 
   */
 
-  Serial.print ("Buffer ");
-  Serial.print (obufn);
-  Serial.print (": ");
+  /*SerialUSB.print ("Buffer ");
+  SerialUSB.print (obufn);
+  SerialUSB.print (": ");
  
   
   for (int k = 0; k < READINGS_TO_DISPLAY; k++) {
     char numbuf[10];
-    sprintf(numbuf, "0x%04X, ", buf[obufn][k]);
-    Serial.print (numbuf);
-    //Serial.print (", ");
+    sprintf(numbuf, "Ch %d, value %04d, ", (buf[obufn][k]>>12), (buf[obufn][k] &0xFFF));
+    SerialUSB.print (numbuf);
+    //SerialUSB.print (", ");
   }
-  Serial.println();
+  SerialUSB.println();*/
 
 }
 
