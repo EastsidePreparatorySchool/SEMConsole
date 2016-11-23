@@ -7,7 +7,7 @@
 
 
 #define NUM_CHANNELS  4
-#define NUM_PIXELS    32
+#define NUM_PIXELS    2048
 
 #define NUM_BUFFERS   4
 #define BUFFER_LENGTH (NUM_PIXELS * NUM_CHANNELS)
@@ -33,7 +33,7 @@ void ADC_Handler() {
   }
 }
 void initializeBuffers() {
-  SerialUSB.begin(200000);
+  SerialUSB.begin(20000);
   //SerialUSB.begin(0); // start USB
   //while (!SerialUSB); // wait for it to be ready
 
@@ -80,7 +80,7 @@ void loop() {
   digitalWrite(ledPin, HIGH);
   SerialUSB.write("Hi");
   int t = millis();
-  for (long i = 0; i < 64; i++) {
+  for (long i = 0; i < 2500; i++) {
     while (obufn == bufn);                                      // wait for buffer to be full
     SerialUSB.write((uint8_t *)buf[obufn], BUFFER_BYTES);     // send it, length in bytes
     obufn = (obufn + 1) % NUM_BUFFERS;                          // set next buffer for waiting

@@ -17,10 +17,10 @@ public class SEMSerial {
         System.out.println(portsNames.toString());
 
         // Get a new instance of SerialPort by opening a port.
-        SerialPort port = SerialPort.open("COM8");
+        SerialPort port = SerialPort.open("COM11");
 
         // Configure the connection
-        port.setTimeout(100);
+        port.setTimeout(8000);
         port.setConfig(BaudRate.B115200, Parity.NONE, StopBits.ONE, DataBits.D8);
 
         // You have the choice, you can either use the Java NIO channels
@@ -33,15 +33,15 @@ public class SEMSerial {
         int n = istream.read(byteBuffer);
 
         // Read some data using a ByteBuffer.
-        ByteBuffer buffer = ByteBuffer.allocate(4096);
+        ByteBuffer buffer = ByteBuffer.allocate(4*2048*2500);
         int c = channel.read(buffer);
         System.out.println ("Bytes read: " + c);
 
-        for (int i = 0; i < c; i++) {
+        /*for (int i = 0; i < c; i++) {
             System.out.print(Integer.toHexString(buffer.get(i)) + " ");
         }
         System.out.println();
-        System.out.println(buffer.asCharBuffer());
+        System.out.println(buffer.asCharBuffer());*/
 
         port.close();
     }
