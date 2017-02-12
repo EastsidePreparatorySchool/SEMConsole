@@ -77,7 +77,7 @@ public class SEMImage {
                     break;
                 }
             }
-            // write rawBuffer into images[capturedChannel]
+            // write rawBuffer into images[writeChannel]
             writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
         }
     }
@@ -90,7 +90,7 @@ public class SEMImage {
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
     static int getValue(int word) {
-        word = (word & 0xFFF) - SEMImage.floorValue; //TODO: better claibration and adjustment
+        word = (word & 0xFFF) - SEMImage.floorValue; //TODO: better cqlibration and adjustment
         if (word > 255) {
             word = 255;
         }

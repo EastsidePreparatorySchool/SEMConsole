@@ -284,7 +284,7 @@ public class SEMPort {
 
                         break;
 
-                    case "EPS_SEM_EFRAME..":
+                    case "EPS_SEM_ENDFRAME":
                         System.out.println();
                         System.out.print("End of frame. Send time: ");
                         while (buffer.remaining() < 2) {

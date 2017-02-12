@@ -88,8 +88,9 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
 
   // prescale :  ADC clock is mck/((prescale+1)*2).  mck is 84MHZ. 
   // prescale : 0x00 -> 40 Mhz
+  // TODO: properly set prescaler?
 
-  ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out. 
+  ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out.
   ADC->ADC_MR |=0x80000000;     // set the prescale to 0x00, high bit indicates to use sequence numbers
   ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   

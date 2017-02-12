@@ -20,10 +20,11 @@ public class SEMThread extends Thread {
 
     public void run() {
         try {
+            // TODO: clean this up, make it a proper message loop, keep it alive after frame complete
             semport.initialize();
             //semport.test();
             System.out.println("SEM Port Initialized");
-            for (int i = 0; i < 10000; i++) {
+            while (true) {
                 String s = semport.peekMessage();
                 if (s != null) {
                     if (s.equals("Finished")) {
