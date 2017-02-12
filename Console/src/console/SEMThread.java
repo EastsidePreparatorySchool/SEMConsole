@@ -5,15 +5,20 @@
  */
 package console;
 
-import javafx.scene.chart.XYChart;
+import java.util.concurrent.LinkedTransferQueue;
 
 /**
  *
  * @author gmein
  */
 public class SEMThread extends Thread {
+    
+    LinkedTransferQueue<SEMImage> ltq;
+    Runnable update;
 
-    SEMThread() {
+    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable r) {
+        this.ltq = q;
+        this.update = r;
     }
 
     SEMPort semport = new SEMPort();
@@ -25,7 +30,7 @@ public class SEMThread extends Thread {
             //semport.test();
             System.out.println("SEM Port Initialized");
             while (true) {
-                String s = semport.peekMessage();
+                String s = semport.peekMessage(this.ltq, this.update);
                 if (s != null) {
                     if (s.equals("Finished")) {
                         break;

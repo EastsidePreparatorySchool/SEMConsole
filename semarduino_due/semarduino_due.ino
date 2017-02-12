@@ -15,7 +15,7 @@ byte headerConnect[COMMAND_BYTES]  = {'E','P','S','_','S','E','M','_','C','O','N
 byte headerReady[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','A','D','Y','.','.','.'};
 byte headerFrame[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','F','R','A','M','E','.','.','.'};
 byte headerBytes[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','B','Y','T','E','S','.','.','.'};
-byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','F','R','A','M','E','.','.'};
+byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'};
 
 #define SENTINEL_BYTES 16
 byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
@@ -88,9 +88,8 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
 
   // prescale :  ADC clock is mck/((prescale+1)*2).  mck is 84MHZ. 
   // prescale : 0x00 -> 40 Mhz
-  // TODO: properly set prescaler?
 
-  ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out.
+  ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out. 
   ADC->ADC_MR |=0x80000000;     // set the prescale to 0x00, high bit indicates to use sequence numbers
   ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   

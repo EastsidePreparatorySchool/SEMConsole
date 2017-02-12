@@ -11,6 +11,8 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.LinkedTransferQueue;
+import javafx.application.Platform;
 
 public class SEMPort {
 
@@ -110,7 +112,7 @@ public class SEMPort {
         }
     }
 
-    String peekMessage() {
+    String peekMessage(LinkedTransferQueue<SEMImage> ltq, Runnable r) {
         String result = null;
         int checkSum = 0;
         int checkSumRead = 0;
@@ -131,7 +133,7 @@ public class SEMPort {
 
                 switch (result) {
                     case "EPS_SEM_FRAME...":
-                        System.out.print("Start of frame: ");
+                        System.out.print("\nStart of frame: ");
                         dotCounter = 0;
                         numErrors = 0;
                         numOKs = 0;
@@ -160,8 +162,9 @@ public class SEMPort {
                                 System.out.print(capturedChannels[i] + " ");
                             }
                         }
+                        System.out.println();
                         rawMultiChannelBuffer = new int[channelCount * width];
-                        si = new SEMImage(channelCount, capturedChannels, width, height);
+                        this.si = new SEMImage(channelCount, capturedChannels, width, height);
                         break;
 
                     case "EPS_SEM_BYTES...":
@@ -264,7 +267,7 @@ public class SEMPort {
                             System.out.print(".");
                             channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                             numOKs++;
-                            si.parseRawLine(line, this.rawMultiChannelBuffer, bytes/2);
+                            this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes/2);
                         }
 
                         // read trailer
@@ -296,6 +299,9 @@ public class SEMPort {
                         }
                         System.out.print(Short.toUnsignedInt(buffer.getShort()) + "ms, OKs: ");
                         System.out.println(numOKs + ", errors: " + numErrors);
+                        ltq.add(this.si);
+                        this.si = null;
+                        Platform.runLater(r);
                         
                         result = "Finished";
                         break;
