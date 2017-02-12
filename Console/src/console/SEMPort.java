@@ -23,6 +23,10 @@ public class SEMPort {
     int dotCounter = 0;
     int numErrors = 0;
     int numOKs = 0;
+    int lastBytes = 0;
+    
+    int[] rawMultiChannelBuffer;
+    SEMImage si;
 
     SEMPort() {
     }
@@ -61,7 +65,7 @@ public class SEMPort {
                 channel = port.getChannel();
                 //ostream = port.getOutputStream();
                 //istream = port.getInputStream();
-                buffer = ByteBuffer.allocate(33000);
+                buffer = ByteBuffer.allocateDirect(1000000);
                 buffer.order(ByteOrder.LITTLE_ENDIAN);
 
                 ByteBuffer target = ByteBuffer.wrap("EPS_SEM_READY...".getBytes(StandardCharsets.UTF_8));
@@ -110,6 +114,7 @@ public class SEMPort {
         String result = null;
         int checkSum = 0;
         int checkSumRead = 0;
+        int lines = 50;
 
         try {
             buffer.position(0);
@@ -126,23 +131,66 @@ public class SEMPort {
 
                 switch (result) {
                     case "EPS_SEM_FRAME...":
-                        System.out.println("Start of frame: ");
+                        System.out.print("Start of frame: ");
                         dotCounter = 0;
                         numErrors = 0;
                         numOKs = 0;
+                        lastBytes = 0;
+
+                        // read channel count, width, height
+                        buffer.rewind();
+                        buffer.limit(14);
+                        n = channel.read(buffer);
+                        //System.out.print("[read " + n + "bytes]");
+                        if (n != 14) {
+                            return null;
+                        }
+                        buffer.flip();
+
+                        // read line number (unsigned short)
+                        int channelCount = Short.toUnsignedInt(buffer.getShort());
+                        int width = Short.toUnsignedInt(buffer.getShort());
+                        int height = Short.toUnsignedInt(buffer.getShort());
+                        System.out.println("channels: " + channelCount + ", width: " + width + ", height: " + height);
+                        System.out.print("Captured channels: ");
+                        int[] capturedChannels = new int[4];
+                        for (int i = 0; i < 4; i++) {
+                            capturedChannels[i] = Short.toUnsignedInt(buffer.getShort());
+                            if (i < channelCount) {
+                                System.out.print(capturedChannels[i] + " ");
+                            }
+                        }
+                        rawMultiChannelBuffer = new int[channelCount * width];
+                        si = new SEMImage(channelCount, capturedChannels, width, height);
                         break;
 
                     case "EPS_SEM_BYTES...":
+                        // read whole line if length known
+                        if (lastBytes != 0) {
+                            buffer.rewind();
+                            buffer.limit(lastBytes);
+                            n = channel.read(buffer);
+                            //System.out.print("[prefetch read " + n + "bytes]");
+                            if (n != lastBytes) {
+                                channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+                                numErrors++;
+                                System.out.print("-");
+
+                                return null;
+                            }
+                            buffer.flip();
+                        }
+
                         // read line number (unsigned short)
                         while (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
                             n = channel.read(buffer);
-                            buffer.position(0);
+                            buffer.flip();
                             //System.out.print("[read " + n + "bytes]");
                         }
                         int line = Short.toUnsignedInt(buffer.getShort());
-                        if (dotCounter == 0) {
+                        if (dotCounter % lines == 0) {
                             System.out.print("Line: ");
                             System.out.print(line + ", ");
                         }
@@ -152,26 +200,48 @@ public class SEMPort {
                             buffer.position(0);
                             buffer.limit(2);
                             n = channel.read(buffer);
-                            buffer.position(0);
+                            buffer.flip();
                             //System.out.print("[read " + n + "bytes]");
                         }
                         int bytes = Short.toUnsignedInt(buffer.getShort());
-                        if (dotCounter == 0) {
+                        if (dotCounter % lines == 0) {
                             System.out.print("bytes: ");
-                            System.out.println(bytes);
+                            System.out.print(bytes + ", ");
+                        }
+
+                        // read scan time (unsigned short)
+                        while (buffer.remaining() < 2) {
+                            buffer.position(0);
+                            buffer.limit(2);
+                            n = channel.read(buffer);
+                            buffer.position(0);
+                            //System.out.print("[read " + n + "bytes]");
+                        }
+                        int time = Short.toUnsignedInt(buffer.getShort());
+                        if ((dotCounter % lines) == 0) {
+                            System.out.print("time: ");
+                            System.out.println(((long) time) * 100);
                         }
 
                         // read line bytes
                         checkSum = 0;
+                        //System.out.print("[buffer remaining " + buffer.remaining() + " bytes]");
+
                         if (buffer.remaining() == 0) {
                             buffer.position(0);
                             buffer.limit(bytes);
                             n = channel.read(buffer);
+                            //System.out.print("[read " + n + "bytes]");
                             buffer.position(0);
-                            for (int i = 0; i < bytes / 2; i++) {
-                                checkSum += Short.toUnsignedInt(buffer.getShort());
-                            }
-                            //System.out.println("[read " + n + " bytes]");
+                        }
+                        int word;
+                        for (int i = 0; i < bytes / 2; i++) {
+                            word = Short.toUnsignedInt(buffer.getShort());
+                            rawMultiChannelBuffer[i] = word;
+                            checkSum += word;
+//                            if (dotCounter % lines == 0 && i < 4) {
+//                                System.out.print("channel " + (word >> 12) + " value " + (word & 0xFFF) + " ");
+//                            }
                         }
 
                         // read check sum
@@ -184,14 +254,17 @@ public class SEMPort {
                         }
                         checkSumRead = buffer.getInt();
                         if (checkSum != checkSumRead) {
-                            System.out.println();
-                            System.out.print("Line: " + line + ", wrong check sum: reported: ");
-                            System.out.println(Integer.toHexString(checkSumRead) + ", actual: " + Integer.toHexString(checkSum));
+//                            System.out.println();
+//                            System.out.print("Line: " + line + ", wrong check sum: reported: ");
+//                            System.out.println(Integer.toHexString(checkSumRead) + ", actual: " + Integer.toHexString(checkSum));
+                            System.out.print("-");
                             channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
                             numErrors++;
                         } else {
+                            System.out.print(".");
                             channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                             numOKs++;
+                            si.parseRawLine(line, this.rawMultiChannelBuffer, bytes/2);
                         }
 
                         // read trailer
@@ -202,11 +275,13 @@ public class SEMPort {
                             //System.out.println("[read " + n + " bytes]");
                         }
 
-                        System.out.print(".");
                         dotCounter++;
-                        if (dotCounter % 100 == 0) {
-                            System.out.println();
+                        if (dotCounter % lines == 0) {
+                            //System.out.println();
                         }
+
+                        lastBytes = bytes + 26;
+
                         break;
 
                     case "EPS_SEM_EFRAME..":
@@ -221,16 +296,17 @@ public class SEMPort {
                         }
                         System.out.print(Short.toUnsignedInt(buffer.getShort()) + "ms, OKs: ");
                         System.out.println(numOKs + ", errors: " + numErrors);
+                        
                         result = "Finished";
                         break;
 
                     default:
-                        System.out.println();
-                        System.out.print("Other: ");
-                        for (int i = 0; i < 16; i++) {
-                            System.out.print(Integer.toHexString(Byte.toUnsignedInt(ab[i])) + " ");
-                        }
-                        System.out.println();
+//                        System.out.println();
+//                        System.out.print("Other: ");
+//                        for (int i = 0; i < 16; i++) {
+//                            System.out.print(Integer.toHexString(Byte.toUnsignedInt(ab[i])) + " ");
+//                        }
+//                        System.out.println();
                         channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
                         numErrors++;
 
@@ -259,7 +335,7 @@ public class SEMPort {
         byte[] ab = new byte[16];
         int skipped = 16;
 
-        System.out.print("Attempting recovery ...");
+        //System.out.print("Attempting recovery ...");
         try {
             do {
                 buffer.position(0);
@@ -278,7 +354,7 @@ public class SEMPort {
                             }
                         }
                         if (i == 0 && j == 16) {
-                            System.out.println("... found sentinel. Lost bytes*: " + skipped);
+                            //System.out.println("... found sentinel. Lost bytes*: " + skipped);
                             return (true);
                         }
 
@@ -297,7 +373,7 @@ public class SEMPort {
                                     }
                                 }
                                 if (k == 16 - j) {
-                                    System.out.println(" found sentinel. Lost bytes: " + (skipped + i));
+                                    //System.out.println(" found sentinel. Lost bytes: " + (skipped + i));
                                     return true;
                                 }
 
@@ -311,11 +387,8 @@ public class SEMPort {
         }
         return false;
     }
-    
-    
-    
-    // sample code from author of JSerial
 
+    // sample code from author of JSerial
     void test() throws IOException {
 
         // Get a list of available ports names (COM2, COM4, ...)

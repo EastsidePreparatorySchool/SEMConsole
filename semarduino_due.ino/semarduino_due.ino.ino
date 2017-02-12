@@ -20,27 +20,48 @@ byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','F','R
 #define SENTINEL_BYTES 16
 byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
 
+
+
+//
+// ADC memory structures
+// we support only two modes of capture: SLOW1 and H6V7.
+// - For SLOW1, we take an HD picture across all 4 channels.
+// - FOR H6V7, we take a UHD-1 (4K) picture across 2 channels.
+// - this works out to the same buffer size for both cases
+//
+// TODO: Make the channels for H6V7 selectable by setting digital input pins to low or high
+//
+
+
 // SEI, BEI1, BEI2, AEI in regular HD 1080p - good enough for Slow 1:
-#define NUM_CHANNELS  4
-#define NUM_PIXELS    1920 
-#define NUM_LINES     1080
+#define SLOW1_NUM_CHANNELS  4
+#define SLOW1_NUM_PIXELS    1920 
+#define SLOW1_NUM_LINES     1080
+
 
 // For Photo H6V7, our highest resolution, we are using UHD-1 (4K). Pixel number is memory-bound, having trouble making the array bigger. 
 // H6V7 really has 2500 lines, can make bigger or crop vertically by starting scan late (throwing 170 lines away)
 // H6V7 takes 100s to scan, this scan transmits in about 20s, so we are fine.
-//#define NUM_PIXELS    3840
-//#define NUM_LINES     2160
+#define H6V7_NUM_CHANNELS  2
+#define H6V7_NUM_PIXELS    3840
+#define H6V7_NUM_LINES     2160
 
 
-#define NUM_BUFFERS   2
-#define BUFFER_LENGTH (NUM_PIXELS * NUM_CHANNELS)
+//
+// Buffers are really independent of the resolution we are tracking
+//
+
+#define NUM_BUFFERS   2 // fill one with DMA while main program reads and copies the other
+#define BUFFER_LENGTH (SLOW1_NUM_PIXELS * SLOW1_NUM_CHANNELS)
 #define BUFFER_BYTES  (BUFFER_LENGTH * sizeof(uint16_t))
-#define NEXT_BUFFER(n)((n+1)%NUM_BUFFERS)
+#define NEXT_BUFFER(n)((n+1)%NUM_BUFFERS) // little macro to aid switch to next buffer
 
 volatile int currentBuffer; 
 volatile int nextBuffer;
-uint16_t adcBuffer[NUM_BUFFERS][BUFFER_LENGTH];
+uint16_t adcBuffer[NUM_BUFFERS][BUFFER_LENGTH];   
 uint16_t writeBuffer[BUFFER_LENGTH];
+volatile unsigned long timeLineStart;
+volatile unsigned long timeLine;
 
 const int buttonPin = 26;     // the number of the pushbutton pin
 const int builtInLEDPin = 13; // how to blink the built-in LED
@@ -48,9 +69,17 @@ const int customLEDPin = 22;  // the number of the custom LED pin
 int buttonState = 0;
 
 
+int channelSelection1 = 0; // TODO: Make this programmanble with digital inputs
+int channelSelection2 = 1; // TODO: For now, make sure that SEI is on A0 and AEI on A1
 
+
+//
 // set up analog-to-digital conversions
-void initializeADC() {
+// argument: fSlow = true if SLOW1 scan (2 channels)
+//          
+//
+
+void initializeADC(boolean fSLOW1, int channel1, int channel2) {
   pmc_enable_periph_clk(ID_ADC);
   analogReadResolution(12);
 
@@ -64,9 +93,17 @@ void initializeADC() {
   ADC->ADC_MR |=0x800000F0;     // set the prescale to 0x00, and a0-a3 free running, high bit indicates to use sequence numbers
   ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
-  ADC->ADC_CHER = 0xF0;         // ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
-  ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
 
+  if (fSLOW1) {
+    // set 4 channels for SLOW1. TODO: Which channels in case we have more than 4 connected
+    ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
+    ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
+  } else {
+    // set 2 channels for H6V7. 
+    ADC->ADC_CHER = 0x30;         // enable ch 7, 6 -> pins a0, a1
+    ADC->ADC_SEQR1 = ((7-channel1) << 32) + ((7-channel2)<<36); // produce these channel readings for every completion
+    //ADC->ADC_SEQR1 = 0x00670000;  // old code for channels A0 and A1
+  }
 
   NVIC_EnableIRQ(ADC_IRQn);
 
@@ -82,6 +119,7 @@ void initializeADC() {
 
   ADC->ADC_PTCR = 1;
   ADC->ADC_CR = 2;
+  timeLineStart = micros();
 }
 
 
@@ -92,6 +130,8 @@ void ADC_Handler() {
 
   int flags = ADC->ADC_ISR;                           // read interrupt register
   if (flags & (1 << 27)) {                            // if this was a completed DMA
+    timeLine = micros() - timeLineStart;              // record microseconds
+    timeLineStart = micros();                         // reset timer
     nextBuffer = NEXT_BUFFER(nextBuffer);             // get the next buffer (and let the main program know)
     ADC->ADC_RNPR = (uint32_t)adcBuffer[nextBuffer];  // put it in place
     ADC->ADC_RNCR = BUFFER_LENGTH;
@@ -130,7 +170,7 @@ void setup() {
   blinkBuiltInLED(1);
   
   // setup ADC and buffers
-  initializeADC();
+  initializeADC(true, channelSelection1, channelSelection2); // start with mode SLOW1, channels A0 and A1
 }
 
 
@@ -138,7 +178,7 @@ void setup() {
 void loop() {
   int n;
   byte buffer[16];
-
+  static boolean fSLOW1 = false;
   // wait for USB connect command from host
   do {
     do {
@@ -177,14 +217,35 @@ void loop() {
   // transmit NUM_LINES ADC runs (lines)
   //
 
-  SerialUSB.write(headerFrame, 16);                                     // send FRAME header
+  int numLines = fSLOW1? SLOW1_NUM_LINES:H6V7_NUM_LINES;
+
+  SerialUSB.write(headerFrame, 16);                                         // send FRAME header
   //SerialUSB.flush();
+  SerialUSB_write_uint16_t(fSLOW1 ? SLOW1_NUM_CHANNELS:H6V7_NUM_CHANNELS);  // number of channels                       
+  SerialUSB_write_uint16_t(fSLOW1 ? SLOW1_NUM_PIXELS:H6V7_NUM_PIXELS);      // width in pixels
+  SerialUSB_write_uint16_t(numLines);                                       // height in lines
+  if (fSLOW1) {
+    // list all the channels we are capturing in SLOW1 (0-3)
+    SerialUSB_write_uint16_t(0);
+    SerialUSB_write_uint16_t(1);
+    SerialUSB_write_uint16_t(2);
+    SerialUSB_write_uint16_t(3);
+  } else {
+    // list just the specific 2 channels we are capturing in H6V7
+    SerialUSB_write_uint16_t(channelSelection1);
+    SerialUSB_write_uint16_t(channelSelection2);
+    SerialUSB_write_uint16_t(255);
+    SerialUSB_write_uint16_t(255);
+
+  }
+  
+
   
   int t = millis();
   int line = 0;
   char o,k;
   
-  for (long i = 0; i < NUM_LINES; i++) {
+  for (long i = 0; i < numLines; i++) {
     while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
       delayMicroseconds(50);                                            // wait for buffer to be full
     }
@@ -203,7 +264,8 @@ void loop() {
     do {
       SerialUSB.write(headerBytes, 16);                                   // send BYTES header, line number, and length info
       SerialUSB_write_uint16_t(line);                         
-      SerialUSB_write_uint16_t(BUFFER_BYTES);                         
+      SerialUSB_write_uint16_t(BUFFER_BYTES); 
+      SerialUSB_write_uint16_t((uint16_t)(timeLine/10));                        
       
       SerialUSB.write((uint8_t *)writeBuffer, BUFFER_BYTES);              // send data, length in bytes
   
@@ -229,6 +291,10 @@ void loop() {
   //SerialUSB.flush();
   
   // continue loop function by waiting for new connection
+
+  // test: reinit ADC to other setting
+  fSLOW1 = !fSLOW1;
+  initializeADC(fSLOW1, 0, 1);  // for SLOW1 mode, channels A0 and A1
 }
 
 

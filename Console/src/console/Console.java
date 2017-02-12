@@ -5,11 +5,12 @@
  */
 package console;
 
-import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+
+import javafx.application.Application;
+import javafx.scene.layout.VBox;
 
 /**
  *
@@ -17,46 +18,42 @@ import javafx.stage.Stage;
  */
 public class Console extends Application {
 
-    SEMPort semport = new SEMPort();
+    private static SEMThread semThread;
 
     @Override
     public void start(Stage primaryStage) {
+
+        primaryStage.setTitle("SEM Console");
+        //defining the axes
         Button btn = new Button();
+
         btn.setText("Connect to SEM");
         btn.setOnAction((event) -> {
-            try {
-                semport.initialize();
-                //semport.test();
-                System.out.println("SEM Port Initialized");
-                for (int i = 0; i < 10000; i++) {
-                    String s = semport.peekMessage();
-                    if (s != null) {
-                        if (s.equals("Finished")) {
-                            break;
-                        }
-                    }
-                }
-                semport.shutdown();
-            } catch (Exception e) {
-                System.out.println(e.toString());
-            }
-        });
+            (semThread = new SEMThread()).start();
+        }
+        );
 
-        StackPane root = new StackPane();
-        root.getChildren().add(btn);
+        VBox root = new VBox();
+        root.getChildren().addAll(btn);
 
-        Scene scene = new Scene(root, 300, 250);
+        Scene scene = new Scene(root, 800, 600);
 
-        primaryStage.setTitle("Hello World!");
+        primaryStage.setTitle("Connect");
         primaryStage.setScene(scene);
+
         primaryStage.show();
     }
 
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) {
+    public static void main(String[] args)  {
         launch(args);
+        semThread.interrupt();
+        try {
+            semThread.join();
+        } catch (InterruptedException ie) {
+        }
     }
 
 }
