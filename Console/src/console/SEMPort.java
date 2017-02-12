@@ -26,7 +26,7 @@ public class SEMPort {
     int numErrors = 0;
     int numOKs = 0;
     int lastBytes = 0;
-    
+
     int[] rawMultiChannelBuffer;
     SEMImage si;
 
@@ -112,7 +112,7 @@ public class SEMPort {
         }
     }
 
-    String peekMessage(LinkedTransferQueue<SEMImage> ltq, Runnable r) {
+    String peekMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda) {
         String result = null;
         int checkSum = 0;
         int checkSumRead = 0;
@@ -242,9 +242,9 @@ public class SEMPort {
                             word = Short.toUnsignedInt(buffer.getShort());
                             rawMultiChannelBuffer[i] = word;
                             checkSum += word;
-//                            if (dotCounter % lines == 0 && i < 4) {
-//                                System.out.print("channel " + (word >> 12) + " value " + (word & 0xFFF) + " ");
-//                            }
+                            if (dotCounter % lines == 0 && i < 4) {
+                                System.out.print("channel " + (word >> 12) + " value " + (word & 0xFFF) + " ");
+                            }
                         }
 
                         // read check sum
@@ -267,7 +267,7 @@ public class SEMPort {
                             System.out.print(".");
                             channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                             numOKs++;
-                            this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes/2);
+                            this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
                         }
 
                         // read trailer
@@ -301,8 +301,8 @@ public class SEMPort {
                         System.out.println(numOKs + ", errors: " + numErrors);
                         ltq.add(this.si);
                         this.si = null;
-                        Platform.runLater(r);
-                        
+                        Platform.runLater(updateDisplayLambda);
+
                         result = "Finished";
                         break;
 
@@ -440,5 +440,6 @@ public class SEMPort {
         port.close();
 
     }
+
 
 }

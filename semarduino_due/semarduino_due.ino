@@ -176,7 +176,7 @@ void setup() {
   blinkBuiltInLED(1);
   
   // setup ADC and buffers
-  initializeADC(true, channelSelection1, channelSelection2); // start with mode SLOW1, channels A0 and A1
+  initializeADC(true, channelSelection1, channelSelection2); // start with mode SLOW1 (channels are ignored, all 4 are sent)
 }
 
 
@@ -184,7 +184,7 @@ void setup() {
 void loop() {
   int n;
   byte buffer[16];
-  static boolean fSLOW1 = false;
+  static boolean fSLOW1 = true;
   // wait for USB connect command from host
   do {
     do {
@@ -299,8 +299,8 @@ void loop() {
   // continue loop function by waiting for new connection
 
   // test: reinit ADC to other setting
-  fSLOW1 = !fSLOW1;
-  initializeADC(fSLOW1, 0, 1);  // for SLOW1 mode, channels A0 and A1
+  //fSLOW1 = !fSLOW1;
+  initializeADC(fSLOW1, channelSelection1, channelSelection2);  // for H6V7 mode, channels A0 and A1
 }
 
 

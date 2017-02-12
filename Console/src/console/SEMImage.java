@@ -6,6 +6,7 @@
 package console;
 
 import java.nio.IntBuffer;
+import java.util.Random;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
@@ -28,7 +29,9 @@ public class SEMImage {
 
     private final boolean firstLine;
     private final int[] rawBuffer;
+
     private static final int floorValue = 200; // TODO: ADC has to be properly calibrated
+    static Random r = new Random();
 
     SEMImage(int channels, int[] capturedChannels, int width, int height) {
         this.format = WritablePixelFormat.getIntArgbInstance();
@@ -44,7 +47,7 @@ public class SEMImage {
             images[i] = new WritableImage(width, height);
             writers[i] = images[i].getPixelWriter();
         }
-        
+
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
         firstLine = true;
@@ -65,8 +68,12 @@ public class SEMImage {
             capturedChannel = translateChannel(data[channel]);
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
+                // TODO: remove this stand-in grid
+                if (line%10 == 0 || (i-channel)%10 == 0) {
+                    intensity = 255;
+                }
                 // make a gray-scale, full alpha pixel
-                rawBuffer[pixel++] = intensity = 0xFF000000 + (intensity<<16) + (intensity << 8) + intensity;
+                rawBuffer[pixel++] = grayScale(capturedChannel, intensity);
             }
 
             // find the right image to write into
@@ -94,8 +101,16 @@ public class SEMImage {
         if (word > 255) {
             word = 255;
         }
-        
+
         return word;
+    }
+
+    static int grayScale(int realChannel, int intensity) {
+        return 0xFF000000
+                + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 2)) << 16) // red
+                + ((realChannel == 0 || realChannel == 1 ? intensity : (intensity / 2)) << 8)  // green
+                + ((realChannel == 0 || realChannel == 3 ? intensity : (intensity / 2)));      // blue
+
     }
 
     // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
@@ -103,4 +118,3 @@ public class SEMImage {
         return 7 - getEncodedChannel(word);
     }
 }
-
