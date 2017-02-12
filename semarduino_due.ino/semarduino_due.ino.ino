@@ -90,7 +90,7 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
   // prescale : 0x00 -> 40 Mhz
 
   ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out. 
-  ADC->ADC_MR |=0x800000F0;     // set the prescale to 0x00, and a0-a3 free running, high bit indicates to use sequence numbers
+  ADC->ADC_MR |=0x80000000;     // set the prescale to 0x00, high bit indicates to use sequence numbers
   ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
@@ -101,7 +101,7 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
   } else {
     // set 2 channels for H6V7. 
     ADC->ADC_CHER = 0x30;         // enable ch 7, 6 -> pins a0, a1
-    ADC->ADC_SEQR1 = ((7-channel1) << 32) + ((7-channel2)<<36); // produce these channel readings for every completion
+    ADC->ADC_SEQR1 = ((7-channel1) << 16) + ((7-channel2)<<20); // produce these channel readings for every completion
     //ADC->ADC_SEQR1 = 0x00670000;  // old code for channels A0 and A1
   }
 
@@ -119,6 +119,8 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
 
   ADC->ADC_PTCR = 1;
   ADC->ADC_CR = 2;
+  ADC->ADC_MR |=0x000000F0;     // a0-a3 free running
+
   timeLineStart = micros();
 }
 
@@ -130,11 +132,15 @@ void ADC_Handler() {
 
   int flags = ADC->ADC_ISR;                           // read interrupt register
   if (flags & (1 << 27)) {                            // if this was a completed DMA
+    ADC->ADC_MR &=0xFFFFFF00;                         // disable free run mode
+
     timeLine = micros() - timeLineStart;              // record microseconds
     timeLineStart = micros();                         // reset timer
     nextBuffer = NEXT_BUFFER(nextBuffer);             // get the next buffer (and let the main program know)
     ADC->ADC_RNPR = (uint32_t)adcBuffer[nextBuffer];  // put it in place
     ADC->ADC_RNCR = BUFFER_LENGTH;
+    ADC->ADC_MR |=0x000000F0;     // a0-a3 free running
+
   }
 }
 
