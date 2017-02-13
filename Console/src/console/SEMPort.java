@@ -225,6 +225,8 @@ public class SEMPort {
                             System.out.print("time: ");
                             System.out.println(((long) time) * 100);
                         }
+                        
+                        // todo: add checksum for this header
 
                         // read line bytes
                         checkSum = 0;
@@ -243,7 +245,7 @@ public class SEMPort {
                             rawMultiChannelBuffer[i] = word;
                             checkSum += word;
                             if (dotCounter % lines == 0 && i < 4) {
-                                System.out.print("channel " + (word >> 12) + " value " + (word & 0xFFF) + " ");
+                                System.out.print("A" + (7-(word >> 12)) + ":" + (word & 0xFFF) + " ");
                             }
                         }
 

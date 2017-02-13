@@ -30,7 +30,7 @@ public class SEMImage {
     private final boolean firstLine;
     private final int[] rawBuffer;
 
-    private static final int floorValue = 200; // TODO: ADC has to be properly calibrated
+    private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
     static Random r = new Random();
 
     SEMImage(int channels, int[] capturedChannels, int width, int height) {
@@ -69,7 +69,7 @@ public class SEMImage {
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
                 // TODO: remove this stand-in grid
-                if (line%10 == 0 || (i-channel)%10 == 0) {
+                if (line % 100 < 2 || ((i - channel)/ this.channels)% 100 < 2) {
                     intensity = 255;
                 }
                 // make a gray-scale, full alpha pixel
@@ -97,19 +97,22 @@ public class SEMImage {
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
     static int getValue(int word) {
-        word = (word & 0xFFF) - SEMImage.floorValue; //TODO: better cqlibration and adjustment
+        word = (word & 0xFFF) - SEMImage.floorValue; //TODO: better calibration and adjustment
         if (word > 255) {
             word = 255;
         }
-
+        if (word < 0) {
+            word = 0;
+        }
+        //word = r.nextInt(256);
         return word;
     }
 
     static int grayScale(int realChannel, int intensity) {
         return 0xFF000000
-                + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 2)) << 16) // red
-                + ((realChannel == 0 || realChannel == 1 ? intensity : (intensity / 2)) << 8)  // green
-                + ((realChannel == 0 || realChannel == 3 ? intensity : (intensity / 2)));      // blue
+                + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 4)) << 16) // red
+                + ((realChannel == 0 || realChannel == 1 ? intensity : (intensity / 4)) << 8) // green
+                + ((realChannel == 0 || realChannel == 3 ? intensity : (intensity / 4)));      // blue
 
     }
 

@@ -80,6 +80,8 @@ int channelSelection2 = 1; // TODO: For now, make sure that SEI is on A0 and AEI
 //
 
 void initializeADC(boolean fSLOW1, int channel1, int channel2) {
+  adcConfigureGain();
+  
   pmc_enable_periph_clk(ID_ADC);
   analogReadResolution(12);
 
@@ -316,6 +318,36 @@ void SerialUSB_write_uint32_t(uint32_t word) {
     SerialUSB.write((byte)((word >> 16) & 255));
     SerialUSB.write((byte)(word >> 24));
 }
+
+
+void adcConfigureGain() {
+  adc_enable_anch(ADC); 
+  
+  adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[0].ulADCChannelNumber), ADC_GAINVALUE_0);
+  adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[1].ulADCChannelNumber), ADC_GAINVALUE_0);
+  adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[2].ulADCChannelNumber), ADC_GAINVALUE_0);
+  adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[3].ulADCChannelNumber), ADC_GAINVALUE_0);
+  
+  adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[0].ulADCChannelNumber));
+  adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[1].ulADCChannelNumber));
+  adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[2].ulADCChannelNumber));
+  adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[3].ulADCChannelNumber));
+}
+
+/* web code for gain and input
+ *  
+adc_disable_anch(ADC); 
+adc_enable_anch(ADC);
+adc_set_channel_input_gain(ADC, ADC_CHANNEL_CAM1, ADC_GAINVALUE_2);
+adc_set_channel_input_gain(ADC, ADC_CHANNEL_CAM1, ADC_GAINVALUE_0);
+
+adc_enable_anch(ADC);
+adc_enable_channel_input_offset(ADC, ADC_CHANNEL_CAM1);
+adc_disable_channel_input_offset(ADC, ADC_CHANNEL_CAM1);
+
+
+
+ */
 
 
 
