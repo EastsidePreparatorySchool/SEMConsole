@@ -22,8 +22,9 @@ public class SEMImage {
     public int width;
     public int height;
     public WritableImage[] images;
+    public final int[] capturedChannels;
+
     private final PixelWriter[] writers;
-    private final int[] capturedChannels;
     private PixelFormat pf;
     private final WritablePixelFormat<IntBuffer> format;
 
@@ -63,9 +64,9 @@ public class SEMImage {
         int intensity;
 
         for (int channel = 0; channel < this.channels; channel++) {
-            // copy one line of pixel for a specific channel out of data into rawBuffer
+            // copy one line of pixels for a specific channel out of data into rawBuffer
             pixel = 0;
-            capturedChannel = translateChannel(data[channel]);
+            capturedChannel = translateChannel(getEncodedChannel(data[channel]));
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
                 // TODO: remove this stand-in grid
@@ -118,6 +119,6 @@ public class SEMImage {
 
     // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
     int translateChannel(int word) {
-        return 7 - getEncodedChannel(word);
+        return 7 - word;
     }
 }

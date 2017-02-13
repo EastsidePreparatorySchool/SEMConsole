@@ -132,8 +132,9 @@ public class Console extends Application {
         int height = (int) img.getHeight();
 
         this.view = new ImageView(img);
-        this.view.setFitWidth(960);
         this.view.setPreserveRatio(true);
+        this.view.setFitWidth(960);
+        this.view.setFitHeight(540);
         this.view.setSmooth(true);
         this.view.setCache(true);
         this.view.setOnMouseClicked((e) -> {
@@ -172,7 +173,7 @@ public class Console extends Application {
         displayImage(this.currentImages.get(this.currentImage).images[this.currentChannel]);
         txt.setText(channelText(this.currentImages.get(this.currentImage).width,
                 this.currentImages.get(this.currentImage).height,
-                this.currentChannel));
+                this.currentImages.get(this.currentImage).capturedChannels[currentChannel]));
         this.currentChannel++;
     }
 

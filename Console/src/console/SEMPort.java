@@ -249,6 +249,7 @@ public class SEMPort {
                             buffer.position(0);
                         }
                         int word;
+                        System.out.println ("Bytes: " + bytes);
                         for (int i = 0; i < bytes / 2; i++) {
                             word = Short.toUnsignedInt(buffer.getShort());
                             rawMultiChannelBuffer[i] = word;

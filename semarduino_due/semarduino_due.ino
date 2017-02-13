@@ -65,7 +65,8 @@ int g_numChannels[3] = {SLOW1_NUM_CHANNELS, H6V7_NUM_CHANNELS, FAST_NUM_CHANNELS
 int g_numPixels[3] = {SLOW1_NUM_PIXELS, H6V7_NUM_PIXELS, FAST_NUM_PIXELS};
 int g_numLines[3] = {SLOW1_NUM_LINES, H6V7_NUM_LINES, FAST_NUM_LINES};
 
-int g_channelSelection1 = 0; // TODO: Make this programmanble with digital inputs
+
+int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
 int g_channelSelection2 = 2; // TODO: For now, make sure that SEI is on A0 and AEI on A1
 int g_mode = MODE_FAST;
 
@@ -195,7 +196,7 @@ void loop() {
   
   for (long i = 0; i < numLines; i++) {
     // give us a test signal on pin 2
-    analogWrite(2, (i/10) % 256);
+    analogWrite(2, (i/2) % 256);
 
     startADC();
     while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
@@ -209,7 +210,7 @@ void loop() {
     // compute checkSum
     long checkSum = 0;
     uint16_t *pWord = writeBuffer;
-    int writeLength = (g_mode == MODE_FAST?(BUFFER_BYTES/16):BUFFER_BYTES);
+    int writeLength = (g_mode == MODE_FAST?(BUFFER_BYTES/8):BUFFER_BYTES);
     for (int i=0; i<writeLength/2; i++) {
       checkSum += *pWord++;
     }
@@ -295,27 +296,28 @@ void adcConfigureGain() {
 //
 
 void initializeADC() {
+  // convert from Ax input pin numbers to ADC channel numbers
+  int channel1 = 7-g_channelSelection1;
+  int channel2 = 7-g_channelSelection2;
+
   pmc_enable_periph_clk(ID_ADC);
+  adc_init(ADC, SystemCoreClock, ADC_FREQ_MAX, ADC_STARTUP_FAST);
   analogReadResolution(12);
   adcConfigureGain();
 
-  ADC->ADC_CR |=1; //reset the adc
-  ADC->ADC_MR= 0x9038ff00;      //this setting is used by arduino. 
+  //ADC->ADC_CR |=1; //reset the adc
+  //ADC->ADC_MR= 0x9038ff00;      //this setting is used by arduino. 
 
   // prescale :  ADC clock is mck/((prescale+1)*2).  mck is 84MHZ. 
   // prescale : 0x00 -> 40 Mhz
 
   ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out. 
   if (g_mode != MODE_FAST) {
-    ADC->ADC_MR |=0x80000000;     // set the prescale to 0x00, high bit indicates to use sequence numbers
+    ADC->ADC_MR |=0x80000000;   // high bit indicates to use sequence numbers
+    ADC->ADC_EMR |= (1<<24);    // turn on channel numbers
   }
-  ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
-  // convert from Ax input pin numbers to ADC channel numbers
-  int channel1 = 7-g_channelSelection1;
-  int channel2 = 7-g_channelSelection2;
-  
   if (g_mode == MODE_SLOW1) {
     // set 4 channels for SLOW1. TODO: Which channels in case we have more than 4 connected
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
@@ -326,7 +328,7 @@ void initializeADC() {
     ADC->ADC_SEQR1 = (channel1 << (channel1 *4)) | (channel2 << (channel2*4));
   } else {
     ADC->ADC_CHER = (1 << channel1);
-    // TODO: set adc for one channel, fast
+    // TODO: this works only for A0 right now
   }
 
   NVIC_EnableIRQ(ADC_IRQn);
@@ -346,19 +348,12 @@ void initializeADC() {
 
 }
 
-
-
-
 void ADC_Handler() {
   // move DMA pointers to next buffer
 
   int flags = ADC->ADC_ISR;                           // read interrupt register
   if (flags & (1 << 27)) {                            // if this was a completed DMA
-    
     stopADC();
-    
-    timeLine = micros() - timeLineStart;              // record microseconds
-    
     nextBuffer = NEXT_BUFFER(nextBuffer);             // get the next buffer (and let the main program know)
     ADC->ADC_RNPR = (uint32_t)adcBuffer[nextBuffer];  // put it in place
     ADC->ADC_RNCR = BUFFER_LENGTH;
@@ -366,7 +361,8 @@ void ADC_Handler() {
 }
 
 void stopADC() {
-     ADC->ADC_MR &=0xFFFFFF00;                         // disable free run mode
+    ADC->ADC_MR &=0xFFFFFF00;                         // disable free run mode
+    timeLine = micros() - timeLineStart;              // record microseconds
 }
 
 void startADC() {
