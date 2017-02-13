@@ -42,21 +42,21 @@ public class SEMPort {
             // copy this so it does not change underneath us while iterating
             portNames = new ArrayList<>(SerialPort.getAvailablePortsNames());
         } catch (Exception e) {
-            System.err.println("SEMPort: No ports on this system");
+            Console.println("SEMPort: No ports on this system");
             throw e;
         }
-        System.out.println("Ports: " + portNames.toString());
+        Console.println("Ports: " + portNames.toString());
 
         for (String name : portNames) {
             // Get a new instance of SerialPort by opening a port.
             try {
-                System.out.println("Opening port: " + name);
+                Console.println("Opening port: " + name);
                 this.port = SerialPort.open(name);
             } catch (IOException e) {
-                System.out.println(e.toString());
+                Console.println(e.toString());
                 continue;
             } catch (NullPointerException n) {
-                System.out.println(n.toString());
+                Console.println(n.toString());
                 continue;
             }
             try {
@@ -90,15 +90,15 @@ public class SEMPort {
                 }
 
             } catch (Exception e) {
-                System.out.println(e.toString());
+                Console.println(e.toString());
 
             }
             if (port != null) {
                 port.close();
             }
-            System.out.println("Next port");
+            Console.println("Next port");
         }
-        System.out.println("SEMPort: SEM port not found or no answer.");
+        Console.println("SEMPort: SEM port not found or no answer.");
         throw new Exception("SEMPort: SEM port not found or no answer.");
     }
 
@@ -133,7 +133,7 @@ public class SEMPort {
 
                 switch (result) {
                     case "EPS_SEM_FRAME...":
-                        System.out.print("\nStart of frame: ");
+                        Console.print("\nStart of frame: ");
                         dotCounter = 0;
                         numErrors = 0;
                         numOKs = 0;
@@ -153,16 +153,16 @@ public class SEMPort {
                         int channelCount = Short.toUnsignedInt(buffer.getShort());
                         int width = Short.toUnsignedInt(buffer.getShort());
                         int height = Short.toUnsignedInt(buffer.getShort());
-                        System.out.println("channels: " + channelCount + ", width: " + width + ", height: " + height);
-                        System.out.print("Captured channels: ");
+                        Console.println("channels: " + channelCount + ", width: " + width + ", height: " + height);
+                        Console.println("Captured channels: ");
                         int[] capturedChannels = new int[4];
                         for (int i = 0; i < 4; i++) {
                             capturedChannels[i] = Short.toUnsignedInt(buffer.getShort());
                             if (i < channelCount) {
-                                System.out.print(capturedChannels[i] + " ");
+                                Console.println(capturedChannels[i] + " ");
                             }
                         }
-                        System.out.println();
+                        Console.println();
                         rawMultiChannelBuffer = new int[channelCount * width];
                         this.si = new SEMImage(channelCount, capturedChannels, width, height);
                         break;
@@ -177,7 +177,7 @@ public class SEMPort {
                             if (n != lastBytes) {
                                 channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
                                 numErrors++;
-                                System.out.print("-");
+                                Console.print("-");
 
                                 return null;
                             }
@@ -194,8 +194,8 @@ public class SEMPort {
                         }
                         int line = Short.toUnsignedInt(buffer.getShort());
                         if (dotCounter % lines == 0) {
-                            System.out.print("Line: ");
-                            System.out.print(line + ", ");
+                            Console.print("Line: ");
+                            Console.print(line + ", ");
                         }
 
                         // read byte count (unsigned short)
@@ -208,8 +208,8 @@ public class SEMPort {
                         }
                         int bytes = Short.toUnsignedInt(buffer.getShort());
                         if (dotCounter % lines == 0) {
-                            System.out.print("bytes: ");
-                            System.out.print(bytes + ", ");
+                            Console.print("bytes: ");
+                            Console.print(bytes + ", ");
                         }
 
                         // read scan time (unsigned short)
@@ -222,8 +222,8 @@ public class SEMPort {
                         }
                         int time = Short.toUnsignedInt(buffer.getShort());
                         if ((dotCounter % lines) == 0) {
-                            System.out.print("time: ");
-                            System.out.println(((long) time) * 100);
+                            Console.print("time: ");
+                            Console.println(""+((long) time) * 100);
                         }
                         
                         // todo: add checksum for this header
@@ -245,7 +245,7 @@ public class SEMPort {
                             rawMultiChannelBuffer[i] = word;
                             checkSum += word;
                             if (dotCounter % lines == 0 && i < 4) {
-                                System.out.print("A" + (7-(word >> 12)) + ":" + (word & 0xFFF) + " ");
+                                Console.print("A" + (7-(word >> 12)) + ":" + (word & 0xFFF) + " ");
                             }
                         }
 
@@ -262,11 +262,11 @@ public class SEMPort {
 //                            System.out.println();
 //                            System.out.print("Line: " + line + ", wrong check sum: reported: ");
 //                            System.out.println(Integer.toHexString(checkSumRead) + ", actual: " + Integer.toHexString(checkSum));
-                            System.out.print("-");
+                            Console.print("-");
                             channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
                             numErrors++;
                         } else {
-                            System.out.print(".");
+                            Console.print(".");
                             channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                             numOKs++;
                             this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
@@ -290,8 +290,8 @@ public class SEMPort {
                         break;
 
                     case "EPS_SEM_ENDFRAME":
-                        System.out.println();
-                        System.out.print("End of frame. Send time: ");
+                        Console.println();
+                        Console.print("End of frame. Send time: ");
                         while (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
@@ -299,8 +299,8 @@ public class SEMPort {
                             buffer.position(0);
                             //System.out.print("[read " + n + "bytes]");
                         }
-                        System.out.print(Short.toUnsignedInt(buffer.getShort()) + "ms, OKs: ");
-                        System.out.println(numOKs + ", errors: " + numErrors);
+                        Console.print(Short.toUnsignedInt(buffer.getShort()) + "ms, OKs: ");
+                        Console.println(numOKs + ", errors: " + numErrors);
                         ltq.add(this.si);
                         this.si = null;
                         Platform.runLater(updateDisplayLambda);
@@ -322,16 +322,16 @@ public class SEMPort {
                             dotCounter = 0;
                             return null;
                         }
-                        System.out.println("Unable to recover.");
+                        Console.println("Unable to recover.");
                         return "Finished";
                 }
                 buffer.position(0);
 
             }
         } catch (Exception e) {
-            System.out.println(e.toString());
+            Console.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {
-                System.out.println(s.toString());
+                Console.println(s.toString());
             }
         }
 
@@ -395,53 +395,5 @@ public class SEMPort {
         }
         return false;
     }
-
-    // sample code from author of JSerial
-    void test() throws IOException {
-
-        // Get a list of available ports names (COM2, COM4, ...)
-        List<String> portsNames = SerialPort.getAvailablePortsNames();
-
-        System.out.println(portsNames.toString());
-
-        // Get a new instance of SerialPort by opening a port.
-        SerialPort port = SerialPort.open("COM13");
-
-        // Configure the connection
-        port.setTimeout(2000);
-
-        port.setConfig(BaudRate.B115200, Parity.NONE, StopBits.ONE, DataBits.D8);
-
-        // You have the choice, you can either use the Java NIO channels
-        // or classic Input/Ouput streams to read and write data.
-        SerialChannel channel = port.getChannel();
-
-        InputStream istream = port.getInputStream(); // Read some data using a stream
-
-        byte[] byteBuffer = new byte[4096];
-
-        // Will timeout after 100ms, returning 0 if no bytes were available.
-        int n = istream.read(byteBuffer);
-
-        // Read some data using a ByteBuffer.
-        ByteBuffer buffer = ByteBuffer.allocate(4 * 2048 * 2500);
-
-        int c = channel.read(buffer);
-
-        System.out.println("Bytes read: " + c);
-
-        /*for (int i = 0; i < c; i++) {
-
-            System.out.print(Integer.toHexString(buffer.get(i)) + " ");
-
-        }
-
-        System.out.println();
-
-        System.out.println(buffer.asCharBuffer());*/
-        port.close();
-
-    }
-
 
 }

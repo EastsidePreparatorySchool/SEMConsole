@@ -12,10 +12,12 @@ import javafx.scene.control.Button;
 import javafx.stage.Stage;
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.text.Text;
 
 /**
@@ -25,7 +27,7 @@ import javafx.scene.text.Text;
 public class Console extends Application {
 
     private static SEMThread semThread;
-    private VBox root;
+    private BorderPane root;
     private HBox top;
     private ImageView view;
     private LinkedTransferQueue<SEMImage> ltq;
@@ -34,19 +36,22 @@ public class Console extends Application {
     private int currentChannel = 0;
     private Button btn;
     private Text txt;
+    private Scene scene;
+    
+    static private ConsolePane cp;
 
     @Override
     public void start(Stage primaryStage) {
 
         // main transfer mechanism with other thread
-        this.ltq = new LinkedTransferQueue<SEMImage>();
+        this.ltq = new LinkedTransferQueue<>();
 
         primaryStage.setTitle("SEM Console");
-        this.root = new VBox();
-        this.root.setPrefSize(960, 540);
+        this.root = new BorderPane();
 
         // top line - controls
         top = new HBox();
+        top.setMinHeight(30);
 
         // button for connection
         this.btn = new Button();
@@ -60,32 +65,45 @@ public class Console extends Application {
 
         top.setPadding(new Insets(15, 12, 15, 12));
         top.getChildren().addAll(btn, h);
-        root.getChildren().addAll(top);
+        root.setTop(top);
+        cp = new ConsolePane();
+        cp.setPrefWidth(960);
+        BorderPane.setAlignment(cp, Pos.CENTER);
+        BorderPane.setMargin(cp, new Insets(10, 8, 10, 8));
+        root.setBottom(cp);
 
-        Scene scene = new Scene(root, 960 + 10, 540 + 80);
+        // placeholder for img
+        StackPane sp = new StackPane();
+        sp = new StackPane();
+        BorderPane.setAlignment(sp, Pos.CENTER);
+        BorderPane.setMargin(sp, new Insets(10, 8, 10, 8));
+        sp.setMinHeight(540);
+        sp.setPrefHeight(540);
+
+        root.setCenter(sp);
+
+        this.scene = new Scene(root, 960 + 16, 540 + 170);
         primaryStage.setScene(scene);
 
         primaryStage.show();
     }
 
     private void displayImage(WritableImage img) {
+        // if old view is here, remove from display
+        if (this.view != null) {
+            this.root.setCenter(null);
+            this.view = null;
+        }
+
+        // no imag? get out!
         if (img == null) {
-            if (this.view != null) {
-                this.root.getChildren().remove(this.view);
-            }
             return;
         }
 
         int width = (int) img.getWidth();
         int height = (int) img.getHeight();
 
-        // if old view is here, remove from display
-        if (this.view != null) {
-            this.root.getChildren().remove(this.view);
-        }
-
         this.view = new ImageView(img);
-        this.root.getChildren().add(this.view);
         this.view.setFitWidth(960);
         this.view.setPreserveRatio(true);
         this.view.setSmooth(true);
@@ -93,13 +111,14 @@ public class Console extends Application {
         this.view.setOnMouseClicked((e) -> {
             this.displayNextImage();
         });
+        this.root.setCenter(this.view);
 
     }
 
     private void displayNextImage() {
         // todo: this will crash if a channel is not occupied with an image
 
-        if (this.currentImages == null || this.currentImages.size() == 0) {
+        if (this.currentImages == null || this.currentImages.isEmpty()) {
             displayImage(null);
             return;
         }
@@ -129,7 +148,7 @@ public class Console extends Application {
         if (!this.ltq.isEmpty()) {
             this.currentImages = new ArrayList<>();
             ltq.drainTo(this.currentImages);
-            System.out.println("Console: Received " + this.currentImages.size() + " images.");
+            Console.println("Console: Received " + this.currentImages.size() + " images.");
             this.currentImage = 0;
             this.currentChannel = 0;
 
@@ -181,6 +200,20 @@ public class Console extends Application {
         }
         return result;
     }
+    
+    
+    public static void println(String s) {
+        cp.println(s);
+    }
+    
+    public static void print(String s) {
+        cp.print(s);
+    }
+    
+    public static void println() {
+        cp.println();
+    }
+    
 
     public static void main(String[] args) {
         try {

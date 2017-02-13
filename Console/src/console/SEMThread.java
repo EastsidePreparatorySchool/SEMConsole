@@ -28,7 +28,7 @@ public class SEMThread extends Thread {
             // TODO: clean this up, make it a proper message loop, keep it alive after frame complete
             semport.initialize();
             //semport.test();
-            System.out.println("SEM Port Initialized");
+            Console.println("SEM Port Initialized");
             while (true) {
                 String s = semport.peekMessage(this.ltq, this.update);
                 if (s != null) {
@@ -38,7 +38,7 @@ public class SEMThread extends Thread {
                 }
             }
         } catch (Exception e) {
-            System.out.println(e.toString());
+            Console.println(e.toString());
         } finally {
             if (semport != null) {
                 semport.shutdown();
