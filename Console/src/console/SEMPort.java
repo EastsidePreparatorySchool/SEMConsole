@@ -106,7 +106,9 @@ public class SEMPort {
         try {
             //ostream.close();
             //istream.close();
-            port.close();
+            if (this.port != null) {
+                port.close();
+            }
             name = "";
         } catch (Exception e) {
         }
@@ -154,12 +156,12 @@ public class SEMPort {
                         int width = Short.toUnsignedInt(buffer.getShort());
                         int height = Short.toUnsignedInt(buffer.getShort());
                         Console.println("channels: " + channelCount + ", width: " + width + ", height: " + height);
-                        Console.println("Captured channels: ");
+                        Console.print("Captured channels: ");
                         int[] capturedChannels = new int[4];
                         for (int i = 0; i < 4; i++) {
                             capturedChannels[i] = Short.toUnsignedInt(buffer.getShort());
                             if (i < channelCount) {
-                                Console.println(capturedChannels[i] + " ");
+                                Console.print(capturedChannels[i] + " ");
                             }
                         }
                         Console.println();
@@ -168,6 +170,7 @@ public class SEMPort {
                         break;
 
                     case "EPS_SEM_BYTES...":
+                        Console.printOff();
                         // read whole line if length known
                         if (lastBytes != 0) {
                             buffer.rewind();
@@ -223,11 +226,10 @@ public class SEMPort {
                         int time = Short.toUnsignedInt(buffer.getShort());
                         if ((dotCounter % lines) == 0) {
                             Console.print("time: ");
-                            Console.println(""+((long) time) * 100);
+                            Console.println("" + ((long) time) * 100);
                         }
-                        
-                        // todo: add checksum for this header
 
+                        // todo: add checksum for this header
                         // read line bytes
                         checkSum = 0;
                         //System.out.print("[buffer remaining " + buffer.remaining() + " bytes]");
@@ -245,7 +247,7 @@ public class SEMPort {
                             rawMultiChannelBuffer[i] = word;
                             checkSum += word;
                             if (dotCounter % lines == 0 && i < 4) {
-                                Console.print("A" + (7-(word >> 12)) + ":" + (word & 0xFFF) + " ");
+                                Console.print("A" + (7 - (word >> 12)) + ":" + (word & 0xFFF) + " ");
                             }
                         }
 
@@ -287,6 +289,7 @@ public class SEMPort {
 
                         lastBytes = bytes + 26;
 
+                        Console.printOn();
                         break;
 
                     case "EPS_SEM_ENDFRAME":

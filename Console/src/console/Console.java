@@ -37,8 +37,9 @@ public class Console extends Application {
     private Button btn;
     private Text txt;
     private Scene scene;
-    
+
     static private ConsolePane cp;
+    static private boolean printOff = false;
 
     @Override
     public void start(Stage primaryStage) {
@@ -76,13 +77,13 @@ public class Console extends Application {
         StackPane sp = new StackPane();
         sp = new StackPane();
         BorderPane.setAlignment(sp, Pos.CENTER);
-        BorderPane.setMargin(sp, new Insets(10, 8, 10, 8));
+        //BorderPane.setMargin(sp, new Insets(10, 8, 10, 8));
         sp.setMinHeight(540);
         sp.setPrefHeight(540);
 
         root.setCenter(sp);
 
-        this.scene = new Scene(root, 960 + 16, 540 + 170);
+        this.scene = new Scene(root/*, 960 + 16, 540 + 170*/);
         primaryStage.setScene(scene);
 
         primaryStage.show();
@@ -140,7 +141,9 @@ public class Console extends Application {
         }
 
         displayImage(this.currentImages.get(this.currentImage).images[this.currentChannel]);
-        txt.setText(channelText(this.currentChannel));
+        txt.setText(channelText(this.currentImages.get(this.currentImage).width,
+                this.currentImages.get(this.currentImage).height,
+                this.currentChannel));
         this.currentChannel++;
     }
 
@@ -148,7 +151,8 @@ public class Console extends Application {
         if (!this.ltq.isEmpty()) {
             this.currentImages = new ArrayList<>();
             ltq.drainTo(this.currentImages);
-            Console.println("Console: Received " + this.currentImages.size() + " images.");
+            Console.println("Console: Received " + this.currentImages.size() + " image" 
+            +(this.currentImages.size() == 1 ? "":"s"));
             this.currentImage = 0;
             this.currentChannel = 0;
 
@@ -182,38 +186,51 @@ public class Console extends Application {
 
     }
 
-    String channelText(int channel) {
-        String result = "";
+    String channelText(int width, int height, int channel) {
+        String result = "" + width + "x" + height + " channel: ";
         switch (channel) {
             case 0:
-                result = "A0 (secondary electron image)";
+                result += "A0 (secondary electron image)";
                 break;
             case 1:
-                result = "A1 (absorbed current image)";
+                result += "A1 (absorbed current image)";
                 break;
             case 2:
-                result = "A2 (backscatter image 1)";
+                result += "A2 (backscatter image 1)";
                 break;
             case 3:
-                result = "A3 (backscatter image 2)";
+                result += "A3 (backscatter image 2)";
                 break;
         }
+
         return result;
     }
-    
-    
+
     public static void println(String s) {
-        cp.println(s);
+        if (!printOff) {
+            cp.println(s);
+        }
     }
-    
+
     public static void print(String s) {
-        cp.print(s);
+        if (!printOff) {
+            cp.print(s);
+        }
     }
-    
+
     public static void println() {
-        cp.println();
+        if (!printOff) {
+            cp.println();
+        }
     }
-    
+
+    public static void printOff() {
+        printOff = true;
+    }
+
+    public static void printOn() {
+        printOff = false;
+    }
 
     public static void main(String[] args) {
         try {

@@ -8,6 +8,11 @@
 #undef HID_ENABLED
 
 
+// test mode
+
+  static boolean fSLOW1 = false;
+
+
 // USB communication headers
 
 #define COMMAND_BYTES 16
@@ -101,7 +106,7 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
     ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
   } else {
-    // set 2 channels for H6V7. 
+    // set 2 channels for H6V7. TODO: THIS DOES NOT SCAN A1 correctly (SLOW1 does). READ ARTICLE ABOUT SEQ and TAGGING AGAIN
     ADC->ADC_CHER = 0x30;         // enable ch 7, 6 -> pins a0, a1
     ADC->ADC_SEQR1 = ((7-channel1) << 16) + ((7-channel2)<<20); // produce these channel readings for every completion
     //ADC->ADC_SEQR1 = 0x00670000;  // old code for channels A0 and A1
@@ -173,12 +178,15 @@ void setup() {
   pinMode (builtInLEDPin, OUTPUT);
   pinMode(customLEDPin, OUTPUT);
   pinMode(buttonPin, INPUT);
+  pinMode(2,OUTPUT);
+
+  analogWrite(2,0);
 
   // visual signal that we are alive
   blinkBuiltInLED(1);
   
   // setup ADC and buffers
-  initializeADC(true, channelSelection1, channelSelection2); // start with mode SLOW1 (channels are ignored, all 4 are sent)
+  initializeADC(fSLOW1, channelSelection1, channelSelection2); // start with mode SLOW1 (channels are ignored, all 4 are sent)
 }
 
 
@@ -186,7 +194,6 @@ void setup() {
 void loop() {
   int n;
   byte buffer[16];
-  static boolean fSLOW1 = true;
   // wait for USB connect command from host
   do {
     do {
@@ -254,12 +261,17 @@ void loop() {
   char o,k;
   
   for (long i = 0; i < numLines; i++) {
+    // give us a test signal on pin 2
+    analogWrite(2, i % 256);
+
+    
     while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
       delayMicroseconds(50);                                            // wait for buffer to be full
     }
 
     // put the line somewhere safe from adc
     memcpy(writeBuffer, adcBuffer[currentBuffer], BUFFER_BYTES);
+
 
     // compute checkSum
     long checkSum = 0;
@@ -301,7 +313,7 @@ void loop() {
   // continue loop function by waiting for new connection
 
   // test: reinit ADC to other setting
-  //fSLOW1 = !fSLOW1;
+  fSLOW1 = !fSLOW1;
   initializeADC(fSLOW1, channelSelection1, channelSelection2);  // for H6V7 mode, channels A0 and A1
 }
 
