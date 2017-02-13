@@ -197,6 +197,10 @@ public class SEMPort {
                         }
                         int line = Short.toUnsignedInt(buffer.getShort());
                         if (dotCounter % lines == 0) {
+                            Console.printOn();
+                            Console.print(".");
+                            Console.printOff();
+
                             Console.print("Line: ");
                             Console.print(line + ", ");
                         }

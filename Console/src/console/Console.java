@@ -15,6 +15,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -37,6 +38,7 @@ public class Console extends Application {
     private Button btn;
     private Text txt;
     private Scene scene;
+    private Stage stage;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -46,46 +48,72 @@ public class Console extends Application {
 
         // main transfer mechanism with other thread
         this.ltq = new LinkedTransferQueue<>();
+        this.stage = primaryStage;
 
         primaryStage.setTitle("SEM Console");
         this.root = new BorderPane();
 
         // top line - controls
         top = new HBox();
-        top.setMinHeight(30);
+        //top.setMinHeight(30);
 
         // button for connection
-        this.btn = new Button();
-        btn.setText("Connect and scan");
+        this.btn = new Button("Connect and scan");
         btn.setOnAction((event) -> startSEMThread());
+
+        Button btn2 = new Button("Full screen");
+        btn2.setOnAction((event) -> {
+            if (stage.isFullScreen()) {
+                btn2.setText("Full screen");
+                primaryStage.setFullScreen(false);
+            } else {
+                btn2.setText("Exit full screen");
+                primaryStage.setFullScreenExitHint("Press any key to exit full screen mode");
+                primaryStage.setFullScreenExitKeyCombination(null);
+                primaryStage.setFullScreen(true);
+            }
+        }
+        );
+        
+        top.setOnMouseMoved((e) -> {top.setOpacity(1.0);});
 
         txt = new Text("Not connected");
         HBox h = new HBox();
-        h.getChildren().add(txt);
-        h.setPadding(new Insets(6, 12, 6, 12));
 
-        top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h);
+        h.getChildren()
+                .add(txt);
+        h.setPadding(
+                new Insets(6, 12, 6, 12));
+
+        top.setPadding(
+                new Insets(15, 12, 15, 12));
+        top.getChildren()
+                .addAll(btn, h, btn2);
         root.setTop(top);
         cp = new ConsolePane();
-        cp.setPrefWidth(960);
+
+        cp.setPrefWidth(
+                960);
         BorderPane.setAlignment(cp, Pos.CENTER);
-        BorderPane.setMargin(cp, new Insets(10, 8, 10, 8));
+
+        BorderPane.setMargin(cp,
+                new Insets(10, 8, 10, 8));
         root.setBottom(cp);
 
         // placeholder for img
         StackPane sp = new StackPane();
         sp = new StackPane();
+
         BorderPane.setAlignment(sp, Pos.CENTER);
         //BorderPane.setMargin(sp, new Insets(10, 8, 10, 8));
+
         sp.setMinHeight(540);
         sp.setPrefHeight(540);
 
         root.setCenter(sp);
 
-        this.scene = new Scene(root/*, 960 + 16, 540 + 170*/);
+        this.scene = new Scene(root);
         primaryStage.setScene(scene);
-
         primaryStage.show();
     }
 
@@ -112,6 +140,8 @@ public class Console extends Application {
         this.view.setOnMouseClicked((e) -> {
             this.displayNextImage();
         });
+        this.view.fitWidthProperty().bind(this.stage.widthProperty());
+
         this.root.setCenter(this.view);
 
     }
@@ -151,8 +181,8 @@ public class Console extends Application {
         if (!this.ltq.isEmpty()) {
             this.currentImages = new ArrayList<>();
             ltq.drainTo(this.currentImages);
-            Console.println("Console: Received " + this.currentImages.size() + " image" 
-            +(this.currentImages.size() == 1 ? "":"s"));
+            Console.println("Console: Received " + this.currentImages.size() + " image"
+                    + (this.currentImages.size() == 1 ? "" : "s"));
             this.currentImage = 0;
             this.currentChannel = 0;
 

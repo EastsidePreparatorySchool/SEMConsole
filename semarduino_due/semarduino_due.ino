@@ -101,15 +101,22 @@ void initializeADC(boolean fSLOW1, int channel1, int channel2) {
   ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
+  // convert from Ax input pin numbers to ADC channel numbers
+  channel1 = 7-channel1;
+  channel2 = 7-channel2;
+  
   if (fSLOW1) {
     // set 4 channels for SLOW1. TODO: Which channels in case we have more than 4 connected
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
     ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
   } else {
-    // set 2 channels for H6V7. TODO: THIS DOES NOT SCAN A1 correctly (SLOW1 does). READ ARTICLE ABOUT SEQ and TAGGING AGAIN
-    ADC->ADC_CHER = 0x30;         // enable ch 7, 6 -> pins a0, a1
-    ADC->ADC_SEQR1 = ((7-channel1) << 16) + ((7-channel2)<<20); // produce these channel readings for every completion
-    //ADC->ADC_SEQR1 = 0x00670000;  // old code for channels A0 and A1
+    // set 2 channels for H6V7. 
+
+    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
+    ADC->ADC_SEQR1 = (channel1 << (channel1 *4)) | (channel2 << (channel2*4));
+    // old code works for A0, A1:
+    // ADC->ADC_CHER = 0xC0;         // enable ch 7, 6 -> pins a0, a1
+    // ADC->ADC_SEQR1 = ((7-channel1) << 28) + ((7-channel2)<<24); // produce these channel readings for every completion
   }
 
   NVIC_EnableIRQ(ADC_IRQn);
