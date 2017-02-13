@@ -118,7 +118,7 @@ public class SEMPort {
         String result = null;
         int checkSum = 0;
         int checkSumRead = 0;
-        int lines = 50;
+        int lines = 100;
 
         try {
             buffer.position(0);
@@ -181,6 +181,7 @@ public class SEMPort {
                                 channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
                                 numErrors++;
                                 Console.print("-");
+                                dotCounter++;
 
                                 return null;
                             }
@@ -197,9 +198,6 @@ public class SEMPort {
                         }
                         int line = Short.toUnsignedInt(buffer.getShort());
                         if (dotCounter % lines == 0) {
-                            Console.printOn();
-                            Console.print(".");
-                            Console.printOff();
 
                             Console.print("Line: ");
                             Console.print(line + ", ");
@@ -225,12 +223,17 @@ public class SEMPort {
                             buffer.limit(2);
                             n = channel.read(buffer);
                             buffer.position(0);
-                            //System.out.print("[read " + n + "bytes]");
                         }
                         int time = Short.toUnsignedInt(buffer.getShort());
-                        if ((dotCounter % lines) == 0) {
-                            Console.print("time: ");
-                            Console.println("" + ((long) time) * 100);
+                        if (line == 0 && dotCounter == 0) {
+                            Console.printOn();
+                            Console.print("Line scan time: ");
+                            Console.print("" + ((long) time) * 100);
+                            Console.println(" microseconds");
+                            Console.printOff();
+                        }
+
+                        if (dotCounter % lines == 0) {
                         }
 
                         // todo: add checksum for this header
@@ -268,11 +271,17 @@ public class SEMPort {
 //                            System.out.println();
 //                            System.out.print("Line: " + line + ", wrong check sum: reported: ");
 //                            System.out.println(Integer.toHexString(checkSumRead) + ", actual: " + Integer.toHexString(checkSum));
+                            Console.printOn();
                             Console.print("-");
+                            Console.printOff();
                             channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
                             numErrors++;
                         } else {
-                            Console.print(".");
+                            if (dotCounter % lines == 0) {
+                                Console.printOn();
+                                Console.print(".");
+                                Console.printOff();
+                            }
                             channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                             numOKs++;
                             this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);

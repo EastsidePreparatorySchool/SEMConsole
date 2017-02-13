@@ -89,14 +89,14 @@ public class SEMImage {
         }
     }
 
-    // get the encoded channel number form a word in the data stream
-    static int getEncodedChannel(int word) {
-        return (word >> 12);
+    // get the encoded channel number from a word in the data stream
+    int getEncodedChannel(int word) {
+        return this.channels == 1 ? this.capturedChannels[0]:(word >> 12);
 
     }
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
-    static int getValue(int word) {
+    int getValue(int word) {
         word = (word & 0xFFF) - SEMImage.floorValue; //TODO: better calibration and adjustment
         if (word > 255) {
             word = 255;
@@ -108,7 +108,7 @@ public class SEMImage {
         return word;
     }
 
-    static int grayScale(int realChannel, int intensity) {
+    int grayScale(int realChannel, int intensity) {
         return 0xFF000000
                 + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 4)) << 16) // red
                 + ((realChannel == 0 || realChannel == 1 ? intensity : (intensity / 4)) << 8) // green
@@ -117,7 +117,7 @@ public class SEMImage {
     }
 
     // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
-    static int translateChannel(int word) {
+    int translateChannel(int word) {
         return 7 - getEncodedChannel(word);
     }
 }
