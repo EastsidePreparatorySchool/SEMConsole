@@ -139,17 +139,6 @@ public class Console extends Application {
         }
     }
 
-    public static void main(String[] args) {
-        launch(args);
-        if (semThread != null) {
-            semThread.interrupt();
-            try {
-                semThread.join();
-            } catch (InterruptedException ie) {
-            }
-        }
-    }
-
     private void startSEMThread() {
         // remove currently displayed image
         txt.setText("Scanning ...");
@@ -178,18 +167,32 @@ public class Console extends Application {
         String result = "";
         switch (channel) {
             case 0:
-                result = "A0 (Secondary electron image)";
+                result = "A0 (secondary electron image)";
                 break;
             case 1:
-                result = "A1 (Absorbed current image)";
+                result = "A1 (absorbed current image)";
                 break;
             case 2:
-                result = "A2 (Backscatter image 1)";
+                result = "A2 (backscatter image 1)";
                 break;
             case 3:
-                result = "A3 (Backscatter image 2)";
+                result = "A3 (backscatter image 2)";
                 break;
         }
         return result;
+    }
+
+    public static void main(String[] args) {
+        try {
+            launch(args);
+        } finally {
+            if (semThread != null) {
+                semThread.interrupt();
+                try {
+                    semThread.join();
+                } catch (InterruptedException ie) {
+                }
+            }
+        }
     }
 }
