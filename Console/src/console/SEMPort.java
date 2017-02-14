@@ -228,12 +228,9 @@ public class SEMPort {
                         if (line == 0 && dotCounter == 0) {
                             Console.printOn();
                             Console.print("Line scan time: ");
-                            Console.print("" + ((long) time) * 100);
+                            Console.print("" + ((long) time));
                             Console.println(" microseconds");
                             Console.printOff();
-                        }
-
-                        if (dotCounter % lines == 0) {
                         }
 
                         // todo: add checksum for this header
@@ -249,7 +246,7 @@ public class SEMPort {
                             buffer.position(0);
                         }
                         int word;
-                        System.out.println ("Bytes: " + bytes);
+                        //System.out.println ("Bytes: " + bytes);
                         for (int i = 0; i < bytes / 2; i++) {
                             word = Short.toUnsignedInt(buffer.getShort());
                             rawMultiChannelBuffer[i] = word;
