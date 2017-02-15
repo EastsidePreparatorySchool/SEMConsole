@@ -188,6 +188,16 @@ public class SEMPort {
                             buffer.flip();
                         }
 
+                        // read check sum
+                        if (buffer.remaining() == 0) {
+                            buffer.position(0);
+                            buffer.limit(4);
+                            n = channel.read(buffer);
+                            buffer.position(0);
+                            //System.out.println("[read " + n + " bytes]");
+                        }
+                        checkSumRead = buffer.getInt();
+
                         // read line number (unsigned short)
                         while (buffer.remaining() < 2) {
                             buffer.position(0);
@@ -235,7 +245,7 @@ public class SEMPort {
 
                         // todo: add checksum for this header
                         // read line bytes
-                        checkSum = 0;
+                        checkSum = bytes + line + time;
                         //System.out.print("[buffer remaining " + buffer.remaining() + " bytes]");
 
                         if (buffer.remaining() == 0) {
@@ -256,15 +266,6 @@ public class SEMPort {
                             }
                         }
 
-                        // read check sum
-                        if (buffer.remaining() == 0) {
-                            buffer.position(0);
-                            buffer.limit(4);
-                            n = channel.read(buffer);
-                            buffer.position(0);
-                            //System.out.println("[read " + n + " bytes]");
-                        }
-                        checkSumRead = buffer.getInt();
                         if (checkSum != checkSumRead) {
 //                            System.out.println();
 //                            System.out.print("Line: " + line + ", wrong check sum: reported: ");

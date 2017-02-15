@@ -24,11 +24,18 @@ byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','N','D
 #define SENTINEL_BYTES 16
 byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
 
+struct BytesParams {
+  byte      headerBytes[16];
+  uint32_t  checkSum;         // now includes everything from here on, to just before sentinel trailer
+  uint16_t  line;
+  uint16_t  bytes;
+  uint16_t  timeLine;
+};
+
 
 
 //
 // ADC memory structures
-// we support only two modes of capture: SLOW2 and H6V7.
 // - For SLOW2, we take an HD picture across all 4 channels.
 // - FOR H6V7, we take a UHD-1 (4K) picture across 2 channels.
 // - this works out to the same buffer size for both cases
@@ -200,47 +207,60 @@ void loop() {
     SerialUSB_write_uint16_t(255);
     SerialUSB_write_uint16_t(255);
   }
-  
-  
 
+  // set up bytes structure
+  
+  int bytes = (g_numPixels[g_mode] * g_numChannels[g_mode] * sizeof(uint16_t));
+  struct BytesParams *pbp = (struct BytesParams *) malloc (sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer)); 
+  memcpy(pbp, headerBytes, sizeof(headerBytes));
+  //memcpy(((byte *)&pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
   
   int t = millis();
   int line = 0;
+  int thisTime;
   char o,k;
-  
+
+  startADC();
   for (long i = 0; i < numLines; i++) {
-    // give us a test signal on pin 2
+    // give us a test signal on pin 2 TODO: remove this
     analogWrite(2, (i/2) % 256);
 
-    startADC();
     while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
-      delayMicroseconds(10);                                             // wait for buffer to be full
+      delayMicroseconds(10);                                            // wait for buffer to be full
     }
 
-    // put the line somewhere safe from adc
-    memcpy(writeBuffer, adcBuffer[currentBuffer], (g_numPixels[g_mode] * g_numChannels[g_mode] * sizeof(uint16_t)));
-
+    // put the line somewhere safe from adc, just past the params header:
+    memcpy(&pbp[1], adcBuffer[currentBuffer], bytes);
+    thisTime = timeLine;
+    startADC();
 
     // compute checkSum
     long checkSum = 0;
-    uint16_t *pWord = writeBuffer;
-    int writeLength = (g_numPixels[g_mode] * g_numChannels[g_mode] * sizeof(uint16_t));
-    for (int i=0; i<writeLength/2; i++) {
+    uint16_t *pWord = (uint16_t *)&pbp[1];
+    for (int i=0; i<bytes/2; i++) {
       checkSum += *pWord++;
     }
+    
+    pbp->checkSum = checkSum + line + bytes + (uint16_t)thisTime;
+    pbp->line = line;
+    pbp->bytes = bytes;
+    pbp->timeLine = (uint16_t) timeLine;
 
     // send the line until it gets through
     do {
+      
       SerialUSB.write(headerBytes, 16);                                   // send BYTES header, line number, and length info
+      SerialUSB_write_uint32_t(pbp->checkSum);                                 // write the long checkSum
       SerialUSB_write_uint16_t(line);                         
-      SerialUSB_write_uint16_t(writeLength); 
+      SerialUSB_write_uint16_t(bytes); 
       SerialUSB_write_uint16_t((uint16_t)(timeLine));                        
       
-      SerialUSB.write((uint8_t *)writeBuffer, writeLength);               // send data, length in bytes
+      SerialUSB.write((uint8_t *)(&pbp[1]), bytes);               // send data, length in bytes
   
-      SerialUSB_write_uint32_t(checkSum);                                 // write the long checkSum
       SerialUSB.write((uint8_t *)sentinelTrailer, SENTINEL_BYTES);        // send trailer so client can recover from transmission errors
-  
+
+//      SerialUSB.write((uint8_t *)pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+      
       // wait for response
       while (SerialUSB.available() == 0);
       
