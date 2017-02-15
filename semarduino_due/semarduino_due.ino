@@ -47,7 +47,7 @@ struct BytesParams {
 
 // 2 channels in regular HD 1080p for Slow1:
 #define MODE_SLOW1          0
-#define SLOW1_NUM_CHANNELS  2
+#define SLOW1_NUM_CHANNELS  4
 #define SLOW1_NUM_PIXELS    1776 
 #define SLOW1_NUM_LINES     1000
 
@@ -55,14 +55,14 @@ struct BytesParams {
 // SEI, BEI1, BEI2, AEI all simultaneously in Slow2
 #define MODE_SLOW2          1
 #define SLOW2_NUM_CHANNELS  4
-#define SLOW2_NUM_PIXELS    1111 
+#define SLOW2_NUM_PIXELS    1110 
 #define SLOW2_NUM_LINES     625
 
 
 // For Photo H6V7, our highest resolution, we are using UHD-1 (4K). Pixel number is memory-bound, having trouble making the array bigger. 
 // H6V7 really has 2500 lines, can make bigger or crop vertically by starting scan late (throwing 170 lines away)
 // H6V7 takes 100s to scan, this scan transmits in about 20s, so we are fine.
-// scan lines also don't take more than 4ms, so have to keep this under the theretical max of 4444, which leads to 4.2ms
+// scan lines also don't take more than 4ms, so have to keep this under the theoretical max of 4444, which leads to 4.2ms
 
 #define MODE_H6V7           2
 #define H6V7_NUM_CHANNELS   2
@@ -191,10 +191,10 @@ void loop() {
     SerialUSB_write_uint16_t(3);
   } else if (g_mode == MODE_SLOW1) {
     // list just the specific 2 channels we are capturing in SLOW1
-    SerialUSB_write_uint16_t(g_channelSelection1);
-    SerialUSB_write_uint16_t(g_channelSelection2);
-    SerialUSB_write_uint16_t(255);
-    SerialUSB_write_uint16_t(255);
+    SerialUSB_write_uint16_t(0);
+    SerialUSB_write_uint16_t(1);
+    SerialUSB_write_uint16_t(2);
+    SerialUSB_write_uint16_t(3);
   } else if (g_mode == MODE_H6V7) {
     // list just the specific 2 channels we are capturing in H6V7
     SerialUSB_write_uint16_t(g_channelSelection1);
@@ -234,6 +234,10 @@ void loop() {
     // put the line somewhere safe from adc, just past the params header:
     memcpy(&pbp[1], adcBuffer[currentBuffer], bytes);
     thisTime = timeLine;
+    currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
+
+    // restart conversions TODO: This needs to be HSync triggered
+
     startADC();
 
     // compute checkSum
@@ -270,8 +274,6 @@ void loop() {
       k = SerialUSB.read();
     } while(o != 'O' || k != 'K');
     
-
-    currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
     line++;
   }
   t = millis() - t;
@@ -353,7 +355,7 @@ void initializeADC() {
   }
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
-  if (g_mode == MODE_SLOW2) {
+  if (g_mode == MODE_SLOW2 || g_mode == MODE_SLOW1) {
     // set 4 channels for SLOW2. TODO: Which channels in case we have more than 4 connected
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
     ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
@@ -361,10 +363,7 @@ void initializeADC() {
     // set 2 channels for H6V7. 
     ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
     ADC->ADC_SEQR1 = (channel1 << (channel1 *4)) | (channel2 << (channel2*4));
-  } else if (g_mode == MODE_SLOW1) {
-    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-    ADC->ADC_SEQR1 = (channel1 << (channel1 *4)) | (channel2 << (channel2*4));
-  } else if (g_mode == MODE_FAST) {
+   } else if (g_mode == MODE_FAST) {
     ADC->ADC_CHER = (1 << channel1);
     // TODO: this works only for A0 right now
   }
@@ -406,8 +405,6 @@ void stopADC() {
 void startADC() {
     switch (g_mode) {
       case MODE_SLOW1:
-        ADC->ADC_MR |= (1<<(7-g_channelSelection1)) | (1<<(7-g_channelSelection2));     // two channels free running
-        break;
       case MODE_SLOW2:
         ADC->ADC_MR |=0x000000F0;     // a0-a3 free running
         break;
