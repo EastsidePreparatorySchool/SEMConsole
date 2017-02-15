@@ -226,6 +226,8 @@ void loop() {
   for (long i = 0; i < numLines; i++) {
     // give us a test signal on pin 2 TODO: remove this
     analogWrite(2, (i/2) % 256);
+    analogWrite(DAC0, (i/8) % 256);
+    analogWrite(DAC1, 256-((i/4) % 256));
 
     while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
       delayMicroseconds(10);                                            // wait for buffer to be full
