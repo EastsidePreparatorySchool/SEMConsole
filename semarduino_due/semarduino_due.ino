@@ -30,6 +30,7 @@ struct BytesParams {
   uint16_t  line;
   uint16_t  bytes;
   uint16_t  timeLine;
+  uint16_t  filler;
 };
 
 
@@ -213,7 +214,8 @@ void loop() {
   int bytes = (g_numPixels[g_mode] * g_numChannels[g_mode] * sizeof(uint16_t));
   struct BytesParams *pbp = (struct BytesParams *) malloc (sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer)); 
   memcpy(pbp, headerBytes, sizeof(headerBytes));
-  //memcpy(((byte *)&pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
+  memcpy(((byte *)&pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
+  pbp->filler = 0;
   
   int t = millis();
   int line = 0;
@@ -248,18 +250,17 @@ void loop() {
 
     // send the line until it gets through
     do {
-      
+  /*    
       SerialUSB.write(headerBytes, 16);                                   // send BYTES header, line number, and length info
       SerialUSB_write_uint32_t(pbp->checkSum);                                 // write the long checkSum
-      SerialUSB_write_uint16_t(line);                         
-      SerialUSB_write_uint16_t(bytes); 
-      SerialUSB_write_uint16_t((uint16_t)(timeLine));                        
-      
+      SerialUSB_write_uint16_t(pbp->line);                         
+      SerialUSB_write_uint16_t(pbp->bytes); 
+      SerialUSB_write_uint16_t(pbp->timeLine);                        
+      SerialUSB_write_uint16_t(pbp->filler);                        
       SerialUSB.write((uint8_t *)(&pbp[1]), bytes);               // send data, length in bytes
-  
-      SerialUSB.write((uint8_t *)sentinelTrailer, SENTINEL_BYTES);        // send trailer so client can recover from transmission errors
-
-//      SerialUSB.write((uint8_t *)pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+      SerialUSB.write((uint8_t *)sentinelTrailer, sizeof(sentinelTrailer));        // send trailer so client can recover from transmission errors
+*/
+      SerialUSB.write((uint8_t *)pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
       
       // wait for response
       while (SerialUSB.available() == 0);

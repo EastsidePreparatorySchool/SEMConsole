@@ -243,7 +243,14 @@ public class SEMPort {
                             Console.printOff();
                         }
 
-                        // todo: add checksum for this header
+                          // read two-byte-filler
+                        while (buffer.remaining() < 2) {
+                            buffer.position(0);
+                            buffer.limit(2);
+                            n = channel.read(buffer);
+                            buffer.position(0);
+                        }
+                        Short.toUnsignedInt(buffer.getShort()); // filler
                         // read line bytes
                         checkSum = bytes + line + time;
                         //System.out.print("[buffer remaining " + buffer.remaining() + " bytes]");
@@ -299,7 +306,7 @@ public class SEMPort {
                             //System.out.println();
                         }
 
-                        lastBytes = bytes + 26;
+                        lastBytes = bytes + 28;
 
                         Console.printOn();
                         break;
