@@ -132,7 +132,7 @@ public class Console extends Application {
         int height = (int) img.getHeight();
 
         this.view = new ImageView(img);
-        this.view.setPreserveRatio(true);
+        //this.view.setPreserveRatio(true);
         this.view.setFitWidth(960);
         this.view.setFitHeight(540);
         this.view.setSmooth(true);
@@ -181,8 +181,8 @@ public class Console extends Application {
         if (!this.ltq.isEmpty()) {
             this.currentImages = new ArrayList<>();
             ltq.drainTo(this.currentImages);
-            Console.println("Console: Received " + this.currentImages.size() + " image"
-                    + (this.currentImages.size() == 1 ? "" : "s"));
+            Console.println("[Console: Received " + this.currentImages.size() + " image"
+                    + (this.currentImages.size() == 1 ? "" : "s") + "]");
             this.currentImage = 0;
             this.currentChannel = 0;
 

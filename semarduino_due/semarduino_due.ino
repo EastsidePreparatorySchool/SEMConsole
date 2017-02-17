@@ -10,6 +10,7 @@
 
 // test mode
 
+#define FRAMES_PER_TEST 4
 
 
 // USB communication headers
@@ -20,6 +21,7 @@ byte headerReady[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','A
 byte headerFrame[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','F','R','A','M','E','.','.','.'};
 byte headerBytes[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','B','Y','T','E','S','.','.','.'};
 byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'};
+byte headerReset[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','S','E','T','.','.','.'};
 
 #define SENTINEL_BYTES 16
 byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
@@ -37,55 +39,39 @@ struct BytesParams {
 
 //
 // ADC memory structures
-// - For SLOW2, we take an HD picture across all 4 channels.
-// - FOR H6V7, we take a UHD-1 (4K) picture across 2 channels.
-// - this works out to the same buffer size for both cases
-//
 // TODO: Make the channels for H6V7 selectable by setting digital input pins to low or high
 //
 
 
-// 2 channels in regular HD 1080p for Slow1:
+// 2 channels for Slow1. Limited by line scan time and transmission time.
 #define MODE_SLOW1          0
 #define SLOW1_NUM_CHANNELS  4
-#define SLOW1_NUM_PIXELS    1776 
-#define SLOW1_NUM_LINES     1000
+#define SLOW1_NUM_PIXELS    2250 //todo: find right value for 5ms frame
+#define SLOW1_NUM_LINES     998
 
-
-// SEI, BEI1, BEI2, AEI all simultaneously in Slow2
-#define MODE_SLOW2          1
-#define SLOW2_NUM_CHANNELS  4
-#define SLOW2_NUM_PIXELS    1110 
-#define SLOW2_NUM_LINES     625
-
-
-// For Photo H6V7, our highest resolution, we are using UHD-1 (4K). Pixel number is memory-bound, having trouble making the array bigger. 
-// H6V7 really has 2500 lines, can make bigger or crop vertically by starting scan late (throwing 170 lines away)
-// H6V7 takes 100s to scan, this scan transmits in about 20s, so we are fine.
-// scan lines also don't take more than 4ms, so have to keep this under the theoretical max of 4444, which leads to 4.2ms
-
-#define MODE_H6V7           2
+// For Photo H6V7, our highest resolution. Limited by line scan time
+#define MODE_H6V7           1
 #define H6V7_NUM_CHANNELS   2
-#define H6V7_NUM_PIXELS     3840
-#define H6V7_NUM_LINES      2160
+#define H6V7_NUM_PIXELS     4770
+#define H6V7_NUM_LINES      2498
 
-// one channel, fast:
-// TODO : Choose good values for a workable resolution
-#define MODE_FAST           3
+// One channel, fast (Rapid2). Limited by line scan time and transmission time.
+// TODO: Make channel selectable
+#define MODE_FAST           2
 #define FAST_NUM_CHANNELS   1
-#define FAST_NUM_PIXELS     272 
-#define FAST_NUM_LINES      153
+#define FAST_NUM_PIXELS     284 
+#define FAST_NUM_LINES      532
 
-#define NUM_MODES 4
+#define NUM_MODES 3
 // parameters
-int g_numChannels[NUM_MODES] = {SLOW1_NUM_CHANNELS, SLOW2_NUM_CHANNELS, H6V7_NUM_CHANNELS, FAST_NUM_CHANNELS};
-int g_numPixels[NUM_MODES] = {SLOW1_NUM_PIXELS, SLOW2_NUM_PIXELS, H6V7_NUM_PIXELS, FAST_NUM_PIXELS};
-int g_numLines[NUM_MODES] = {SLOW1_NUM_LINES, SLOW2_NUM_LINES, H6V7_NUM_LINES, FAST_NUM_LINES};
+int g_numChannels[NUM_MODES] = {SLOW1_NUM_CHANNELS, H6V7_NUM_CHANNELS, FAST_NUM_CHANNELS};
+int g_numPixels[NUM_MODES] = {SLOW1_NUM_PIXELS, H6V7_NUM_PIXELS, FAST_NUM_PIXELS};
+int g_numLines[NUM_MODES] = {SLOW1_NUM_LINES, H6V7_NUM_LINES, FAST_NUM_LINES};
 
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
 int g_channelSelection2 = 2; // TODO: For now, make sure that SEI is on A0 and AEI on A1
-int g_mode = MODE_SLOW2;
+int g_mode = MODE_FAST;
 
 
 //
@@ -93,7 +79,7 @@ int g_mode = MODE_SLOW2;
 //
 
 #define NUM_BUFFERS   2 // fill one with DMA while main program reads and copies the other
-#define BUFFER_LENGTH (H6V7_NUM_PIXELS * H6V7_NUM_CHANNELS)
+#define BUFFER_LENGTH (H6V7_NUM_PIXELS * H6V7_NUM_CHANNELS + 64)
 #define BUFFER_BYTES  (BUFFER_LENGTH * sizeof(uint16_t))
 #define NEXT_BUFFER(n)((n+1)%NUM_BUFFERS) // little macro to aid switch to next buffer
 
@@ -177,113 +163,104 @@ void loop() {
   // transmit NUM_LINES ADC runs (lines)
   //
 
-  int numLines = g_numLines[g_mode];
-  
-  SerialUSB.write(headerFrame, 16);                                         // send FRAME header
-  SerialUSB_write_uint16_t(g_numChannels[g_mode]);  // number of channels                       
-  SerialUSB_write_uint16_t(g_numPixels[g_mode]);      // width in pixels
-  SerialUSB_write_uint16_t(numLines);                                       // height in lines
-  if (g_mode == MODE_SLOW2) {
-    // list all the channels we are capturing in SLOW2 (0-3)
-    SerialUSB_write_uint16_t(0);
-    SerialUSB_write_uint16_t(1);
-    SerialUSB_write_uint16_t(2);
-    SerialUSB_write_uint16_t(3);
-  } else if (g_mode == MODE_SLOW1) {
-    // list just the specific 2 channels we are capturing in SLOW1
-    SerialUSB_write_uint16_t(0);
-    SerialUSB_write_uint16_t(1);
-    SerialUSB_write_uint16_t(2);
-    SerialUSB_write_uint16_t(3);
-  } else if (g_mode == MODE_H6V7) {
-    // list just the specific 2 channels we are capturing in H6V7
-    SerialUSB_write_uint16_t(g_channelSelection1);
-    SerialUSB_write_uint16_t(g_channelSelection2);
-    SerialUSB_write_uint16_t(255);
-    SerialUSB_write_uint16_t(255);
-  } else if (g_mode == MODE_FAST) {
-    // list just the specific 1 channel we are capturing in FAST
-    SerialUSB_write_uint16_t(g_channelSelection1);
-    SerialUSB_write_uint16_t(255);
-    SerialUSB_write_uint16_t(255);
-    SerialUSB_write_uint16_t(255);
-  }
-
-  // set up bytes structure
-  
-  int bytes = (g_numPixels[g_mode] * g_numChannels[g_mode] * sizeof(uint16_t));
-  struct BytesParams *pbp = (struct BytesParams *) malloc (sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer)); 
-  memcpy(pbp, headerBytes, sizeof(headerBytes));
-  memcpy(((byte *)&pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
-  pbp->filler = 0;
-  
-  int t = millis();
-  int line = 0;
-  int thisTime;
-  char o,k;
-
-  startADC();
-  for (long i = 0; i < numLines; i++) {
-    // give us a test signal on pin 2 TODO: remove this
-    analogWrite(2, (i/2) % 256);
-    analogWrite(DAC0, (i/8) % 256);
-    analogWrite(DAC1, 256-((i/4) % 256));
-
-    while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
-      delayMicroseconds(10);                                            // wait for buffer to be full
+  int frames = FRAMES_PER_TEST;
+  int frame;
+  for (frame = 0; frame < frames; frame++) {
+    int numLines = g_numLines[g_mode];
+    
+    SerialUSB.write(headerFrame, 16);                 // send FRAME header
+    SerialUSB_write_uint16_t(g_numChannels[g_mode]);  // number of channels                       
+    SerialUSB_write_uint16_t(g_numPixels[g_mode]);    // width in pixels
+    SerialUSB_write_uint16_t(numLines);               // height in lines
+    
+    if (g_mode == MODE_SLOW1) {
+      // list just the specific 2 channels we are capturing in SLOW1
+      SerialUSB_write_uint16_t(0);
+      SerialUSB_write_uint16_t(1);
+      SerialUSB_write_uint16_t(2);
+      SerialUSB_write_uint16_t(3);
+    } else if (g_mode == MODE_H6V7) {
+      // list just the specific 2 channels we are capturing in H6V7
+      SerialUSB_write_uint16_t(g_channelSelection1);
+      SerialUSB_write_uint16_t(g_channelSelection2);
+      SerialUSB_write_uint16_t(255);
+      SerialUSB_write_uint16_t(255);
+    } else if (g_mode == MODE_FAST) {
+      // list just the specific 1 channel we are capturing in FAST
+      SerialUSB_write_uint16_t(g_channelSelection1);
+      SerialUSB_write_uint16_t(255);
+      SerialUSB_write_uint16_t(255);
+      SerialUSB_write_uint16_t(255);
     }
-
-    // put the line somewhere safe from adc, just past the params header:
-    memcpy(&pbp[1], adcBuffer[currentBuffer], bytes);
-    thisTime = timeLine;
-    currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
-
-    // restart conversions TODO: This needs to be HSync triggered
-
+  
+    // set up bytes structure
+    
+    int bytes = (g_numPixels[g_mode] * g_numChannels[g_mode] * sizeof(uint16_t));
+    //struct BytesParams *pbp = (struct BytesParams *) malloc (sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer)); 
+    struct BytesParams *pbp = (struct BytesParams *) writeBuffer;
+    memcpy(pbp, headerBytes, sizeof(headerBytes));
+    memcpy(((byte *)&pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
+    pbp->filler = 0;
+    
+    int t = millis();
+    int line = 0;
+    int thisTime;
+    char o,k;
+  
     startADC();
-
-    // compute checkSum
-    long checkSum = 0;
-    uint16_t *pWord = (uint16_t *)&pbp[1];
-    for (int i=0; i<bytes/2; i++) {
-      checkSum += *pWord++;
+    for (long i = 0; i < numLines; i++) {
+      // give us a test signal on pin 2 TODO: remove this
+      analogWrite(2, frame % 256);
+      analogWrite(DAC0, frame % 256);
+      analogWrite(DAC1, 256-((frame) % 256));
+  
+      while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
+        delayMicroseconds(10);                                            // wait for buffer to be full
+      }
+  
+      // put the line somewhere safe from adc, just past the params header:
+      memcpy(&pbp[1], adcBuffer[currentBuffer], bytes);
+      thisTime = timeLine;
+      currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
+  
+      // restart conversions TODO: This needs to be HSync triggered
+  
+      startADC();
+  
+      // compute checkSum
+      long checkSum = 0;
+      uint16_t *pWord = (uint16_t *)&pbp[1];
+      for (int i=0; i<bytes/2; i++) {
+        checkSum += *pWord++;
+      }
+      
+      pbp->checkSum = checkSum + line + bytes + (uint16_t)thisTime;
+      pbp->line = line;
+      pbp->bytes = bytes;
+      pbp->timeLine = (uint16_t) timeLine;
+  
+      // send the line until it gets through
+      do {
+        SerialUSB.write((uint8_t *)pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+        
+        // wait for response
+        while (SerialUSB.available() == 0);
+        
+        // read two bytes of response, either "OK" or "NG"
+        o = SerialUSB.read();   
+        k = SerialUSB.read();
+      } while(o != 'O' || k != 'K');
+      
+      line++;
     }
+    t = millis() - t;
     
-    pbp->checkSum = checkSum + line + bytes + (uint16_t)thisTime;
-    pbp->line = line;
-    pbp->bytes = bytes;
-    pbp->timeLine = (uint16_t) timeLine;
-
-    // send the line until it gets through
-    do {
-  /*    
-      SerialUSB.write(headerBytes, 16);                                   // send BYTES header, line number, and length info
-      SerialUSB_write_uint32_t(pbp->checkSum);                                 // write the long checkSum
-      SerialUSB_write_uint16_t(pbp->line);                         
-      SerialUSB_write_uint16_t(pbp->bytes); 
-      SerialUSB_write_uint16_t(pbp->timeLine);                        
-      SerialUSB_write_uint16_t(pbp->filler);                        
-      SerialUSB.write((uint8_t *)(&pbp[1]), bytes);               // send data, length in bytes
-      SerialUSB.write((uint8_t *)sentinelTrailer, sizeof(sentinelTrailer));        // send trailer so client can recover from transmission errors
-*/
-      SerialUSB.write((uint8_t *)pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-      
-      // wait for response
-      while (SerialUSB.available() == 0);
-      
-      // read two bytes of response, either "OK" or "NG"
-      o = SerialUSB.read();   
-      k = SerialUSB.read();
-    } while(o != 'O' || k != 'K');
-    
-    line++;
+    SerialUSB.write(headerEndFrame, 16);     // send EFRAME (end frame) and time
+    SerialUSB_write_uint16_t((uint16_t)t);
   }
-  t = millis() - t;
+  SerialUSB.write(headerReset, 16);   
   
-  SerialUSB.write(headerEndFrame, 16);                                  // send EFRAME (end frame) and time
-  SerialUSB_write_uint16_t((uint16_t)t);
-  //SerialUSB.flush();
-  
+  // send more frames, or 
   // continue loop function by waiting for new connection
 
   // test: switch to other setting
@@ -330,8 +307,6 @@ void adcConfigureGain() {
 
 //
 // set up analog-to-digital conversions
-// argument: fSlow = true if SLOW2 scan (2 channels)
-//          
 //
 
 void initializeADC() {
@@ -341,7 +316,7 @@ void initializeADC() {
 
   pmc_enable_periph_clk(ID_ADC);
   adc_init(ADC, SystemCoreClock, ADC_FREQ_MAX, ADC_STARTUP_FAST);
-  analogReadResolution(12);
+  analogReadResolution(8);
   adcConfigureGain();
 
   //ADC->ADC_CR |=1; //reset the adc
@@ -357,7 +332,7 @@ void initializeADC() {
   }
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
-  if (g_mode == MODE_SLOW2 || g_mode == MODE_SLOW1) {
+  if (g_mode == MODE_SLOW1) {
     // set 4 channels for SLOW2. TODO: Which channels in case we have more than 4 connected
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
     ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
@@ -407,12 +382,13 @@ void stopADC() {
 void startADC() {
     switch (g_mode) {
       case MODE_SLOW1:
-      case MODE_SLOW2:
         ADC->ADC_MR |=0x000000F0;     // a0-a3 free running
         break;
+        
       case MODE_H6V7:
         ADC->ADC_MR |= (1<<(7-g_channelSelection1)) | (1<<(7-g_channelSelection2));     // two channels free running
         break;
+        
       case MODE_FAST:
         ADC->ADC_MR |= (1<<(7-g_channelSelection1));     // one channel free running
         break;

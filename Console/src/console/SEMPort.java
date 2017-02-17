@@ -2,7 +2,6 @@ package console;
 
 import dk.thibaut.serial.SerialChannel;
 import dk.thibaut.serial.SerialPort;
-import dk.thibaut.serial.enums.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -10,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
 import javafx.application.Platform;
 
@@ -134,8 +132,14 @@ public class SEMPort {
                 //System.out.println(result);
 
                 switch (result) {
+                    case "EPS_SEM_RESET...":
+                        Console.printOn();
+                        Console.println("Reset");
+                        
+                        return "Finished";
+                        
                     case "EPS_SEM_FRAME...":
-                        Console.print("\nStart of frame: ");
+                        Console.print("Start of frame: ");
                         dotCounter = 0;
                         numErrors = 0;
                         numOKs = 0;
@@ -155,8 +159,8 @@ public class SEMPort {
                         int channelCount = Short.toUnsignedInt(buffer.getShort());
                         int width = Short.toUnsignedInt(buffer.getShort());
                         int height = Short.toUnsignedInt(buffer.getShort());
-                        Console.println("channels: " + channelCount + ", width: " + width + ", height: " + height);
-                        Console.print("Captured channels: ");
+                        Console.print("width: " + width + ", height: " + height);
+                        Console.print(", channels: ");
                         int[] capturedChannels = new int[4];
                         for (int i = 0; i < 4; i++) {
                             capturedChannels[i] = Short.toUnsignedInt(buffer.getShort());
@@ -164,7 +168,6 @@ public class SEMPort {
                                 Console.print(capturedChannels[i] + " ");
                             }
                         }
-                        Console.println();
                         rawMultiChannelBuffer = new int[channelCount * width];
                         this.si = new SEMImage(channelCount, capturedChannels, width, height);
                         break;
@@ -235,11 +238,11 @@ public class SEMPort {
                             buffer.position(0);
                         }
                         int time = Short.toUnsignedInt(buffer.getShort());
-                        if (line == 0 && dotCounter == 0) {
+                        if (line == 0) {
                             Console.printOn();
-                            Console.print("Line scan time: ");
+                            Console.print(", line scan time: ");
                             Console.print("" + ((long) time));
-                            Console.println(" microseconds");
+                            Console.print(" us ");
                             Console.printOff();
                         }
 
@@ -327,7 +330,7 @@ public class SEMPort {
                         this.si = null;
                         Platform.runLater(updateDisplayLambda);
 
-                        result = "Finished";
+                        result = null;
                         break;
 
                     default:
