@@ -204,23 +204,41 @@ void loop() {
       g_pbp->bytes = bytes;
   
       // send the line until it gets through
-      do {
+      int errorCount;
+      for (errorCount = 0; errorCount < 10; errorCount++) {
         SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
         
         // wait for response
-        while (SerialUSB.available() == 0);
+        int wait = micros();
+        int acceptable = wait + 100000;
+        while (SerialUSB.available() == 0 && wait<acceptable) {
+          wait = micros();
+        }
+        
+        if (wait >= acceptable)
+          goto reset;
         
         // read two bytes of response, either "OK" or "NG"
         o = SerialUSB.read();   
         k = SerialUSB.read();
-      } while(o != 'O' || k != 'K');
-      
+        
+        if (o == 'O' && k == 'K')
+          break;
+          
+        if (o == 'N' && k == 'G') 
+          continue;
+      };
+      if (errorCount == 10)
+        goto reset;
+             
       line++;
     }
     frameTime = millis() - frameTime;
     sendEndFrame (lineTime, frameTime);
     
   }
+
+  reset:
   SerialUSB.write(headerReset, 16);   
   
   // send more frames, or 
