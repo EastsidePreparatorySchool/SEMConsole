@@ -1,16 +1,18 @@
-// Arduino Due ADC->DMA->USB
-// adapted from a sample by stimmer
-// Input: Analog in A0, A1, A2, A3
-// Output: Raw stream of uint16_t in range 0-4095 on Native USB Serial/ACM
+// 
+// SEM EPS for Arduino Due
+// Input: Analog in A0, A1, A2, A3, hsync and vsync at D1 and D2
+// Output: USB frames to PC
+//
 
 
 // not sure whether this needs to be here, but whatever
-#undef HID_ENABLED
+//#undef HID_ENABLED
 
 
 // test mode
 
 #define FRAMES_PER_TEST 4
+
 
 
 // USB communication headers
@@ -36,6 +38,28 @@ struct BytesParams {
 };
 
 
+//
+// resolution recognition (autosync) structures and array
+//
+
+struct Resolution {
+  int minLineTime;  // window of scan length (in microseconds) for recognizing this resolution
+  int maxLineTime;
+  int numPixels;    // number of pixels we will set up to scan for line
+  int channels;     // number of channels for every pixel
+  int numLines;     // documented number of lines (in actuality, we will obey vsync)
+};
+
+
+// resolutions are stored in this array in ascending order of horizontal scan times
+// min time, max time, pixels, channels, spec lines
+
+struct Resolution g_allRes[3] = {
+  {   145,   155,  284, 1,  533 }, // RAPID2
+  {  4900,  5100, 2200, 4, 1000 }, // SLOW1
+  { 39000, 41000, 4770, 2, 2500 }  // H6V7
+};
+
 
 //
 // ADC memory structures
@@ -43,13 +67,13 @@ struct BytesParams {
 //
 
 
-// 2 channels for Slow1. Limited by line scan time and transmission time.
+// 4 channels for Slow1. Limited by line scan time and transmission time.
 #define MODE_SLOW1          0
 #define SLOW1_NUM_CHANNELS  4
-#define SLOW1_NUM_PIXELS    2250 //todo: find right value for 5ms frame
+#define SLOW1_NUM_PIXELS    2200
 #define SLOW1_NUM_LINES     998
 
-// For Photo H6V7, our highest resolution. Limited by line scan time
+// For Photo H6V7, our highest resolution. Limited by line scan memory
 #define MODE_H6V7           1
 #define H6V7_NUM_CHANNELS   2
 #define H6V7_NUM_PIXELS     4770
@@ -396,5 +420,85 @@ void startADC() {
   timeLineStart = micros();
  
 }
+
+
+#define HSYNC_PIN   1
+#define VSYNC_PIN   2
+
+#define PHASE_IDLE                0
+#define PHASE_READY_TO_MEASRURE  1
+#define PHASE_MEASURING           2
+#define PHASE_READY_FOR_SCAN      3
+#define PHASE_SCANNING            4
+
+volatile int g_phase = PHASE_IDLE;
+volatile int g_measuredLineTime;
+
+void setupInterrupts() {
+  pinMode(VSYNC_PIN, INPUT);
+  pinMode(HSYNC_PIN, INPUT);
+  attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
+  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);   // catch rising edge of hsync to start ADC
+}
+
+void vsyncHandler() {
+  switch (g_phase) {
+    case PHASE_IDLE:
+    case PHASE_SCANNING:
+      // time to end the frame and send the image
+      g_phase = PHASE_READY_TO_MEASRURE;
+      break;
+
+    case PHASE_READY_TO_MEASRURE:
+    case PHASE_MEASURING:
+    case PHASE_READY_FOR_SCAN:
+      // we should never get here, but hey, just stop everything
+      g_phase = PHASE_IDLE;
+      break;
+  }
+}
+
+void hsyncHandler() {
+  switch (g_phase) {
+    case PHASE_IDLE:
+      // not doing anything right now
+      break;
+    
+    case PHASE_READY_TO_MEASRURE:
+      // start stopwatch, switch phase
+      g_measuredLineTime = micros();
+      g_phase = PHASE_MEASURING;
+      break;
+
+    case PHASE_MEASURING:
+      // take scan time, get ready to start scanning (initiated by main program, need to set up ADC first)
+      g_measuredLineTime = micros() - g_measuredLineTime;
+      g_phase = PHASE_READY_FOR_SCAN;
+      break;
+      
+    case PHASE_SCANNING:
+      // start ADC (completion handled by other interrupt)
+      startADC();
+      break;
+  }
+}
+
+
+//
+// takes line scan time in us, returns pointer to resolution info, or null if not recognized
+//
+
+struct Resolution *getResolution(int lineTime) {
+  int i;
+
+  for (i=0; i<(sizeof(g_allRes)/sizeof(struct Resolution)); i++) {
+    if (lineTime > g_allRes[i].minLineTime && lineTime < g_allRes[i].maxLineTime) {
+      return &g_allRes[i];
+    }
+  }
+  return NULL;
+}
+
+
 
 

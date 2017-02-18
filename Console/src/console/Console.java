@@ -133,14 +133,14 @@ public class Console extends Application {
 
         this.view = new ImageView(img);
         //this.view.setPreserveRatio(true);
-        this.view.setFitWidth(960);
+        this.view.setFitWidth(720);
         this.view.setFitHeight(540);
         this.view.setSmooth(true);
         this.view.setCache(true);
         this.view.setOnMouseClicked((e) -> {
             this.displayNextImage();
         });
-        this.view.fitWidthProperty().bind(this.stage.widthProperty());
+        this.view.fitHeightProperty().bind(this.scene.heightProperty());
 
         this.bp.setCenter(this.view);
 
