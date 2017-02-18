@@ -140,7 +140,7 @@ public class Console extends Application {
         this.view.setOnMouseClicked((e) -> {
             this.displayNextImage();
         });
-        this.view.fitHeightProperty().bind(this.scene.heightProperty());
+        this.view.fitWidthProperty().bind(this.scene.widthProperty());
 
         this.bp.setCenter(this.view);
 
@@ -179,6 +179,7 @@ public class Console extends Application {
 
     private void updateDisplay() {
         if (!this.ltq.isEmpty()) {
+            this.bp.setCenter(null);
             this.currentImages = new ArrayList<>();
             ltq.drainTo(this.currentImages);
             Console.println("[Console: Received " + this.currentImages.size() + " image"

@@ -98,7 +98,7 @@ public class SEMImage {
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
     int getValue(int word) {
-        word = (word & 0xFFF) - SEMImage.floorValue; //TODO: better calibration and adjustment
+        word = ((word & 0xFFF)>>4) - SEMImage.floorValue; //TODO: better calibration and adjustment
         if (word > 255) {
             word = 255;
         }

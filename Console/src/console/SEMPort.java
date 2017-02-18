@@ -135,9 +135,9 @@ public class SEMPort {
                     case "EPS_SEM_RESET...":
                         Console.printOn();
                         Console.println("Reset");
-                        
+
                         return "Finished";
-                        
+
                     case "EPS_SEM_FRAME...":
                         Console.print("Start of frame: ");
                         dotCounter = 0;
@@ -147,10 +147,10 @@ public class SEMPort {
 
                         // read channel count, width, height
                         buffer.rewind();
-                        buffer.limit(14);
+                        buffer.limit(16);
                         n = channel.read(buffer);
                         //System.out.print("[read " + n + "bytes]");
-                        if (n != 14) {
+                        if (n != 16) {
                             return null;
                         }
                         buffer.flip();
@@ -159,8 +159,14 @@ public class SEMPort {
                         int channelCount = Short.toUnsignedInt(buffer.getShort());
                         int width = Short.toUnsignedInt(buffer.getShort());
                         int height = Short.toUnsignedInt(buffer.getShort());
+                        int time = Short.toUnsignedInt(buffer.getShort());
+
                         Console.print("width: " + width + ", height: " + height);
+                        Console.print(", line scan time: ");
+                        Console.print("" + ((long) time));
+                        Console.print("us");
                         Console.print(", channels: ");
+
                         int[] capturedChannels = new int[4];
                         for (int i = 0; i < 4; i++) {
                             capturedChannels[i] = Short.toUnsignedInt(buffer.getShort());
@@ -168,6 +174,8 @@ public class SEMPort {
                                 Console.print(capturedChannels[i] + " ");
                             }
                         }
+
+                        // allocate buffer and image
                         rawMultiChannelBuffer = new int[channelCount * width];
                         this.si = new SEMImage(channelCount, capturedChannels, width, height);
                         break;
@@ -230,32 +238,8 @@ public class SEMPort {
                             Console.print(bytes + ", ");
                         }
 
-                        // read scan time (unsigned short)
-                        while (buffer.remaining() < 2) {
-                            buffer.position(0);
-                            buffer.limit(2);
-                            n = channel.read(buffer);
-                            buffer.position(0);
-                        }
-                        int time = Short.toUnsignedInt(buffer.getShort());
-                        if (line == 0) {
-                            Console.printOn();
-                            Console.print(", line scan time: ");
-                            Console.print("" + ((long) time));
-                            Console.print(" us ");
-                            Console.printOff();
-                        }
-
-                          // read two-byte-filler
-                        while (buffer.remaining() < 2) {
-                            buffer.position(0);
-                            buffer.limit(2);
-                            n = channel.read(buffer);
-                            buffer.position(0);
-                        }
-                        Short.toUnsignedInt(buffer.getShort()); // filler
                         // read line bytes
-                        checkSum = bytes + line + time;
+                        checkSum = bytes + line;
                         //System.out.print("[buffer remaining " + buffer.remaining() + " bytes]");
 
                         if (buffer.remaining() == 0) {
@@ -309,14 +293,22 @@ public class SEMPort {
                             //System.out.println();
                         }
 
-                        lastBytes = bytes + 28;
+                        lastBytes = bytes + 24;
 
                         Console.printOn();
                         break;
 
                     case "EPS_SEM_ENDFRAME":
                         Console.println();
-                        Console.print("End of frame. Send time: ");
+                        Console.print("End of frame. Max line adc time: ");
+                        while (buffer.remaining() < 2) {
+                            buffer.position(0);
+                            buffer.limit(2);
+                            n = channel.read(buffer);
+                            buffer.position(0);
+                            //System.out.print("[read " + n + "bytes]");
+                        }
+                        Console.print(Short.toUnsignedInt(buffer.getShort()) + "us, frame send time: ");
                         while (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
