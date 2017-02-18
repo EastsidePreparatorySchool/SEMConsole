@@ -35,9 +35,9 @@ public class SEMThread extends Thread {
                     if (s.equals("Finished")) {
                         break;
                     }
-                    if (this.isInterrupted()) {
-                        break;
-                    }
+                }
+                if (this.isInterrupted()) {
+                    break;
                 }
             }
         } catch (Exception e) {

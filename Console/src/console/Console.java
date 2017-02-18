@@ -106,8 +106,8 @@ public class Console extends Application {
             this.aViews[i] = new ImageView();
             this.aViews[i].setSmooth(true);
             this.aViews[i].setCache(true);
-            this.aViews[i].setFitHeight(270);
-            this.aViews[i].setFitWidth(360);
+            this.aViews[i].setFitHeight(360);
+            this.aViews[i].setFitWidth(480);
         }
 
         HBox hb = new HBox();
