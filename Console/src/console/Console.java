@@ -7,6 +7,9 @@ package console;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -22,6 +25,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.TilePane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javax.imageio.ImageIO;
@@ -35,17 +40,14 @@ public class Console extends Application {
     private static SEMThread semThread;
     private Pane root;
     private HBox top;
-    private ImageView view;
+    private ImageView[] aViews;
     private LinkedTransferQueue<SEMImage> ltq;
     private ArrayList<SEMImage> currentImages;
-    private int currentImage = 0;
-    private int currentChannel = 0;
     private Button btn;
     private Text txt;
     private Scene scene;
     private Stage stage;
     private BorderPane bp;
-    private boolean fullScreen = false;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -71,11 +73,10 @@ public class Console extends Application {
 
         Button btn2 = new Button("Full screen");
         btn2.setOnAction((ActionEvent event) -> {
-        
+
             primaryStage.setFullScreenExitHint("Press any key to exit full screen mode");
             primaryStage.setFullScreenExitKeyCombination(null);
             primaryStage.setFullScreen(true);
- 
 
         }
         );
@@ -93,113 +94,72 @@ public class Console extends Application {
         bp.setTop(top);
         cp = new ConsolePane();
 
-        cp.setPrefWidth(960);
+        cp.setPrefWidth(740);
         BorderPane.setAlignment(cp, Pos.CENTER);
 
         BorderPane.setMargin(cp, new Insets(10, 8, 10, 8));
         bp.setBottom(cp);
 
-        // placeholder for img
-        StackPane sp = new StackPane();
-        sp = new StackPane();
+        // img
+        this.aViews = new ImageView[4];
+        for (int i = 0; i < 4; i++) {
+            this.aViews[i] = new ImageView();
+            this.aViews[i].setSmooth(true);
+            this.aViews[i].setCache(true);
+            this.aViews[i].setFitHeight(270);
+            this.aViews[i].setFitWidth(360);
+        }
 
-        BorderPane.setAlignment(sp, Pos.CENTER);
-        //BorderPane.setMargin(sp, new Insets(10, 8, 10, 8));
+        HBox hb = new HBox();
+        VBox vbLeft = new VBox();
+        vbLeft.setPadding(new Insets(10, 8, 10, 8));
+        VBox vbRight = new VBox();
+        vbRight.setPadding(new Insets(10, 8, 10, 8));
+        vbLeft.getChildren().addAll(this.aViews[0], this.aViews[1]);
+        vbRight.getChildren().addAll(this.aViews[2], this.aViews[3]);
+        hb.getChildren().addAll(vbLeft, vbRight);
 
-        sp.setMinHeight(540);
-        sp.setPrefHeight(540);
-
-        bp.setCenter(sp);
+        bp.setCenter(hb);
+        BorderPane.setAlignment(hb, Pos.CENTER);
+        BorderPane.setMargin(hb, new Insets(10, 8, 10, 8));
 
         this.scene = new Scene(bp);
         primaryStage.setScene(scene);
         primaryStage.show();
     }
 
-    private void displayImage(WritableImage img) {
-        // if old view is here, remove from display
-        if (this.view != null) {
-            this.bp.setCenter(null);
-            this.view = null;
-        }
-
-        // no imag? get out!
-        if (img == null) {
-            return;
-        }
-
-        int width = (int) img.getWidth();
-        int height = (int) img.getHeight();
-
-        this.view = new ImageView(img);
-        //this.view.setPreserveRatio(true);
-        this.view.setFitWidth(720);
-        this.view.setFitHeight(540);
-        this.view.setSmooth(true);
-        this.view.setCache(true);
-        this.view.setOnMouseClicked((e) -> {
-            this.displayNextImage();
-        });
-        this.view.fitWidthProperty().bind(this.scene.widthProperty());
-
-        this.bp.setCenter(this.view);
-
-    }
-
-    private void displayNextImage() {
-        // todo: this will crash if a channel is not occupied with an image
-
-        if (this.currentImages == null || this.currentImages.isEmpty()) {
-            displayImage(null);
-            return;
-        }
-
-        if (this.currentImage >= this.currentImages.size()) {
-            this.currentImage = 0;
-            this.currentChannel = 0;
-        }
-
-        SEMImage si = this.currentImages.get(this.currentImage);
-        if (this.currentChannel >= si.channels) {
-            this.currentChannel = 0;
-            this.currentImage++;
-        }
-
-        if (this.currentImage >= this.currentImages.size()) {
-            this.currentImage = 0;
-            this.currentChannel = 0;
-        }
-
-        displayImage(this.currentImages.get(this.currentImage).images[this.currentChannel]);
-        txt.setText(channelText(this.currentImages.get(this.currentImage).width,
-                this.currentImages.get(this.currentImage).height,
-                this.currentImages.get(this.currentImage).capturedChannels[currentChannel]));
-        this.currentChannel++;
-    }
-
     private void updateDisplay() {
-        if (!this.ltq.isEmpty()) {
-            this.bp.setCenter(null);
-            this.currentImages = new ArrayList<>();
-            ltq.drainTo(this.currentImages);
-            Console.println("[Console: Received " + this.currentImages.size() + " image"
-                    + (this.currentImages.size() == 1 ? "" : "s") + "]");
-            this.currentImage = 0;
-            this.currentChannel = 0;
-
-            displayNextImage();
-            this.btn.setText("Scan again");
-            this.btn.arm();
+        if (this.ltq.isEmpty()) {
+            return;
         }
+
+        this.currentImages = new ArrayList<>();
+        ltq.drainTo(this.currentImages);
+        Console.println("[Console: Received " + this.currentImages.size() + " image"
+                + (this.currentImages.size() == 1 ? "" : "s") + "]");
+
+        // get last set of images
+        SEMImage si = this.currentImages.get(this.currentImages.size() - 1);
+
+        // set absent channel images to empty
+        List cc = new ArrayList();
+        Collections.addAll(cc, si.capturedChannels);
+        for (int i = 0; i < 4; i++) {
+            if (!cc.contains(i)) {
+                this.aViews[i].setImage(null);
+            }
+        }
+
+        // put the images in place
+        for (int i = 0; i < si.channels; i++) {
+            this.aViews[si.capturedChannels[i]].setImage(si.images[i]);
+
+        }
+
     }
 
     private void startSEMThread() {
         // remove currently displayed image
-        txt.setText("Scanning ...");
-        btn.disarm();
-        this.currentImages = null;
-        displayNextImage();
-
         // stop any existing SEM thread
         if (semThread != null) {
             semThread.interrupt();
@@ -240,14 +200,14 @@ public class Console extends Application {
     public void saveFile() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save Image");
-        System.out.println(view.getId());
+        System.out.println(this.aViews[0].getId());
         File file = fileChooser.showSaveDialog(stage);
         if (file != null) {
             try {
                 if (!file.getName().toLowerCase().endsWith("png")) {
                     // TODO: create new file object with added extension
                 }
-                ImageIO.write(SwingFXUtils.fromFXImage(view.getImage(), null), "png", file);
+                ImageIO.write(SwingFXUtils.fromFXImage(this.aViews[0].getImage(), null), "png", file);
                 Console.println("Image written to " + file.getName());
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());

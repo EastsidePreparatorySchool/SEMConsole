@@ -343,7 +343,6 @@ public class SEMPort {
                         return "Finished";
                 }
                 buffer.position(0);
-
             }
         } catch (Exception e) {
             Console.println(e.toString());

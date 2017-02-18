@@ -12,7 +12,7 @@ import java.util.concurrent.LinkedTransferQueue;
  * @author gmein
  */
 public class SEMThread extends Thread {
-    
+
     LinkedTransferQueue<SEMImage> ltq;
     Runnable update;
 
@@ -33,6 +33,9 @@ public class SEMThread extends Thread {
                 String s = semport.peekMessage(this.ltq, this.update);
                 if (s != null) {
                     if (s.equals("Finished")) {
+                        break;
+                    }
+                    if (this.isInterrupted()) {
                         break;
                     }
                 }

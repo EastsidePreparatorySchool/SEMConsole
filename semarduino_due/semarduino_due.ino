@@ -336,10 +336,8 @@ void initializeADC() {
   // prescale : 0x00 -> 40 Mhz
 
   ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out. 
-  if (g_pCurrentRes->numChannels == 1) { //todo: this block maybe should not be here, tagging might be good in all cases
-    ADC->ADC_MR |=0x80000000;   // high bit indicates to use sequence numbers
-    ADC->ADC_EMR |= (1<<24);    // turn on channel numbers
-  }
+  ADC->ADC_MR |=0x80000000;     // high bit indicates to use sequence numbers
+  ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
   switch (g_pCurrentRes->numChannels) {
