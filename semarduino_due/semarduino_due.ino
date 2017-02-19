@@ -83,8 +83,8 @@ uint16_t writeBuffer[BUFFER_LENGTH];
 volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
 
-
-
+#define MAX_ERRORS  50
+#define USB_TIMEOUT 50
 
 
 
@@ -111,27 +111,30 @@ void blinkBuiltInLED(int n) {
 
 
 void setup() {
-  // start USB
+    // start USB
   SerialUSB.begin(0); 
 
   // set up built-in blink LED, custom led, pushButton
   pinMode (builtInLEDPin, OUTPUT);
-
-  // visual signal that we are alive
-  blinkBuiltInLED(1);
 }
 
 
 
 void loop() {
+  // visual signal that we are alive
+  blinkBuiltInLED(1);
+  
   int n;
   byte buffer[16];
+
+  //digitalWrite(builtInLEDPin, HIGH);
+
   // wait for USB connect command from host
   do {
     do {
       // wait for any request
       do {
-        delay(20); 
+        delayMicroseconds(20); 
         n = SerialUSB.available();
       } while (n == 0);
 
@@ -139,7 +142,12 @@ void loop() {
       // read the request
       for (int i = 0; i<n; i++) {
          buffer[i] = SerialUSB.read();
-       }
+      }
+
+      // read any extra bytes
+      while (SerialUSB.available()) {
+        SerialUSB.read();   
+      }
     } while (n != COMMAND_BYTES);
    } while (memcmp(buffer, headerConnect, COMMAND_BYTES) != 0);
   
@@ -147,6 +155,8 @@ void loop() {
   SerialUSB.write(headerReady, 16);
   SerialUSB.flush();
   blinkBuiltInLED(2);  
+  
+  //digitalWrite(builtInLEDPin, LOW);
 
 
   //
@@ -210,7 +220,7 @@ void loop() {
         
         // wait for response
         long wait = micros();
-        long acceptable = wait + 200000;
+        long acceptable = wait + (USB_TIMEOUT);
         while (SerialUSB.available() == 0 && wait<acceptable) {
           delayMicroseconds(10);
           wait = micros();
@@ -223,13 +233,16 @@ void loop() {
         o = SerialUSB.read();   
         k = SerialUSB.read();
         
-        if (o == 'O' && k == 'K')
+        if (o == 'O' && k == 'K') // ok, on to next lines
           break;
           
-        if (o == 'N' && k == 'G') 
+        if (o == 'N' && k == 'G') // no good, retry sending the line
           continue;
+
+        //if (o == 'E' && k == 'P') // different command, things are messed up, reset
+        //  goto reset;
       };
-      if (errorCount == 10)
+      if (errorCount >= MAX_ERRORS)
         goto reset;
              
       line++;
@@ -243,7 +256,8 @@ void loop() {
   while(SerialUSB.available()) {
     SerialUSB.read();
   }
-  SerialUSB.write(headerReset, 16);   
+  SerialUSB.write(headerReset, 16);
+  free(g_pbp);
   
   // send more frames, or 
   // continue loop function by waiting for new connection

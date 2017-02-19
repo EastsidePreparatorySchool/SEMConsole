@@ -22,7 +22,7 @@ import javafx.scene.layout.VBox;
  *
  * @author gmein, stolen from StackOverflow member skiwi
  */
-public class ConsolePane extends VBox{
+public class ConsolePane extends VBox {
 
     private final TextArea textArea = new TextArea();
     private final TextField textField = new TextField();
@@ -40,7 +40,7 @@ public class ConsolePane extends VBox{
         textField.setStyle("-fx-background-color: black; -fx-text-fill: red;");
         this.setStyle("-fx-background-color: black;");
         textArea.setPrefRowCount(3);
-        
+
         this.getChildren().addAll(textArea, textField);
 
         this.textField.addEventHandler(KeyEvent.KEY_RELEASED, keyEvent -> {
@@ -79,7 +79,9 @@ public class ConsolePane extends VBox{
                     break;
             }
         });
-        
+
+        this.setPadding(new Insets(4, 4, 4, 4));
+
     }
 
     @Override
@@ -115,7 +117,6 @@ public class ConsolePane extends VBox{
         runSafe(() -> textArea.appendText(System.lineSeparator()));
     }
 
-    
     public static void runSafe(final Runnable runnable) {
         Objects.requireNonNull(runnable, "runnable");
         if (Platform.isFxApplicationThread()) {

@@ -26,6 +26,7 @@ public class SEMPort {
     int lastBytes = 0;
 
     int[] rawMultiChannelBuffer;
+    int proposedBytes;
     SEMImage si;
 
     SEMPort() {
@@ -68,31 +69,35 @@ public class SEMPort {
                 buffer = ByteBuffer.allocateDirect(1000000);
                 buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-                ByteBuffer target = ByteBuffer.wrap("EPS_SEM_READY...".getBytes(StandardCharsets.UTF_8));
                 ByteBuffer command = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
 
-                //for (int count = 0; count < 30; count++) {
-                // ask the port whether our SEM is listening on the other side
-                channel.write(command);
+                for (int i = 0; i < 20; i++) {
+                    // ask the port whether our SEM is listening on the other side
+                    channel.write(command);
 
-                int n = channel.read(buffer);
-                //System.out.println("[read " + n + "bytes]");
-                if (n != 0) {
-                    buffer.position(0);
-                    byte[] ab = new byte[16];
-                    buffer.get(ab);
-                    String result = new String(ab);
-                    if (result.equals("EPS_SEM_READY...")) {
-                        return;
+                    int n = channel.read(buffer);
+                    if (n != 0) {
+                        buffer.position(0);
+                        byte[] ab = new byte[16];
+                        buffer.get(ab);
+                        String result = new String(ab);
+                        if (result.equals("EPS_SEM_READY...")) {
+                            return;
+                        } else {
+                            Console.println("Wrong answer.");
+                        }
+                    } else {
+                        Console.println("No answer.");
                     }
+                    Thread.sleep(50);
                 }
-
             } catch (Exception e) {
                 Console.println(e.toString());
 
             }
             if (port != null) {
                 port.close();
+                port = null;
             }
             Console.println("Next port");
         }
@@ -106,6 +111,7 @@ public class SEMPort {
             //istream.close();
             if (this.port != null) {
                 port.close();
+                this.port = null;
             }
             name = "";
         } catch (Exception e) {
@@ -174,6 +180,7 @@ public class SEMPort {
                                 Console.print(capturedChannels[i] + " ");
                             }
                         }
+                        this.proposedBytes = channelCount * width * 2;
 
                         // allocate buffer and image
                         rawMultiChannelBuffer = new int[channelCount * width];
@@ -241,11 +248,28 @@ public class SEMPort {
                         // read line bytes
                         checkSum = bytes + line;
                         //System.out.print("[buffer remaining " + buffer.remaining() + " bytes]");
+                        if (bytes != this.proposedBytes) {
+                            channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+                            numErrors++;
+                            Console.print("-");
+                            dotCounter++;
+
+                            return null;
+                        }
 
                         if (buffer.remaining() == 0) {
                             buffer.position(0);
                             buffer.limit(bytes);
                             n = channel.read(buffer);
+                            if (n != this.proposedBytes) {
+                                channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+                                numErrors++;
+                                Console.print("-");
+                                dotCounter++;
+
+                                return null;
+                            }
+
                             //System.out.print("[read " + n + "bytes]");
                             buffer.position(0);
                         }
@@ -343,12 +367,16 @@ public class SEMPort {
                         return "Finished";
                 }
                 buffer.position(0);
+            } else {  //  if n is 0:
+                // TODO: anything to do here? we timed out.
             }
         } catch (Exception e) {
-            Console.println(e.toString());
+
+            System.out.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {
-                Console.println(s.toString());
+                System.out.println(s.toString());
             }
+
         }
 
         return result;

@@ -16,6 +16,7 @@ import javafx.stage.Stage;
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.image.Image;
@@ -27,6 +28,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
+import javafx.stage.StageStyle;
 import javax.imageio.ImageIO;
 
 /**
@@ -38,6 +40,7 @@ public class Console extends Application {
     private static SEMThread semThread;
     private Pane root;
     private HBox top;
+    private int channels;
     private ImageView[] aViews;
     private StackPane[] aPanes;
     private StackPane masterPane;
@@ -50,6 +53,7 @@ public class Console extends Application {
     private Scene scene;
     private Stage stage;
     private BorderPane bp;
+    private Stage bigStage = null;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -73,15 +77,6 @@ public class Console extends Application {
         this.btn = new Button("Connect and scan");
         btn.setOnAction((event) -> startSEMThread());
 
-        Button btn2 = new Button("Full screen");
-        btn2.setOnAction((ActionEvent event) -> {
-
-            primaryStage.setFullScreenExitHint("Press any key to exit full screen mode");
-            primaryStage.setFullScreenExitKeyCombination(null);
-            primaryStage.setFullScreen(true);
-
-        }
-        );
         Button btn3 = new Button("Save as ...");
         btn3.setOnAction((event) -> saveFile());
 
@@ -92,28 +87,24 @@ public class Console extends Application {
         h.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, btn2, btn3);
+        top.getChildren().addAll(btn, h, btn3);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);
-        BorderPane.setAlignment(cp, Pos.CENTER);
-
-        BorderPane.setMargin(cp, new Insets(10, 8, 10, 8));
-        bp.setBottom(cp);
 
         //panes
         this.aPanes = new StackPane[4];
         for (int i = 0; i < 4; i++) {
             this.aPanes[i] = new StackPane();
-            this.aPanes[i].setPadding(new Insets(8, 8, 8, 8));
+            this.aPanes[i].setPadding(new Insets(4, 4, 4, 4));
         }
         this.masterPane = new StackPane();
-        this.masterPane.setPadding(new Insets(8, 8, 8, 8));
+        //this.masterPane.setPadding(new Insets(8, 8, 8, 8));
 
         this.left = new StackPane();
-        this.left.setPadding(new Insets(8, 8, 8, 8));
+        this.left.setPadding(new Insets(4, 4, 4, 4));
         this.right = new StackPane();
-        this.right.setPadding(new Insets(8, 8, 8, 8));
+        this.right.setPadding(new Insets(4, 4, 4, 4));
 
         // img
         this.aViews = new ImageView[4];
@@ -125,30 +116,32 @@ public class Console extends Application {
             //this.aViews[i].setFitWidth(480);
             this.aPanes[i].getChildren().add(this.aViews[i]);
             final int lambdaParam = i;
-            this.aViews[i].setOnMouseClicked((e) -> toggleImage(lambdaParam));
+            this.aViews[i].setOnMouseClicked((e) -> toggleImage(e, lambdaParam));
         }
 
-        HBox hb = new HBox();
-        VBox vbLeft = new VBox();
-        VBox vbRight = new VBox();
-        vbLeft.getChildren().addAll(this.aPanes[0], this.aPanes[1]);
-        vbRight.getChildren().addAll(this.aPanes[2], this.aPanes[3]);
-        hb.getChildren().addAll(vbLeft, vbRight);
-        masterPane.getChildren().add(hb);
+        HBox hbUp = new HBox();
+        HBox hbDown = new HBox();
+        VBox vb = new VBox();
+        hbUp.getChildren().addAll(this.aPanes[0], this.aPanes[1]);
+        hbDown.getChildren().addAll(this.aPanes[2], this.aPanes[3]);
+        vb.getChildren().addAll(hbUp, hbDown);
+        masterPane.getChildren().add(vb);
+        masterPane.setAlignment(vb, Pos.CENTER);
 
-        bp.setLeft(left);
-        bp.setRight(right);
-        bp.setCenter(masterPane);
-        BorderPane.setAlignment(hb, Pos.CENTER);
+        bp.setBottom(this.cp);
+        bp.setAlignment(this.cp, Pos.CENTER);
+        bp.setLeft(this.left);
+        bp.setRight(this.right);
+        bp.setCenter(this.masterPane);
+        bp.setAlignment(this.masterPane, Pos.CENTER);
 
         this.scene = new Scene(bp, 1200, 900);
         primaryStage.setScene(scene);
+        primaryStage.setMaximized(true);
         primaryStage.show();
 
         for (int i = 0; i < 4; i++) {
-            aViews[i].fitHeightProperty().bind(this.stage.heightProperty().subtract(300).divide(2));
-            aViews[i].fitWidthProperty().bind(this.stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
-
+            setSizeNormal(aViews[i], i);
         }
     }
 
@@ -166,20 +159,22 @@ public class Console extends Application {
         SEMImage si = this.currentImages.get(this.currentImages.size() - 1);
 
         // set absent channel images to empty
-        List cc = new ArrayList();
-        Collections.addAll(cc, si.capturedChannels);
-        for (int i = 0; i < 4; i++) {
-            if (!cc.contains(i)) {
+        if (si.channels < 4) {
+            for (int i = si.channels; i < 4; i++) {
                 this.aViews[i].setImage(null);
             }
         }
 
         // put the images in place
         for (int i = 0; i < si.channels; i++) {
-            this.aViews[si.capturedChannels[i]].setImage(si.images[i]);
+            this.aViews[i].setImage(si.images[i]);
 
         }
 
+        this.channels = si.channels;
+        for (int i = 0; i < 4; i++) {
+            setSizeNormal(aViews[i], i);
+        }
     }
 
     private void startSEMThread() {
@@ -200,22 +195,64 @@ public class Console extends Application {
         semThread.start();
     }
 
-    private void toggleImage(int image) {
+    private void setSizeNormal(ImageView iv, int channel) {
+        if (this.channels == 2) {
+            if (channel < 2) {
+                iv.fitHeightProperty().bind(this.stage.widthProperty().subtract(70).multiply(3).divide(8));
+                iv.fitWidthProperty().bind(this.stage.widthProperty().subtract(70).divide(2));
+            } else {
+                iv.fitHeightProperty().unbind();
+                iv.fitWidthProperty().unbind();
+                iv.setFitWidth(0);
+                iv.setFitHeight(0);
+            }
+        } else if (this.channels == 1) {
+            if (channel < 1) {
+                iv.fitHeightProperty().bind(this.stage.heightProperty().subtract(260));
+                iv.fitWidthProperty().bind(this.stage.heightProperty().subtract(260).multiply(4).divide(3));
+            } else {
+                iv.fitHeightProperty().unbind();
+                iv.fitWidthProperty().unbind();
+                iv.setFitWidth(0);
+                iv.setFitHeight(0);
+            }
+        } else {
+            iv.fitHeightProperty().bind(this.stage.heightProperty().subtract(260).divide(2));
+            iv.fitWidthProperty().bind(this.stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
+        }
+    }
+
+    private void toggleImage(Event ev, int image) {
         ImageView view = this.aViews[image];
         List smallPane = this.aPanes[image].getChildren();
         List bigPane = this.masterPane.getChildren();
 
-        if (smallPane.size() > 0) {
-            smallPane.remove(view);
-            bigPane.add(view);
-            view.fitHeightProperty().bind(this.stage.heightProperty().subtract(300));
-            view.fitWidthProperty().bind(this.stage.widthProperty().subtract(60));
+        if (this.bigStage == null) {
+            //Console.println("Going large " + ev.toString());
+            ImageView bigView = new ImageView(view.getImage());
+            //bigView.setOnMouseClicked((e) -> toggleImage(e, image));
+            StackPane sp = new StackPane();
+            sp.getChildren().addAll(bigView);
+            this.bigStage = new Stage(StageStyle.UNDECORATED);
+            Scene sc = new Scene(sp);
+            sc.setOnMouseClicked((e) -> {
+                toggleImage(e, image);
+                e.consume();
+            });
+            sc.setOnKeyTyped((e) -> {
+                toggleImage(e, image);
+                e.consume();
+            });
+            this.bigStage.setScene(sc);
+            this.bigStage.setFullScreen(true);
+            bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
+            bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
+            this.bigStage.show();
         } else {
-            bigPane.remove(view);
-            smallPane.add(view);
-            view.fitHeightProperty().bind(this.stage.heightProperty().subtract(300).divide(2));
-            view.fitWidthProperty().bind(this.stage.widthProperty().subtract(60).divide(2));
+            //Console.println("Going small " + ev.toString());
 
+            this.bigStage.close();
+            this.bigStage = null;
         }
     }
 

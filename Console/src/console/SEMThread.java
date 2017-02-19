@@ -39,6 +39,7 @@ public class SEMThread extends Thread {
                 if (this.isInterrupted()) {
                     break;
                 }
+                Thread.yield();
             }
         } catch (Exception e) {
             Console.println(e.toString());
