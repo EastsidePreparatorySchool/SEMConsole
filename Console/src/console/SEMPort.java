@@ -84,7 +84,7 @@ public class SEMPort {
                         if (result.equals("EPS_SEM_READY...")) {
                             return;
                         } else {
-                            Console.println("Wrong answer.");
+                            Console.println("Wrong answer: 0x" + Integer.toHexString(ab[0]) + " 0x" + Integer.toHexString(ab[0]));
                         }
                     } else {
                         Console.println("No answer.");

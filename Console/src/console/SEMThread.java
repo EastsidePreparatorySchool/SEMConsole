@@ -29,17 +29,14 @@ public class SEMThread extends Thread {
             semport.initialize();
             //semport.test();
             Console.println("SEM Port Initialized");
-            while (true) {
+            while (!this.isInterrupted()) {
                 String s = semport.peekMessage(this.ltq, this.update);
                 if (s != null) {
                     if (s.equals("Finished")) {
                         break;
                     }
                 }
-                if (this.isInterrupted()) {
-                    break;
-                }
-                Thread.yield();
+                //Thread.yield();
             }
         } catch (Exception e) {
             Console.println(e.toString());

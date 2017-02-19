@@ -140,9 +140,7 @@ void loop() {
 
 
       // read the request
-      for (int i = 0; i<n; i++) {
-         buffer[i] = SerialUSB.read();
-      }
+      SerialUSB.readBytes(buffer, 16);
 
       // read any extra bytes
       while (SerialUSB.available()) {
