@@ -7,7 +7,6 @@ package console;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
@@ -19,13 +18,12 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
@@ -41,6 +39,10 @@ public class Console extends Application {
     private Pane root;
     private HBox top;
     private ImageView[] aViews;
+    private StackPane[] aPanes;
+    private StackPane masterPane;
+    private StackPane left;
+    private StackPane right;
     private LinkedTransferQueue<SEMImage> ltq;
     private ArrayList<SEMImage> currentImages;
     private Button btn;
@@ -93,12 +95,25 @@ public class Console extends Application {
         top.getChildren().addAll(btn, h, btn2, btn3);
         bp.setTop(top);
         cp = new ConsolePane();
-
         cp.setPrefWidth(740);
         BorderPane.setAlignment(cp, Pos.CENTER);
 
         BorderPane.setMargin(cp, new Insets(10, 8, 10, 8));
         bp.setBottom(cp);
+
+        //panes
+        this.aPanes = new StackPane[4];
+        for (int i = 0; i < 4; i++) {
+            this.aPanes[i] = new StackPane();
+            this.aPanes[i].setPadding(new Insets(8, 8, 8, 8));
+        }
+        this.masterPane = new StackPane();
+        this.masterPane.setPadding(new Insets(8, 8, 8, 8));
+
+        this.left = new StackPane();
+        this.left.setPadding(new Insets(8, 8, 8, 8));
+        this.right = new StackPane();
+        this.right.setPadding(new Insets(8, 8, 8, 8));
 
         // img
         this.aViews = new ImageView[4];
@@ -106,26 +121,35 @@ public class Console extends Application {
             this.aViews[i] = new ImageView();
             this.aViews[i].setSmooth(true);
             this.aViews[i].setCache(true);
-            this.aViews[i].setFitHeight(360);
-            this.aViews[i].setFitWidth(480);
+            //this.aViews[i].setFitHeight(360);
+            //this.aViews[i].setFitWidth(480);
+            this.aPanes[i].getChildren().add(this.aViews[i]);
+            final int lambdaParam = i;
+            this.aViews[i].setOnMouseClicked((e) -> toggleImage(lambdaParam));
         }
 
         HBox hb = new HBox();
         VBox vbLeft = new VBox();
-        vbLeft.setPadding(new Insets(10, 8, 10, 8));
         VBox vbRight = new VBox();
-        vbRight.setPadding(new Insets(10, 8, 10, 8));
-        vbLeft.getChildren().addAll(this.aViews[0], this.aViews[1]);
-        vbRight.getChildren().addAll(this.aViews[2], this.aViews[3]);
+        vbLeft.getChildren().addAll(this.aPanes[0], this.aPanes[1]);
+        vbRight.getChildren().addAll(this.aPanes[2], this.aPanes[3]);
         hb.getChildren().addAll(vbLeft, vbRight);
+        masterPane.getChildren().add(hb);
 
-        bp.setCenter(hb);
+        bp.setLeft(left);
+        bp.setRight(right);
+        bp.setCenter(masterPane);
         BorderPane.setAlignment(hb, Pos.CENTER);
-        BorderPane.setMargin(hb, new Insets(10, 8, 10, 8));
 
-        this.scene = new Scene(bp);
+        this.scene = new Scene(bp, 1200, 900);
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        for (int i = 0; i < 4; i++) {
+            aViews[i].fitHeightProperty().bind(this.stage.heightProperty().subtract(300).divide(2));
+            aViews[i].fitWidthProperty().bind(this.stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
+
+        }
     }
 
     private void updateDisplay() {
@@ -174,7 +198,25 @@ public class Console extends Application {
             updateDisplay();
         });
         semThread.start();
+    }
 
+    private void toggleImage(int image) {
+        ImageView view = this.aViews[image];
+        List smallPane = this.aPanes[image].getChildren();
+        List bigPane = this.masterPane.getChildren();
+
+        if (smallPane.size() > 0) {
+            smallPane.remove(view);
+            bigPane.add(view);
+            view.fitHeightProperty().bind(this.stage.heightProperty().subtract(300));
+            view.fitWidthProperty().bind(this.stage.widthProperty().subtract(60));
+        } else {
+            bigPane.remove(view);
+            smallPane.add(view);
+            view.fitHeightProperty().bind(this.stage.heightProperty().subtract(300).divide(2));
+            view.fitWidthProperty().bind(this.stage.widthProperty().subtract(60).divide(2));
+
+        }
     }
 
     String channelText(int width, int height, int channel) {

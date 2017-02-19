@@ -205,18 +205,19 @@ void loop() {
   
       // send the line until it gets through
       int errorCount;
-      for (errorCount = 0; errorCount < 10; errorCount++) {
+      for (errorCount = 0; errorCount < 50; errorCount++) {
         SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
         
         // wait for response
-        int wait = micros();
-        int acceptable = wait + 100000;
+        long wait = micros();
+        long acceptable = wait + 200000;
         while (SerialUSB.available() == 0 && wait<acceptable) {
+          delayMicroseconds(10);
           wait = micros();
         }
         
         if (wait >= acceptable)
-          goto reset;
+          continue;
         
         // read two bytes of response, either "OK" or "NG"
         o = SerialUSB.read();   
@@ -239,6 +240,9 @@ void loop() {
   }
 
   reset:
+  while(SerialUSB.available()) {
+    SerialUSB.read();
+  }
   SerialUSB.write(headerReset, 16);   
   
   // send more frames, or 
