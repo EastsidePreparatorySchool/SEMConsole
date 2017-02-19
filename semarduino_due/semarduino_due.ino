@@ -110,25 +110,39 @@ void blinkBuiltInLED(int n) {
 }
 
 
+//
+// software reset
+//
+
+void reset() {
+  #define SYSRESETREQ     (1<<2)
+  #define VECTKEY         (0x05fa0000UL)
+  #define VECTKEY_MASK    (0x0000ffffUL)
+  #define AIRCR           (*(uint32_t*)0xe000ed0cUL)
+
+  while(SerialUSB.available()) {
+    SerialUSB.read();
+  }
+  SerialUSB.write(headerReset, 16);
+  delay(100);
+  
+  (AIRCR=(AIRCR&VECTKEY_MASK)|VECTKEY|SYSRESETREQ);
+}
+
+
 void setup() {
     // start USB
   SerialUSB.begin(0); 
 
   // set up built-in blink LED, custom led, pushButton
   pinMode (builtInLEDPin, OUTPUT);
-}
-
-
-
-void loop() {
   // visual signal that we are alive
   blinkBuiltInLED(1);
   
   int n;
   byte buffer[16];
 
-  //digitalWrite(builtInLEDPin, HIGH);
-
+ 
   // wait for USB connect command from host
   do {
     do {
@@ -153,19 +167,21 @@ void loop() {
   SerialUSB.write(headerReady, 16);
   SerialUSB.flush();
   blinkBuiltInLED(2);  
-  
-  //digitalWrite(builtInLEDPin, LOW);
+}
 
 
+
+void loop() {
+  bool fReset = false;
   //
   // test:
   // transmit NUM_LINES ADC runs (lines)
   //
 
   g_pCurrentRes = &g_allRes[g_mode];
-  initializeADC();
   int bytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
   int lineBufferSize = setupLineBuffers();
+  initializeADC();
   
 
   int frames = FRAMES_PER_TEST;
@@ -177,8 +193,7 @@ void loop() {
     
     int frameTime = millis();
     int line = 0;
-    int lineTime = 0;
-    char o,k;
+    int lineScanTime = 0;
   
     startADC();
     for (long i = 0; i < numLines; i++) {
@@ -193,75 +208,87 @@ void loop() {
   
       // put the line somewhere safe from adc, just past the params header:
       memcpy(&g_pbp[1], adcBuffer[currentBuffer], bytes);
-      lineTime = max(lineTime, g_adcLineTime);
+      lineScanTime = max(lineScanTime, g_adcLineTime);
       currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
   
       // restart conversions TODO: This needs to be HSync triggered
+        startADC();
   
-      startADC();
-  
-      // compute checkSum
-      long checkSum = 0;
-      uint16_t *pWord = (uint16_t *)&g_pbp[1];
-      for (int i=0; i<bytes/2; i++) {
-        checkSum += *pWord++;
-      }
-      
-      g_pbp->checkSum = checkSum + line + bytes;
-      g_pbp->line = line;
-      g_pbp->bytes = bytes;
-  
-      // send the line until it gets through
-      int errorCount;
-      for (errorCount = 0; errorCount < 50; errorCount++) {
-        SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-        
-        // wait for response
-        long wait = micros();
-        long acceptable = wait + (USB_TIMEOUT);
-        while (SerialUSB.available() == 0 && wait<acceptable) {
-          delayMicroseconds(10);
-          wait = micros();
-        }
-        
-        if (wait >= acceptable)
-          continue;
-        
-        // read two bytes of response, either "OK" or "NG"
-        o = SerialUSB.read();   
-        k = SerialUSB.read();
-        
-        if (o == 'O' && k == 'K') // ok, on to next lines
-          break;
-          
-        if (o == 'N' && k == 'G') // no good, retry sending the line
-          continue;
+      // compute check sum and fill in line and bytes
+      computeCheckSum(line, bytes);
 
-        if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
-          goto reset;
-      };
-      if (errorCount >= MAX_ERRORS)
-        goto reset;
-             
+      // try to send the line, if things go wrong too often, reset.
+      if (!sendLine(bytes)) {
+        reset();
+      }
+                
       line++;
     }
+
     frameTime = millis() - frameTime;
-    sendEndFrame (lineTime, frameTime);
-    
+    sendEndFrame (lineScanTime, frameTime);
   }
 
-  reset:
-  while(SerialUSB.available()) {
-    SerialUSB.read();
-  }
-  SerialUSB.write(headerReset, 16);
-  free(g_pbp);
+  freeLineBuffers();
   
   // send more frames, or 
-  // continue loop function by waiting for new connection
-
-  // test: switch to other setting
+  // test: switch to other setting todo: get rid of this
   g_mode = (g_mode + 1) % NUM_MODES;
+}
+
+
+void computeCheckSum(int line, int bytes) {
+  // compute checkSum
+  long checkSum = 0;
+  uint16_t *pWord = (uint16_t *)&g_pbp[1];
+  for (int i=0; i<bytes/2; i++) {
+    checkSum += *pWord++;
+  }
+  
+  g_pbp->checkSum = checkSum + line + bytes;
+  g_pbp->line = line;
+  g_pbp->bytes = bytes;
+}
+
+
+bool sendLine(int bytes) {
+    // send the line until it gets through
+    int errorCount;
+    char o,k;
+    
+    for (errorCount = 0; errorCount < 50; errorCount++) {
+      SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+      
+      // wait for response
+      long wait = micros();
+      long acceptable = wait + (USB_TIMEOUT);
+      while (SerialUSB.available() == 0 && wait<acceptable) {
+        delayMicroseconds(10);
+        wait = micros();
+      }
+      
+      if (wait >= acceptable)
+        continue;
+      
+      // process two bytes of response, either "OK" or "NG"
+      o = SerialUSB.read();   
+      k = SerialUSB.read();
+      
+      if (o == 'O' && k == 'K') // ok, on to next lines
+        break;
+        
+      if (o == 'N' && k == 'G') // no good, retry sending the line
+        continue;
+  
+      if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
+        return false;
+      
+    };
+    if (errorCount >= MAX_ERRORS) {
+      return false; // too many errors, reset
+    }
+    
+ return true;
 }
 
 
@@ -276,6 +303,13 @@ int setupLineBuffers() {
   return bufferSize;
 }
 
+
+void freeLineBuffers() {
+  if (g_pbp != NULL) {
+    free (g_pbp);
+    g_pbp = NULL;
+  }
+}
 
 void sendFrameHeader() {
   SerialUSB.write(headerFrame, 16);                     // send FRAME header
