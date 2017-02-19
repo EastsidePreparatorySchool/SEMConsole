@@ -13,8 +13,16 @@ import java.util.concurrent.LinkedTransferQueue;
  */
 public class SEMThread extends Thread {
 
-    LinkedTransferQueue<SEMImage> ltq;
-    Runnable update;
+    public enum Phase {
+        WAITING_TO_CONNECT,
+        WAITING_FOR_FRAME,
+        WAITING_FOR_BYTES_OR_EFRAME,
+        FINISHED,
+    }
+
+    private Phase phase = Phase.WAITING_TO_CONNECT;
+    private LinkedTransferQueue<SEMImage> ltq;
+    private Runnable update;
 
     SEMThread(LinkedTransferQueue<SEMImage> q, Runnable r) {
         this.ltq = q;
@@ -26,18 +34,20 @@ public class SEMThread extends Thread {
     public void run() {
         try {
             // TODO: clean this up, make it a proper message loop, keep it alive after frame complete
+            this.phase = Phase.WAITING_TO_CONNECT;
             semport.initialize();
-            //semport.test();
             Console.println("SEM Port Initialized");
-            while (!this.isInterrupted()) {
-                String s = semport.peekMessage(this.ltq, this.update);
-                if (s != null) {
-                    if (s.equals("Finished")) {
-                        break;
-                    }
+
+            // main loop waiting for FRAME or BYTES or EFRAME messages
+            this.phase = Phase.WAITING_FOR_FRAME;
+            while (!this.isInterrupted() && this.phase != Phase.FINISHED) {
+                this.phase = semport.processMessage(this.ltq, this.update, this.phase);
+                if (phase == Phase.WAITING_FOR_FRAME) {
+                    //Thread.sleep(50);
                 }
-                //Thread.yield();
             }
+
+        } catch (InterruptedException ie) {
         } catch (Exception e) {
             Console.println(e.toString());
         } finally {

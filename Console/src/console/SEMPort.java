@@ -14,6 +14,26 @@ import javafx.application.Platform;
 
 public class SEMPort {
 
+    public enum SEMError {
+        ERROR_WRONG_PHASE,
+        ERROR_BYTE_COUNT,
+        ERROR_VALUE,
+        ERROR_CHECK_SUM,
+        ERROR_UNKNOWN_COMMAND,
+        ERROR_OTHER
+
+    }
+
+    public class SEMException extends Exception {
+
+        SEMError error;
+
+        SEMException(SEMError error
+        ) {
+            this.error = error;
+        }
+    }
+
     String name = "";
     SerialPort port;
     OutputStream ostream;
@@ -107,8 +127,6 @@ public class SEMPort {
 
     void shutdown() {
         try {
-            //ostream.close();
-            //istream.close();
             if (this.port != null) {
                 port.close();
                 this.port = null;
@@ -118,8 +136,10 @@ public class SEMPort {
         }
     }
 
-    String peekMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda) {
-        String result = null;
+    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda, SEMThread.Phase phase) {
+        SEMThread.Phase result = phase;
+        String message;
+        byte[] ab;
         int checkSum = 0;
         int checkSumRead = 0;
         int lines = 100;
@@ -132,19 +152,22 @@ public class SEMPort {
             //System.out.println("[read " + n + "bytes]");
             if (n != 0) {
                 buffer.position(0);
-                byte[] ab = new byte[16];
+                ab = new byte[16];
                 buffer.get(ab);
-                result = new String(ab);
+                message = new String(ab);
                 //System.out.println(result);
 
-                switch (result) {
+                switch (message) {
                     case "EPS_SEM_RESET...":
                         Console.printOn();
                         Console.println("Reset");
-
-                        return "Finished";
+                        return SEMThread.Phase.FINISHED;
 
                     case "EPS_SEM_FRAME...":
+                        if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {
+                            throw new SEMException(SEMError.ERROR_WRONG_PHASE);
+                        }
+                        Console.printOn();
                         Console.print("Start of frame: ");
                         dotCounter = 0;
                         numErrors = 0;
@@ -157,7 +180,7 @@ public class SEMPort {
                         n = channel.read(buffer);
                         //System.out.print("[read " + n + "bytes]");
                         if (n != 16) {
-                            return null;
+                            throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                         }
                         buffer.flip();
 
@@ -185,9 +208,13 @@ public class SEMPort {
                         // allocate buffer and image
                         rawMultiChannelBuffer = new int[channelCount * width];
                         this.si = new SEMImage(channelCount, capturedChannels, width, height);
+                        result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         break;
 
                     case "EPS_SEM_BYTES...":
+                        if (phase != SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
+                            throw new SEMException(SEMError.ERROR_WRONG_PHASE);
+                        }
                         Console.printOff();
                         // read whole line if length known
                         if (lastBytes != 0) {
@@ -200,8 +227,7 @@ public class SEMPort {
                                 numErrors++;
                                 Console.print("-");
                                 dotCounter++;
-
-                                return null;
+                                throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                             }
                             buffer.flip();
                         }
@@ -217,7 +243,7 @@ public class SEMPort {
                         checkSumRead = buffer.getInt();
 
                         // read line number (unsigned short)
-                        while (buffer.remaining() < 2) {
+                        if (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
                             n = channel.read(buffer);
@@ -232,7 +258,7 @@ public class SEMPort {
                         }
 
                         // read byte count (unsigned short)
-                        while (buffer.remaining() < 2) {
+                        if (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
                             n = channel.read(buffer);
@@ -254,7 +280,7 @@ public class SEMPort {
                             Console.print("-");
                             dotCounter++;
 
-                            return null;
+                            throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                         }
 
                         if (buffer.remaining() == 0) {
@@ -267,7 +293,7 @@ public class SEMPort {
                                 Console.print("-");
                                 dotCounter++;
 
-                                return null;
+                                throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                             }
 
                             //System.out.print("[read " + n + "bytes]");
@@ -285,24 +311,18 @@ public class SEMPort {
                         }
 
                         if (checkSum != checkSumRead) {
-//                            System.out.println();
-//                            System.out.print("Line: " + line + ", wrong check sum: reported: ");
-//                            System.out.println(Integer.toHexString(checkSumRead) + ", actual: " + Integer.toHexString(checkSum));
-                            Console.printOn();
-                            Console.print("-");
-                            Console.printOff();
-                            channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
-                            numErrors++;
-                        } else {
-                            if (dotCounter % lines == 0) {
-                                Console.printOn();
-                                Console.print(".");
-                                Console.printOff();
-                            }
-                            channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
-                            numOKs++;
-                            this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
+                            throw new SEMException(SEMError.ERROR_CHECK_SUM);
                         }
+
+                        // print dot for successful lines, send "ok", process line
+                        if (++dotCounter % lines == 0) {
+                            Console.printOn();
+                            Console.print(".");
+                            Console.printOff();
+                        }
+                        channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
+                        numOKs++;
+                        this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
 
                         // read trailer
                         if (buffer.remaining() == 0) {
@@ -312,20 +332,20 @@ public class SEMPort {
                             //System.out.println("[read " + n + " bytes]");
                         }
 
-                        dotCounter++;
-                        if (dotCounter % lines == 0) {
-                            //System.out.println();
-                        }
-
+                        // read the next bytes quicker
                         lastBytes = bytes + 24;
-
                         Console.printOn();
+                        result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         break;
 
                     case "EPS_SEM_ENDFRAME":
+                        if (phase != SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
+                            throw new SEMException(SEMError.ERROR_WRONG_PHASE);
+                        }
+
                         Console.println();
                         Console.print("End of frame. Max line adc time: ");
-                        while (buffer.remaining() < 2) {
+                        if (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
                             n = channel.read(buffer);
@@ -333,7 +353,7 @@ public class SEMPort {
                             //System.out.print("[read " + n + "bytes]");
                         }
                         Console.print(Short.toUnsignedInt(buffer.getShort()) + "us, frame send time: ");
-                        while (buffer.remaining() < 2) {
+                        if (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
                             n = channel.read(buffer);
@@ -342,36 +362,50 @@ public class SEMPort {
                         }
                         Console.print(Short.toUnsignedInt(buffer.getShort()) + "ms, OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors);
-                        ltq.add(this.si);
-                        this.si = null;
+                        synchronized (ltq) {
+                            ltq.add(this.si);
+                            this.si = null;
+                        }
                         Platform.runLater(updateDisplayLambda);
-
-                        result = null;
+                        result = SEMThread.Phase.WAITING_FOR_FRAME;
                         break;
 
                     default:
-//                        System.out.println();
-//                        System.out.print("Other: ");
-//                        for (int i = 0; i < 16; i++) {
-//                            System.out.print(Integer.toHexString(Byte.toUnsignedInt(ab[i])) + " ");
-//                        }
-//                        System.out.println();
-                        channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
-                        numErrors++;
-
-                        if (findSentinel()) {
-                            dotCounter = 0;
-                            return null;
-                        }
-                        Console.println("Unable to recover.");
-                        return "Finished";
+                        throw new SEMException(SEMError.ERROR_UNKNOWN_COMMAND);
                 }
+                // done processing succesful message. reset buffer
                 buffer.position(0);
-            } else {  //  if n is 0:
-                // TODO: anything to do here? we timed out.
+            } else {
+                //  we get here through timeout
+                //Thread.sleep(1);
+                result = phase;
+            }
+        } catch (SEMException e) {
+            String command = "NG";
+            Console.printOn();
+            Console.print("-");
+            //Console.print(" " +e.error.name()+" ");
+            if (findSentinel()) {
+                if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
+                    result = phase;
+                } else {
+                    command = "AB"; //abort frame
+                    result = SEMThread.Phase.WAITING_FOR_FRAME;
+                }
+            } else {
+                Console.println("Unable to recover, closing connection.");
+                command = "AB"; //abort frame
+                result = SEMThread.Phase.FINISHED;
+            }
+
+            try {
+                channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
+                numErrors++;
+            } catch (IOException ex) {
+                Console.println("Unable to communicate, closing connection.");
+                result = SEMThread.Phase.FINISHED;
             }
         } catch (Exception e) {
-
             System.out.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {
                 System.out.println(s.toString());
