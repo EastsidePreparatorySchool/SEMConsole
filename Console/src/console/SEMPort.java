@@ -10,6 +10,8 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.concurrent.LinkedTransferQueue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.application.Platform;
 
 public class SEMPort {
@@ -125,9 +127,18 @@ public class SEMPort {
         throw new Exception("SEMPort: SEM port not found or no answer.");
     }
 
+    void drain() {
+        try {
+            // drain channel
+            int n = channel.read(buffer);
+        } catch (IOException ex) {
+        }
+    }
+
     void shutdown() {
         try {
             if (this.port != null) {
+                drain();
                 port.close();
                 this.port = null;
             }
@@ -401,6 +412,10 @@ public class SEMPort {
             try {
                 channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
                 numErrors++;
+                if (command.equals("AB")) {
+                    // drain the channel in a desparate attempt to reset the frame transport
+                    this.drain();
+                }
             } catch (IOException ex) {
                 Console.println("Unable to communicate, closing connection.");
                 result = SEMThread.Phase.FINISHED;

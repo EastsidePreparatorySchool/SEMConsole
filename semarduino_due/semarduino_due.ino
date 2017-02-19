@@ -237,8 +237,8 @@ void loop() {
         if (o == 'N' && k == 'G') // no good, retry sending the line
           continue;
 
-        //if (o == 'E' && k == 'P') // different command, things are messed up, reset
-        //  goto reset;
+        if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
+          goto reset;
       };
       if (errorCount >= MAX_ERRORS)
         goto reset;

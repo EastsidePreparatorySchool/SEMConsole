@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
@@ -90,7 +92,7 @@ public class Console extends Application {
         top.getChildren().addAll(btn, h, btn3);
         bp.setTop(top);
         cp = new ConsolePane();
-        cp.setPrefWidth(740);
+        cp.setPrefWidth(740);       // determines initial width of unmaximized window
 
         //panes
         this.aPanes = new StackPane[4];
@@ -123,10 +125,14 @@ public class Console extends Application {
         HBox hbDown = new HBox();
         VBox vb = new VBox();
         hbUp.getChildren().addAll(this.aPanes[0], this.aPanes[1]);
+        hbUp.setAlignment(Pos.CENTER);
         hbDown.getChildren().addAll(this.aPanes[2], this.aPanes[3]);
         vb.getChildren().addAll(hbUp, hbDown);
+        hbDown.setAlignment(Pos.CENTER);
+
         masterPane.getChildren().add(vb);
         masterPane.setAlignment(vb, Pos.CENTER);
+        vb.setAlignment(Pos.CENTER);
 
         bp.setBottom(this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
@@ -143,16 +149,25 @@ public class Console extends Application {
         for (int i = 0; i < 4; i++) {
             setSizeNormal(aViews[i], i);
         }
+
+        cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
     }
 
     private void updateDisplay() {
-        if (this.ltq.isEmpty()) {
+        ArrayList<SEMImage> newImages = new ArrayList<>();
+        synchronized (this.ltq) {
+            if (!this.ltq.isEmpty()) {
+                ltq.drainTo(newImages);
+            }
+        }
+
+        if (newImages.isEmpty()) {
             return;
         }
 
-        this.currentImages = new ArrayList<>();
-        ltq.drainTo(this.currentImages);
-        Console.println("[Console: Received " + this.currentImages.size() + " image"
+        this.currentImages = newImages;
+        // todo: instead: this.currentImages.addAll(newImages);
+        Console.println("[Console: Received " + newImages.size() + " image set"
                 + (this.currentImages.size() == 1 ? "" : "s") + "]");
 
         // get last set of images
@@ -184,6 +199,7 @@ public class Console extends Application {
             semThread.interrupt();
             try {
                 semThread.join();
+                Thread.sleep(1000);
             } catch (InterruptedException ie) {
             }
         }
