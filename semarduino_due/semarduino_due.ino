@@ -33,7 +33,7 @@ struct BytesParams {
   uint16_t  bytes;
 };
 
-struct BytesParams *g_pbp;
+struct BytesParams *g_pbp = NULL;
 
 
 //
@@ -64,22 +64,21 @@ struct Resolution g_allRes[3] = {
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
 int g_channelSelection2 = 2; // TODO: For now, make sure that SEI is on A0 and AEI on A1
-int g_mode = 0;
-
+int g_res = 0;
+int g_prevRes = -1;
 
 //
 // Buffers are really independent of the resolution we are tracking, just make them big enough
 //
 
 #define NUM_BUFFERS   2 // fill one with DMA while main program reads and copies the other
-#define BUFFER_LENGTH (5000 * 2 + 64)
+#define BUFFER_LENGTH (5000 * 8 + 64)
 #define BUFFER_BYTES  (BUFFER_LENGTH * sizeof(uint16_t))
 #define NEXT_BUFFER(n)((n+1)%NUM_BUFFERS) // little macro to aid switch to next buffer
 
 volatile int currentBuffer; 
 volatile int nextBuffer;
-uint16_t adcBuffer[NUM_BUFFERS][BUFFER_LENGTH];   
-uint16_t writeBuffer[BUFFER_LENGTH];
+uint16_t *padcBuffer[NUM_BUFFERS];   
 volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
 
@@ -111,22 +110,30 @@ void blinkBuiltInLED(int n) {
 
 
 //
+// ERROR HALT
+// 
+
+void halt(int blinks) {
+  while (true) {
+    blinkBuiltInLED(blinks);
+    delay(1000);
+  }
+}
+
+//
 // software reset
 //
 
 void reset() {
-  #define SYSRESETREQ     (1<<2)
-  #define VECTKEY         (0x05fa0000UL)
-  #define VECTKEY_MASK    (0x0000ffffUL)
-  #define AIRCR           (*(uint32_t*)0xe000ed0cUL)
-
+  freeLineBuffers(); // safe to do
+  
   while(SerialUSB.available()) {
     SerialUSB.read();
   }
   SerialUSB.write(headerReset, 16);
   delay(100);
-  
-  (AIRCR=(AIRCR&VECTKEY_MASK)|VECTKEY|SYSRESETREQ);
+
+  setup();
 }
 
 
@@ -141,6 +148,12 @@ void setup() {
   
   int n;
   byte buffer[16];
+
+  // initialize buffer pointers to NULL
+  g_pbp = NULL;
+  for (int i = 0; i < NUM_BUFFERS; i++) {
+    padcBuffer[i] = NULL;
+  }
 
  
   // wait for USB connect command from host
@@ -167,73 +180,83 @@ void setup() {
   SerialUSB.write(headerReady, 16);
   SerialUSB.flush();
   blinkBuiltInLED(2);  
+
+  g_prevRes = -1; // set to invalid number
+
 }
 
 
 
 void loop() {
-  bool fReset = false;
-  //
-  // test:
-  // transmit NUM_LINES ADC runs (lines)
-  //
-
-  g_pCurrentRes = &g_allRes[g_mode];
-  int bytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
-  int lineBufferSize = setupLineBuffers();
-  initializeADC();
+  int bytes; 
+  int lineBufferSize;
   
+  // todo: res needs to be determined by scan line time
+  delay(100);
 
-  int frames = FRAMES_PER_TEST;
-  int frame;
-  for (frame = 0; frame < frames; frame++) {
-    int numLines = g_pCurrentRes->numLines;
+  if (g_res != g_prevRes) {
+    g_pCurrentRes = &g_allRes[g_res];
 
-    sendFrameHeader();
+    // free previous buffers (safe to do)
+    freeLineBuffers();
+
+    //
+    // calculate some basic frame parameters and allocate buffer, init adc
+    //
+    bytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
+    setupLineBuffers();
+    initializeADC();
+    g_prevRes = g_res;
+  }
     
-    int frameTime = millis();
-    int line = 0;
-    int lineScanTime = 0;
-  
-    startADC();
-    for (long i = 0; i < numLines; i++) {
-      // give us a test signal on pin 2 TODO: remove this
-      analogWrite(2, (frame*256/frames) % 256);
-      analogWrite(DAC0, (frame*256/frames) % 256);
-      analogWrite(DAC1, 256-((frame*256/frames) % 256));
-  
-      while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
-        delayMicroseconds(10);                                            // wait for buffer to be full
-      }
-  
-      // put the line somewhere safe from adc, just past the params header:
-      memcpy(&g_pbp[1], adcBuffer[currentBuffer], bytes);
-      lineScanTime = max(lineScanTime, g_adcLineTime);
-      currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
-  
-      // restart conversions TODO: This needs to be HSync triggered
-        startADC();
-  
-      // compute check sum and fill in line and bytes
-      computeCheckSum(line, bytes);
+  //
+  // send a frame
+  //
+  int numLines = g_pCurrentRes->numLines;
 
-      // try to send the line, if things go wrong too often, reset.
-      if (!sendLine(bytes)) {
-        reset();
-      }
-                
-      line++;
+  sendFrameHeader();
+  
+  int frameTime = millis();
+  int line = 0;
+  int lineScanTime = 0;
+
+  startADC();
+  for (long i = 0; i < numLines; i++) {
+    // give us a test signal on pin 2 TODO: remove this
+    analogWrite(2, (line*256/numLines) % 256);
+    analogWrite(DAC0, (line*256/numLines) % 256);
+    analogWrite(DAC1, 256-((line*256/numLines) % 256));
+
+    while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
+      delayMicroseconds(10);                                            // wait for buffer to be full
     }
 
-    frameTime = millis() - frameTime;
-    sendEndFrame (lineScanTime, frameTime);
-  }
+    // put the line somewhere safe from adc, just past the params header:
+    memcpy(&g_pbp[1], padcBuffer[currentBuffer], bytes);
+    lineScanTime = max(lineScanTime, g_adcLineTime);
+    currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
 
-  freeLineBuffers();
-  
+    // restart conversions TODO: This needs to be HSync triggered
+    startADC();
+
+    // compute check sum and fill in line and bytes
+    computeCheckSum(line, bytes);
+
+    // try to send the line, if things go wrong too often, reset.
+    if (!sendLine(bytes)) {
+      reset();
+      return;
+    }
+              
+    line++;
+  } // for loop lines
+
+  frameTime = millis() - frameTime;
+  sendEndFrame (lineScanTime, frameTime);
+
   // send more frames, or 
   // test: switch to other setting todo: get rid of this
-  g_mode = (g_mode + 1) % NUM_MODES;
+  g_res = (g_res + 1) % NUM_MODES;
 }
 
 
@@ -252,41 +275,42 @@ void computeCheckSum(int line, int bytes) {
 
 
 bool sendLine(int bytes) {
-    // send the line until it gets through
-    int errorCount;
-    char o,k;
-    
-    for (errorCount = 0; errorCount < 50; errorCount++) {
-      SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-      
-      // wait for response
-      long wait = micros();
-      long acceptable = wait + (USB_TIMEOUT);
-      while (SerialUSB.available() == 0 && wait<acceptable) {
-        delayMicroseconds(10);
-        wait = micros();
-      }
-      
-      if (wait >= acceptable)
-        continue;
-      
-      // process two bytes of response, either "OK" or "NG"
-      o = SerialUSB.read();   
-      k = SerialUSB.read();
-      
-      if (o == 'O' && k == 'K') // ok, on to next lines
-        break;
-        
-      if (o == 'N' && k == 'G') // no good, retry sending the line
-        continue;
+  // send the line until it gets through
+  int errorCount;
+  char o,k;
   
-      if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
-        return false;
-      
-    };
-    if (errorCount >= MAX_ERRORS) {
-      return false; // too many errors, reset
+  for (errorCount = 0; errorCount < 50; errorCount++) {
+    SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+    
+    // wait for response
+    long wait = micros();
+    long acceptable = wait + (USB_TIMEOUT);
+    while (SerialUSB.available() == 0 && wait<acceptable) {
+      delayMicroseconds(10);
+      wait = micros();
     }
+    
+    if (wait >= acceptable)
+      continue;
+    
+    // process two bytes of response, either "OK" or "NG"
+    o = SerialUSB.read();   
+    k = SerialUSB.read();
+    
+    if (o == 'O' && k == 'K') // ok, on to next lines
+      break;
+      
+    if (o == 'N' && k == 'G') // no good, retry sending the line
+      continue;
+
+    if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
+      return false;
+    
+  }
+  
+  if (errorCount >= MAX_ERRORS) {
+    return false; // too many errors, reset
+  }
     
  return true;
 }
@@ -294,22 +318,51 @@ bool sendLine(int bytes) {
 
 
 int setupLineBuffers() {
+  // compute raw byte number for one scan line
   int bytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
+
+  for (int i = 0; i < NUM_BUFFERS; i++) {
+    padcBuffer[i] = (uint16_t *)malloc(bytes);
+    if (padcBuffer[i] == NULL) {
+      halt(3);
+    }
+  }
+  
+  // compute buffer size for whole USB command, allocate, and fill with known info
   int bufferSize = sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer);
   g_pbp = (struct BytesParams *) malloc (bufferSize); 
+  if (g_pbp == NULL) {
+    halt(4);
+  }
+
   memcpy(&g_pbp->headerBytes, headerBytes, sizeof(headerBytes));
   memcpy(((byte *)&g_pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
   g_pbp->bytes = bytes;
+
+  // return the size for USB send
   return bufferSize;
 }
 
 
+
+
 void freeLineBuffers() {
+  for (int i = NUM_BUFFERS-1; i >= 0; i--) {
+    if (padcBuffer != NULL) {
+      free(padcBuffer[i]);
+      padcBuffer[i] = NULL;
+    }
+  }
+
   if (g_pbp != NULL) {
     free (g_pbp);
     g_pbp = NULL;
   }
 }
+
+
+
+
 
 void sendFrameHeader() {
   SerialUSB.write(headerFrame, 16);                     // send FRAME header
@@ -430,9 +483,9 @@ void initializeADC() {
 
   ADC->ADC_IDR = ~(1 << 27);              // disable other interrupts
   ADC->ADC_IER = 1 << 27;                 // enable the DMA one
-  ADC->ADC_RPR = (uint32_t)adcBuffer[0];  // set up DMA buffer
+  ADC->ADC_RPR = (uint32_t)padcBuffer[0]; // set up DMA buffer
   ADC->ADC_RCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;           // and number of words
-  ADC->ADC_RNPR = (uint32_t)adcBuffer[1]; // next DMA buffer
+  ADC->ADC_RNPR = (uint32_t)padcBuffer[1]; // next DMA buffer
   ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;  
 
   currentBuffer = 0;
@@ -450,7 +503,7 @@ void ADC_Handler() {
   if (flags & (1 << 27)) {                            // if this was a completed DMA
     stopADC();
     nextBuffer = NEXT_BUFFER(nextBuffer);             // get the next buffer (and let the main program know)
-    ADC->ADC_RNPR = (uint32_t)adcBuffer[nextBuffer];  // put it in place
+    ADC->ADC_RNPR = (uint32_t)padcBuffer[nextBuffer]; // put it in place
     ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;
     }
 }
