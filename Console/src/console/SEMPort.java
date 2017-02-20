@@ -166,7 +166,7 @@ public class SEMPort {
                     case "EPS_SEM_RESET...":
                         Console.printOn();
                         Console.println("Reset");
-                        return SEMThread.Phase.FINISHED;
+                        return SEMThread.Phase.ABORTED;
 
                     case "EPS_SEM_FRAME...":
                         if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {
@@ -346,7 +346,7 @@ public class SEMPort {
                 }
             } catch (IOException ex) {
                 Console.println("Unable to communicate, closing connection.");
-                result = SEMThread.Phase.FINISHED;
+                result = SEMThread.Phase.ABORTED;
             }
         } catch (Exception e) {
             System.out.println(e.toString());

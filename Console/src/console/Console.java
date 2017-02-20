@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
@@ -32,6 +35,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.StageStyle;
+import javafx.util.Duration;
 import javax.imageio.ImageIO;
 
 /**
@@ -48,7 +52,7 @@ public class Console extends Application {
     private StackPane[] aPanes;
     private StackPane masterPane;
     private VBox left;
-    private VBox thumbNails;
+    private VBox thumbnails;
     private StackPane right;
     private LinkedTransferQueue<SEMImage> ltq;
     private SEMImage currentImageSet = null;
@@ -108,7 +112,7 @@ public class Console extends Application {
 
         this.left = new VBox();
         this.left.setPadding(new Insets(4, 4, 4, 4));
-        this.thumbNails = new VBox();
+        this.thumbnails = new VBox();
         ImageView lv = new ImageView(new Image("live.png"));
         lv.setFitHeight(150);
         lv.setFitWidth(200);
@@ -127,10 +131,9 @@ public class Console extends Application {
             e.consume();
         });
 
-        ScrollPane scp = new ScrollPane(thumbNails);
+        ScrollPane scp = new ScrollPane(thumbnails);
         scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scp.getStyleClass().add("noborder-scroll-pane");
         this.left.getChildren().addAll(sp1, scp);
 
         this.right = new StackPane();
@@ -161,6 +164,8 @@ public class Console extends Application {
         masterPane.getChildren().add(vb);
         masterPane.setAlignment(vb, Pos.CENTER);
         vb.setAlignment(Pos.CENTER);
+
+        VBox vb2 = new VBox();
 
         bp.setBottom(this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
@@ -220,7 +225,7 @@ public class Console extends Application {
 
         for (SEMImage si : newImages) {
             if (si.channels > 1) {
-                addThumbNail(si);
+                addThumbnail(si);
             }
         }
 
@@ -259,6 +264,8 @@ public class Console extends Application {
 
     private void stopSEMThread() {
         btn.setDisable(true);
+        Console.println();
+        Console.println("[Console: disconnecting]");
         // stop any existing SEM thread
         if (semThread != null) {
             semThread.interrupt();
@@ -363,7 +370,7 @@ public class Console extends Application {
         return result;
     }
 
-    private void addThumbNail(SEMImage si) {
+    private void addThumbnail(SEMImage si) {
         StackPane sp = new StackPane();
         for (int i = si.channels - 1; i >= 0; i--) {
             ImageView iv = new ImageView(si.images[i]);
@@ -377,7 +384,9 @@ public class Console extends Application {
             p.setPadding(new Insets((si.channels - i) * 8, (si.channels - i) * 8, i * 8, i * 8));
             sp.getChildren().add(p);
         }
-        sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
+        //sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
+        sp.setPrefSize(si.channels * 8 + 208, 0);
+
         sp.setPadding(new Insets(4, 4, 4, 4));
         sp.setAlignment(Pos.CENTER);
         sp.setOnMouseClicked((e) -> {
@@ -385,12 +394,13 @@ public class Console extends Application {
             displayImageSet(si);
         });
 
-        List t = thumbNails.getChildren();
+        List t = thumbnails.getChildren();
         t.add(0, sp);
         if (t.size() > 10) {
             t.remove(t.size() - 1);
         }
-
+        animateListItem(sp,  si.channels * 8 + 158);
+     
     }
 
     public void saveFile() {
@@ -409,6 +419,34 @@ public class Console extends Application {
                 System.out.println(ex.getMessage());
             }
         }
+    }
+
+    private void animateListItem(StackPane sp, int fullHeight) {
+
+        sp.setOpacity(0);
+        
+        //create a timeline for growing the item
+        Timeline timeline = new Timeline();
+        timeline.setCycleCount(501);
+        timeline.setAutoReverse(false);
+    
+
+        KeyValue keyValueY = new KeyValue(sp.prefHeightProperty(), fullHeight);
+
+        //create a keyFrame, the keyValue is reached at time 0.5s
+        Duration duration = Duration.millis(500);
+        KeyFrame keyFrame = new KeyFrame(duration,
+                (t) -> {
+                    timeline.stop();
+                    sp.setPrefHeight(fullHeight);
+                    sp.setOpacity(1);
+                },
+                keyValueY);
+
+        //add the keyframe to the timeline
+        timeline.getKeyFrames().add(keyFrame);
+        timeline.play();
+
     }
 
     // console util functions
