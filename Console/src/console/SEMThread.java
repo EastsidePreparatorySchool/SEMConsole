@@ -6,6 +6,7 @@
 package console;
 
 import java.util.concurrent.LinkedTransferQueue;
+import javafx.application.Platform;
 
 /**
  *
@@ -18,15 +19,18 @@ public class SEMThread extends Thread {
         WAITING_FOR_FRAME,
         WAITING_FOR_BYTES_OR_EFRAME,
         FINISHED,
+        ABORTED
     }
 
     private Phase phase = Phase.WAITING_TO_CONNECT;
     private LinkedTransferQueue<SEMImage> ltq;
     private Runnable update;
+    private Runnable restart;
 
-    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable r) {
+    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart) {
         this.ltq = q;
-        this.update = r;
+        this.update = update;
+        this.restart = restart;
     }
 
     SEMPort semport = new SEMPort();
@@ -52,6 +56,9 @@ public class SEMThread extends Thread {
             if (semport != null) {
                 semport.shutdown();
             }
+        }
+        if (this.phase == Phase.ABORTED) {
+            Platform.runLater(this.restart);
         }
     }
 

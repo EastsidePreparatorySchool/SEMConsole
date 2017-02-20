@@ -79,7 +79,7 @@ public class Console extends Application {
         //top.setMinHeight(30);
 
         // button for connection
-        this.btn = new Button("Connect and scan");
+        this.btn = new Button("Connect");
         btn.setOnAction((event) -> startSEMThread());
 
         Button btn3 = new Button("Save as ...");
@@ -236,7 +236,29 @@ public class Console extends Application {
     }
 
     private void startSEMThread() {
-        // remove currently displayed image
+        btn.setDisable(true);
+        // stop any existing SEM thread
+        stopSEMThread();
+
+        // and create a new one
+        do {
+            try {
+                System.out.println("starting thread ...");
+                semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
+                semThread.start();
+                Thread.sleep(1000);
+            } catch (Exception e) {
+            }
+        } while (!semThread.isAlive());
+
+        this.btn.setText("Disconnect");
+        this.txt.setText("Connected");
+        btn.setOnAction((event) -> stopSEMThread());
+        btn.setDisable(false);
+    }
+
+    private void stopSEMThread() {
+        btn.setDisable(true);
         // stop any existing SEM thread
         if (semThread != null) {
             semThread.interrupt();
@@ -245,13 +267,17 @@ public class Console extends Application {
                 Thread.sleep(1000);
             } catch (InterruptedException ie) {
             }
+            semThread = null;
         }
+        this.btn.setText("Connect");
+        this.txt.setText("Not connected");
 
-        // and create a new one
-        semThread = new SEMThread(this.ltq, () -> {
-            updateDisplay();
-        });
-        semThread.start();
+        btn.setOnAction((event) -> startSEMThread());
+        btn.setDisable(false);
+    }
+
+    private void restartSEMThread() {
+        startSEMThread();
     }
 
     private void setSizeNormal(ImageView iv, int channel) {

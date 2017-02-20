@@ -36,8 +36,6 @@ public class SEMPort {
 
     String name = "";
     SerialPort port;
-    OutputStream ostream;
-    InputStream istream;
     SerialChannel channel;
     ByteBuffer buffer;
     int dotCounter = 0;
@@ -69,6 +67,7 @@ public class SEMPort {
         for (String name : portNames) {
             // Get a new instance of SerialPort by opening a port.
             try {
+                Console.println();
                 Console.println("Opening port: " + name);
                 this.port = SerialPort.open(name);
             } catch (IOException e) {
@@ -81,7 +80,6 @@ public class SEMPort {
             try {
                 // Configure the connection
                 port.setTimeout(100);
-                //port.setConfig(BaudRate.B115200, Parity.NONE, StopBits.ONE, DataBits.D8);
 
                 channel = port.getChannel();
                 //ostream = port.getOutputStream();
@@ -91,25 +89,21 @@ public class SEMPort {
 
                 ByteBuffer command = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
 
-                for (int i = 0; i < 20; i++) {
-                    // ask the port whether our SEM is listening on the other side
-                    channel.write(command);
+                channel.write(command);
 
-                    int n = channel.read(buffer);
-                    if (n != 0) {
-                        buffer.position(0);
-                        byte[] ab = new byte[16];
-                        buffer.get(ab);
-                        String result = new String(ab);
-                        if (result.equals("EPS_SEM_READY...")) {
-                            return;
-                        } else {
-                            Console.println("Wrong answer: 0x" + Integer.toHexString(ab[0]) + " 0x" + Integer.toHexString(ab[0]));
-                        }
+                int n = channel.read(buffer);
+                if (n != 0) {
+                    buffer.position(0);
+                    byte[] ab = new byte[16];
+                    buffer.get(ab);
+                    String result = new String(ab);
+                    if (result.equals("EPS_SEM_READY...")) {
+                        return;
                     } else {
-                        Console.println("No answer.");
+                        Console.println("Wrong answer: 0x" + Integer.toHexString(ab[0]) + " 0x" + Integer.toHexString(ab[0]));
                     }
-                    Thread.sleep(50);
+                } else {
+                    Console.println("No answer.");
                 }
             } catch (Exception e) {
                 Console.println(e.toString());
@@ -129,7 +123,7 @@ public class SEMPort {
         try {
             // drain channel
             int n = channel.read(buffer);
-        } catch (IOException ex) {
+        } catch (Exception ex) {
         }
     }
 
@@ -145,7 +139,9 @@ public class SEMPort {
         }
     }
 
-    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda, SEMThread.Phase phase) {
+    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda,
+            SEMThread.Phase phase
+    ) {
         SEMThread.Phase result = phase;
         String message;
         byte[] ab;
@@ -218,7 +214,7 @@ public class SEMPort {
                         rawMultiChannelBuffer = new int[channelCount * width];
                         this.si = new SEMImage(channelCount, capturedChannels, width, height);
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
-                        lastBytes = this.proposedBytes + 24; 
+                        lastBytes = this.proposedBytes + 24;
                         break;
 
                     case "EPS_SEM_BYTES...":
@@ -337,8 +333,8 @@ public class SEMPort {
                 }
             } else {
                 Console.println("Unable to recover, closing connection.");
-               command = "AB"; //abort frame
-                result = SEMThread.Phase.FINISHED;
+                command = "AB"; //abort frame
+                result = SEMThread.Phase.ABORTED;
             }
 
             try {
