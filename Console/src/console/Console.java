@@ -384,8 +384,7 @@ public class Console extends Application {
             p.setPadding(new Insets((si.channels - i) * 8, (si.channels - i) * 8, i * 8, i * 8));
             sp.getChildren().add(p);
         }
-        //sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
-        sp.setPrefSize(si.channels * 8 + 208, 0);
+        sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
 
         sp.setPadding(new Insets(4, 4, 4, 4));
         sp.setAlignment(Pos.CENTER);
@@ -399,8 +398,8 @@ public class Console extends Application {
         if (t.size() > 10) {
             t.remove(t.size() - 1);
         }
-        animateListItem(sp,  si.channels * 8 + 158);
-     
+        //    animateListItem(sp,  si.channels * 8 + 158);
+
     }
 
     public void saveFile() {
@@ -424,12 +423,12 @@ public class Console extends Application {
     private void animateListItem(StackPane sp, int fullHeight) {
 
         sp.setOpacity(0);
-        
+        sp.setPrefHeight(0);
+
         //create a timeline for growing the item
         Timeline timeline = new Timeline();
         timeline.setCycleCount(501);
         timeline.setAutoReverse(false);
-    
 
         KeyValue keyValueY = new KeyValue(sp.prefHeightProperty(), fullHeight);
 

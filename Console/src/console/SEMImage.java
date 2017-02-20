@@ -69,10 +69,11 @@ public class SEMImage {
             capturedChannel = translateChannel(getEncodedChannel(data[channel]));
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
+                /*
                 // TODO: remove this stand-in grid
                 if (line % 100 < 2 || ((i - channel)/ this.channels)% 100 < 2) {
                     intensity = 255;
-                }
+                }*/
                 // make a gray-scale, full alpha pixel
                 rawBuffer[pixel++] = grayScale(capturedChannel, intensity);
             }
@@ -92,13 +93,13 @@ public class SEMImage {
 
     // get the encoded channel number from a word in the data stream
     int getEncodedChannel(int word) {
-        return this.channels == 1 ? this.capturedChannels[0]:(word >> 12);
+        return this.channels == 1 ? this.capturedChannels[0] : (word >> 12);
 
     }
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
     int getValue(int word) {
-        word = ((word & 0xFFF)>>4) - SEMImage.floorValue; //TODO: better calibration and adjustment
+        word = ((word & 0xFFF) >> 4) - SEMImage.floorValue; //TODO: better calibration and adjustment
         if (word > 255) {
             word = 255;
         }
