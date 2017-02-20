@@ -223,7 +223,7 @@ void loop() {
   startADC();
   for (long i = 0; i < numLines; i++) {
     // give us a test signal on pin 2 TODO: remove this
-    analogWrite(2, (line*256/numLines) % 256);
+    analogWrite(2, (line*1024/numLines) % 256);
     analogWrite(DAC0, (line*256/numLines) % 256);
     analogWrite(DAC1, 256-((line*256/numLines) % 256));
 

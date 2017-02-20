@@ -243,7 +243,10 @@ public class Console extends Application {
     private void startSEMThread() {
         btn.setDisable(true);
         // stop any existing SEM thread
+        this.txt.setText("Stopping worker thread ...");
+
         stopSEMThread();
+        this.txt.setText("Trying to connect, please be patient ...");
 
         // and create a new one
         do {
@@ -251,7 +254,7 @@ public class Console extends Application {
                 System.out.println("starting thread ...");
                 semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
                 semThread.start();
-                Thread.sleep(1000);
+                Thread.sleep(2000);
             } catch (Exception e) {
             }
         } while (!semThread.isAlive());
@@ -264,6 +267,8 @@ public class Console extends Application {
 
     private void stopSEMThread() {
         btn.setDisable(true);
+        this.txt.setText("Stopping worker thread ...");
+
         Console.println();
         Console.println("[Console: disconnecting]");
         // stop any existing SEM thread
@@ -328,6 +333,7 @@ public class Console extends Application {
             StackPane sp = new StackPane();
             sp.getChildren().addAll(bigView);
             this.bigStage = new Stage(StageStyle.UNDECORATED);
+            this.bigStage.setFullScreenExitHint("");
             Scene sc = new Scene(sp);
             sc.setOnMouseClicked((e) -> {
                 toggleImage(e, image);
