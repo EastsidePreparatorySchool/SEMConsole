@@ -127,7 +127,6 @@ public class Console extends Application {
             e.consume();
         });
 
-
         ScrollPane scp = new ScrollPane(thumbNails);
         scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
@@ -187,7 +186,7 @@ public class Console extends Application {
         if (si == null) {
             return;
         }
-        
+
         // set absent channel images to empty
         if (si.channels < 4) {
             for (int i = si.channels; i < 4; i++) {
@@ -258,8 +257,8 @@ public class Console extends Application {
     private void setSizeNormal(ImageView iv, int channel) {
         if (this.channels == 2) {
             if (channel < 2) {
-                iv.fitHeightProperty().bind(this.stage.widthProperty().subtract(70).multiply(3).divide(8));
-                iv.fitWidthProperty().bind(this.stage.widthProperty().subtract(70).divide(2));
+                iv.fitHeightProperty().bind(this.stage.widthProperty().subtract(300).multiply(3).divide(8));
+                iv.fitWidthProperty().bind(this.stage.widthProperty().subtract(300).divide(2));
             } else {
                 iv.fitHeightProperty().unbind();
                 iv.fitWidthProperty().unbind();
@@ -338,15 +337,17 @@ public class Console extends Application {
 
     private void addThumbNail(SEMImage si) {
         StackPane sp = new StackPane();
-        for (int i = 0; i < si.channels; i++) {
+        for (int i = si.channels - 1; i >= 0; i--) {
             ImageView iv = new ImageView(si.images[i]);
             iv.setFitHeight(150);
             iv.setFitWidth(200);
             iv.setPreserveRatio(false);
             iv.setSmooth(true);
-            iv.setTranslateX(i * 8);
-            iv.setTranslateY(i * 8);
-            sp.getChildren().add(iv);
+            iv.setTranslateX((si.channels - i) * 8);
+            iv.setTranslateY((si.channels - i) * 8);
+            Pane p = new Pane(iv);
+            p.setPadding(new Insets((si.channels - i) * 8, (si.channels - i) * 8, i * 8, i * 8));
+            sp.getChildren().add(p);
         }
         sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
         sp.setPadding(new Insets(4, 4, 4, 4));
