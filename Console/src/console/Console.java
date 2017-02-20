@@ -277,6 +277,8 @@ public class Console extends Application {
     }
 
     private void restartSEMThread() {
+        Console.println();
+        Console.println("[Console: restarting SEM thread]");
         startSEMThread();
     }
 
