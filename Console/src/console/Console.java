@@ -21,6 +21,7 @@ import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -46,16 +47,18 @@ public class Console extends Application {
     private ImageView[] aViews;
     private StackPane[] aPanes;
     private StackPane masterPane;
-    private StackPane left;
+    private VBox left;
+    private VBox thumbNails;
     private StackPane right;
     private LinkedTransferQueue<SEMImage> ltq;
-    private ArrayList<SEMImage> currentImages;
+    private SEMImage currentImageSet = null;
     private Button btn;
     private Text txt;
     private Scene scene;
     private Stage stage;
     private BorderPane bp;
     private Stage bigStage = null;
+    private boolean isLive = true;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -103,8 +106,34 @@ public class Console extends Application {
         this.masterPane = new StackPane();
         //this.masterPane.setPadding(new Insets(8, 8, 8, 8));
 
-        this.left = new StackPane();
+        this.left = new VBox();
         this.left.setPadding(new Insets(4, 4, 4, 4));
+        this.thumbNails = new VBox();
+        ImageView lv = new ImageView(new Image("live.png"));
+        lv.setFitHeight(150);
+        lv.setFitWidth(200);
+        lv.setPreserveRatio(false);
+        lv.setSmooth(true);
+
+        StackPane sp1 = new StackPane();
+        sp1.setPrefSize(200, 150);
+        sp1.setPadding(new Insets(4, 4, 4, 4));
+        sp1.setAlignment(Pos.CENTER);
+        sp1.getChildren().add(lv);
+        sp1.setOnMouseClicked((e) -> {
+            this.isLive = true;
+            //System.out.println("Console: switched to live view");
+            displayImageSet(this.currentImageSet);
+            e.consume();
+        });
+
+
+        ScrollPane scp = new ScrollPane(thumbNails);
+        scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scp.getStyleClass().add("noborder-scroll-pane");
+        this.left.getChildren().addAll(sp1, scp);
+
         this.right = new StackPane();
         this.right.setPadding(new Insets(4, 4, 4, 4));
 
@@ -151,28 +180,14 @@ public class Console extends Application {
         }
 
         cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
+        left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
     }
 
-    private void updateDisplay() {
-        ArrayList<SEMImage> newImages = new ArrayList<>();
-        synchronized (this.ltq) {
-            if (!this.ltq.isEmpty()) {
-                ltq.drainTo(newImages);
-            }
-        }
-
-        if (newImages.isEmpty()) {
+    private void displayImageSet(SEMImage si) {
+        if (si == null) {
             return;
         }
-
-        this.currentImages = newImages;
-        // todo: instead: this.currentImages.addAll(newImages);
-        Console.println("[Console: Received " + newImages.size() + " image set"
-                + (this.currentImages.size() == 1 ? "" : "s") + "]");
-
-        // get last set of images
-        SEMImage si = this.currentImages.get(this.currentImages.size() - 1);
-
+        
         // set absent channel images to empty
         if (si.channels < 4) {
             for (int i = si.channels; i < 4; i++) {
@@ -186,10 +201,39 @@ public class Console extends Application {
 
         }
 
+        // adjust all of their sizes
         this.channels = si.channels;
         for (int i = 0; i < 4; i++) {
             setSizeNormal(aViews[i], i);
         }
+    }
+
+    private void updateDisplay() {
+        ArrayList<SEMImage> newImages = new ArrayList<>();
+        synchronized (this.ltq) {
+            if (!this.ltq.isEmpty()) {
+                ltq.drainTo(newImages);
+            }
+        }
+
+        Console.println("[Console: Received " + newImages.size() + " image set"
+                + (newImages.size() == 1 ? "" : "s") + "]");
+
+        for (SEMImage si : newImages) {
+            if (si.channels > 1) {
+                addThumbNail(si);
+            }
+        }
+
+        // for live view, show  images
+        if (this.isLive) {
+            SEMImage si = newImages.get(newImages.size() - 1);
+            if (si.channels == 1) {
+                this.currentImageSet = si;
+                displayImageSet(this.currentImageSet);
+            }
+        }
+
     }
 
     private void startSEMThread() {
@@ -290,6 +334,34 @@ public class Console extends Application {
         }
 
         return result;
+    }
+
+    private void addThumbNail(SEMImage si) {
+        StackPane sp = new StackPane();
+        for (int i = 0; i < si.channels; i++) {
+            ImageView iv = new ImageView(si.images[i]);
+            iv.setFitHeight(150);
+            iv.setFitWidth(200);
+            iv.setPreserveRatio(false);
+            iv.setSmooth(true);
+            iv.setTranslateX(i * 8);
+            iv.setTranslateY(i * 8);
+            sp.getChildren().add(iv);
+        }
+        sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
+        sp.setPadding(new Insets(4, 4, 4, 4));
+        sp.setAlignment(Pos.CENTER);
+        sp.setOnMouseClicked((e) -> {
+            this.isLive = false;
+            displayImageSet(si);
+        });
+
+        List t = thumbNails.getChildren();
+        t.add(0, sp);
+        if (t.size() > 10) {
+            t.remove(t.size() - 1);
+        }
+
     }
 
     public void saveFile() {

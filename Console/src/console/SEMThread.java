@@ -42,9 +42,7 @@ public class SEMThread extends Thread {
             this.phase = Phase.WAITING_FOR_FRAME;
             while (!this.isInterrupted() && this.phase != Phase.FINISHED) {
                 this.phase = semport.processMessage(this.ltq, this.update, this.phase);
-                if (phase == Phase.WAITING_FOR_FRAME) {
-                    //Thread.sleep(50);
-                }
+                Thread.yield();
             }
 
         } catch (InterruptedException ie) {
