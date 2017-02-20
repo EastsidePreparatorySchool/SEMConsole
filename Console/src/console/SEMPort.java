@@ -3,8 +3,6 @@ package console;
 import dk.thibaut.serial.SerialChannel;
 import dk.thibaut.serial.SerialPort;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -62,19 +60,19 @@ public class SEMPort {
             Console.println("SEMPort: No ports on this system");
             throw e;
         }
-        Console.println("Ports: " + portNames.toString());
+        System.out.println("Ports: " + portNames.toString());
 
         for (String name : portNames) {
             // Get a new instance of SerialPort by opening a port.
             try {
-                Console.println();
-                Console.println("Opening port: " + name);
+                System.out.println();
+                System.out.println("Opening port: " + name);
                 this.port = SerialPort.open(name);
             } catch (IOException e) {
-                Console.println(e.toString());
+                System.out.println(e.toString());
                 continue;
             } catch (NullPointerException n) {
-                Console.println(n.toString());
+                System.out.println(n.toString());
                 continue;
             }
             try {
@@ -100,10 +98,10 @@ public class SEMPort {
                     if (result.equals("EPS_SEM_READY...")) {
                         return;
                     } else {
-                        Console.println("Wrong answer: 0x" + Integer.toHexString(ab[0]) + " 0x" + Integer.toHexString(ab[0]));
+                        System.out.println("Wrong answer: 0x" + Integer.toHexString(ab[0]) + " 0x" + Integer.toHexString(ab[0]));
                     }
                 } else {
-                    Console.println("No answer.");
+                    System.out.println("No answer.");
                 }
             } catch (Exception e) {
                 Console.println(e.toString());
@@ -113,9 +111,9 @@ public class SEMPort {
                 port.close();
                 port = null;
             }
-            Console.println("Next port");
+            System.out.println("Next port");
         }
-        Console.println("SEMPort: SEM port not found or no answer.");
+        System.out.println("SEMPort: SEM port not found or no answer.");
         throw new Exception("SEMPort: SEM port not found or no answer.");
     }
 
@@ -130,7 +128,11 @@ public class SEMPort {
     void shutdown() {
         try {
             if (this.port != null) {
-                drain();
+                // send abort
+                channel.write(ByteBuffer.wrap("ABABABAB".getBytes(StandardCharsets.UTF_8)));
+                // drain all messages
+                channel.flush(true, true);
+
                 port.close();
                 this.port = null;
             }
@@ -164,15 +166,26 @@ public class SEMPort {
 
                 switch (message) {
                     case "EPS_SEM_RESET...":
-                        Console.printOn();
+                        Console.println();
                         Console.println("Reset");
                         return SEMThread.Phase.ABORTED;
+
+                    case "EPS_SEM_IDLE....":
+                        if (dotCounter % (30000 * lines) == 0) {
+                            Console.println();
+                            Console.print("[SEM idle or resolution not recognized]");
+                        }
+                        if (dotCounter % (100 * lines) == 0) {
+                            Console.print(".");
+                        }
+                        dotCounter++;
+                        return SEMThread.Phase.WAITING_FOR_FRAME;
 
                     case "EPS_SEM_FRAME...":
                         if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {
                             throw new SEMException(SEMError.ERROR_WRONG_PHASE);
                         }
-                        Console.printOn();
+                        Console.println();
                         Console.print("Start of frame: ");
                         dotCounter = 0;
                         numErrors = 0;
@@ -229,6 +242,7 @@ public class SEMPort {
                             //System.out.print("[prefetch read " + n + "bytes]");
                             if (n != lastBytes) {
                                 channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+                                channel.flush(false, true); // flush output buffers
                                 numErrors++;
                                 Console.print("-");
                                 dotCounter++;
@@ -248,6 +262,7 @@ public class SEMPort {
                         checkSum = bytes + line;
                         if (bytes != this.proposedBytes) {
                             channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+                            channel.flush(false, true); // flush output buffers
                             numErrors++;
                             Console.print("-");
                             dotCounter++;
@@ -271,6 +286,7 @@ public class SEMPort {
                             Console.print(".");
                         }
                         channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
+                        channel.flush(false, true);
                         numOKs++;
                         this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
 
@@ -342,7 +358,7 @@ public class SEMPort {
                 numErrors++;
                 if (command.equals("AB")) {
                     // drain the channel in a desparate attempt to reset the frame transport
-                    this.drain();
+                    channel.flush(true, true);
                 }
             } catch (IOException ex) {
                 Console.println("Unable to communicate, closing connection.");

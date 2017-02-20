@@ -33,14 +33,17 @@ public class SEMThread extends Thread {
         this.restart = restart;
     }
 
-    SEMPort semport = new SEMPort();
-
+    SEMPort semport = null;
+    
     public void run() {
         try {
-            // TODO: clean this up, make it a proper message loop, keep it alive after frame complete
+            System.out.println("Thread: starting.");
+            
+            Console.println("SEM Port: trying to initialize ...");
             this.phase = Phase.WAITING_TO_CONNECT;
+            semport = new SEMPort();
             semport.initialize();
-            Console.println("SEM Port Initialized");
+            Console.println("SEM Port initialized.");
 
             // main loop waiting for FRAME or BYTES or EFRAME messages
             this.phase = Phase.WAITING_FOR_FRAME;
@@ -48,10 +51,9 @@ public class SEMThread extends Thread {
                 this.phase = semport.processMessage(this.ltq, this.update, this.phase);
                 Thread.yield();
             }
-
         } catch (InterruptedException ie) {
         } catch (Exception e) {
-            Console.println(e.toString());
+            System.out.println(e.toString());
         } finally {
             if (semport != null) {
                 semport.shutdown();

@@ -22,6 +22,7 @@ byte headerFrame[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','F','R','A
 byte headerBytes[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','B','Y','T','E','S','.','.','.'};
 byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'};
 byte headerReset[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','S','E','T','.','.','.'};
+byte headerIdle[COMMAND_BYTES]     = {'E','P','S','_','S','E','M','_','I','D','L','E','.','.','.','.'};
 
 #define SENTINEL_BYTES 16
 byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
@@ -54,18 +55,29 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 // min time, max time, pixels, channels, spec lines
 
-struct Resolution g_allRes[3] = {
+#define NUM_MODES 3
+
+struct Resolution g_allRes[NUM_MODES] = {
   {   145,   155,  284, 1,  533 }, // RAPID2
   {  4900,  5100, 2200, 4, 1000 }, // SLOW1
   { 39000, 41000, 4770, 2, 2500 }  // H6V7
 };
 
-#define NUM_MODES 3
+
+
+#define HSYNC_PIN   1
+#define VSYNC_PIN   2
+
+#define PHASE_IDLE                0
+#define PHASE_READY_TO_MEASURE    1
+#define PHASE_MEASURING           2
+#define PHASE_READY_FOR_SCAN      3
+#define PHASE_SCANNING            4
+
+
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
 int g_channelSelection2 = 2; // TODO: For now, make sure that SEI is on A0 and AEI on A1
-int g_res = 0;
-int g_prevRes = -1;
 
 //
 // Buffers are really independent of the resolution we are tracking, just make them big enough
@@ -81,13 +93,17 @@ volatile int nextBuffer;
 uint16_t *padcBuffer[NUM_BUFFERS];   
 volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
+int g_lineBytes;
+volatile int g_phase = PHASE_IDLE;
+volatile int g_measuredLineTime;
+
+
 
 #define MAX_ERRORS  50
 #define USB_TIMEOUT 50
 
 
 
-const int builtInLEDPin = 13; // how to blink the built-in LED
 
 
 
@@ -95,8 +111,10 @@ const int builtInLEDPin = 13; // how to blink the built-in LED
 
 
 // code to blink the built-in LED n times 
+const int builtInLEDPin = 13; 
 
 void blinkBuiltInLED(int n) {
+  
   for (int i= 0; i<n; i++) {
     // blink built-in LED
     digitalWrite(builtInLEDPin, HIGH);
@@ -180,84 +198,10 @@ void setup() {
   SerialUSB.write(headerReady, 16);
   SerialUSB.flush();
   blinkBuiltInLED(2);  
-
-  g_prevRes = -1; // set to invalid number
-
+  g_pCurrentRes = NULL;
+  g_phase = PHASE_IDLE;
 }
 
-
-
-void loop() {
-  int bytes; 
-  int lineBufferSize;
-  
-  // todo: res needs to be determined by scan line time
-  delay(100);
-
-  if (g_res != g_prevRes) {
-    g_pCurrentRes = &g_allRes[g_res];
-
-    // free previous buffers (safe to do)
-    freeLineBuffers();
-
-    //
-    // calculate some basic frame parameters and allocate buffer, init adc
-    //
-    bytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
-    setupLineBuffers();
-    initializeADC();
-    g_prevRes = g_res;
-  }
-    
-  //
-  // send a frame
-  //
-  int numLines = g_pCurrentRes->numLines;
-
-  sendFrameHeader();
-  
-  int frameTime = millis();
-  int line = 0;
-  int lineScanTime = 0;
-
-  startADC();
-  for (long i = 0; i < numLines; i++) {
-    // give us a test signal on pin 2 TODO: remove this
-    analogWrite(2, (line*1024/numLines) % 256);
-    analogWrite(DAC0, (line*256/numLines) % 256);
-    analogWrite(DAC1, 256-((line*256/numLines) % 256));
-
-    while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
-      delayMicroseconds(10);                                            // wait for buffer to be full
-    }
-
-    // put the line somewhere safe from adc, just past the params header:
-    memcpy(&g_pbp[1], padcBuffer[currentBuffer], bytes);
-    lineScanTime = max(lineScanTime, g_adcLineTime);
-    currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
-
-    // restart conversions TODO: This needs to be HSync triggered
-    startADC();
-
-    // compute check sum and fill in line and bytes
-    computeCheckSum(line, bytes);
-
-    // try to send the line, if things go wrong too often, reset.
-    if (!sendLine(bytes)) {
-      reset();
-      return;
-    }
-              
-    line++;
-  } // for loop lines
-
-  frameTime = millis() - frameTime;
-  sendEndFrame (lineScanTime, frameTime);
-
-  // send more frames, or 
-  // test: switch to other setting todo: get rid of this
-  g_res = (g_res + 1) % NUM_MODES;
-}
 
 
 void computeCheckSum(int line, int bytes) {
@@ -532,18 +476,6 @@ void startADC() {
 }
 
 
-#define HSYNC_PIN   1
-#define VSYNC_PIN   2
-
-#define PHASE_IDLE                0
-#define PHASE_READY_TO_MEASRURE  1
-#define PHASE_MEASURING           2
-#define PHASE_READY_FOR_SCAN      3
-#define PHASE_SCANNING            4
-
-volatile int g_phase = PHASE_IDLE;
-volatile int g_measuredLineTime;
-
 void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
@@ -556,10 +488,10 @@ void vsyncHandler() {
     case PHASE_IDLE:
     case PHASE_SCANNING:
       // time to end the frame and send the image
-      g_phase = PHASE_READY_TO_MEASRURE;
+      g_phase = PHASE_IDLE;
       break;
 
-    case PHASE_READY_TO_MEASRURE:
+    case PHASE_READY_TO_MEASURE:
     case PHASE_MEASURING:
     case PHASE_READY_FOR_SCAN:
       // we should never get here, but hey, just stop everything
@@ -574,7 +506,7 @@ void hsyncHandler() {
       // not doing anything right now
       break;
     
-    case PHASE_READY_TO_MEASRURE:
+    case PHASE_READY_TO_MEASURE:
       // start stopwatch, switch phase
       g_measuredLineTime = micros();
       g_phase = PHASE_MEASURING;
@@ -611,4 +543,127 @@ struct Resolution *getResolution(int lineTime) {
 
 
 
+void loop () {
+  int numLines = 0;
+  int timeFrame = 0;
+  int timeLineScan = 0;
+  bool fFrameInProgress = false;
+  char o,k;
+
+  // 
+  // let hsync measure the time
+  //
+  while (g_phase == PHASE_READY_TO_MEASURE) {
+    delayMicroseconds (10);
+  }
+
+  while (g_phase == PHASE_MEASURING) {
+    delayMicroseconds (10);
+  }
+
+  //
+  // time has been measured by hsync, let's do our calculations, set up the scan buffers and start scanning!
+  //
+  while (g_phase == PHASE_READY_FOR_SCAN) {
+    g_pCurrentRes = getResolution(g_measuredLineTime);
+    if (g_pCurrentRes != NULL) {
+      adjustToNewRes();
+      fFrameInProgress = true;
+      sendFrameHeader();
+      numLines = 0;
+      timeFrame = millis();
+      g_phase = PHASE_SCANNING;
+    } else
+      g_phase = PHASE_IDLE;
+  }
+
+  //
+  // main line scanning
+  // vsync will get us out of this
+  //
+  while (g_phase == PHASE_SCANNING) {
+    // wait for scan completion, get line out of the way of the DMA controller
+    scanAndCopyOneLine();
+
+    // keep track of maximum scan time (we report this so we can dial it in and get max possible pixel res)
+    timeLineScan = max(timeLineScan, g_adcLineTime);
+
+    // compute check sum and fill in line and bytes
+    computeCheckSum(numLines, g_lineBytes);
+
+    // try to send the line, if things go wrong too often, reset.
+    if (!sendLine(g_lineBytes)) {
+      reset();
+      return;
+    }
+              
+    numLines++;
+  }
+
+  //
+  // aftermath
+  // no "while" here, we would get stuck. loop() will accomplish the same thing for us.
+  //
+  while (g_phase == PHASE_IDLE) {
+    if (fFrameInProgress) {
+      timeFrame = millis() - timeFrame;
+      sendEndFrame (timeLineScan, timeFrame);
+      fFrameInProgress = false;
+    } else {
+      sendIdle();
+    }
+    delayMicroseconds (100); // TODO: Good sleep value? need to sleep at all?
+    
+    // check for abort
+    o = 0;
+    while (SerialUSB.available()) {
+      k = SerialUSB.read();
+      if (o == 'A' && k == 'B') {
+        reset();
+        return;
+      } 
+      o = k;
+    }
+  }
+
+  
+}
+
+void adjustToNewRes() {
+    // free previous buffers (safe to do)
+    freeLineBuffers();
+
+    //
+    // calculate some basic frame parameters and allocate buffer, init adc
+    //
+    g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
+    setupLineBuffers();
+    initializeADC();
+}
+
+
+
+void scanAndCopyOneLine() {
+  while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
+    delayMicroseconds(10);                                            // wait for buffer to be full
+  }
+
+  // put the line somewhere safe from adc, just past the params header:
+  memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
+  currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
+}
+
+
+void sendIdle() {
+    SerialUSB.write(headerIdle, 16);
+}
+
+
+void test() {
+  /*
+    analogWrite(2, (line*1024/numLines) % 256);
+    analogWrite(DAC0, (line*256/numLines) % 256);
+    analogWrite(DAC1, 256-((line*256/numLines) % 256));
+    */
+}
 

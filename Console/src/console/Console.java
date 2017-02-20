@@ -19,9 +19,11 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.ScrollPane;
@@ -243,26 +245,40 @@ public class Console extends Application {
     private void startSEMThread() {
         btn.setDisable(true);
         // stop any existing SEM thread
-        this.txt.setText("Stopping worker thread ...");
 
         stopSEMThread();
         this.txt.setText("Trying to connect, please be patient ...");
+        Console.println();
+        Console.println("[Console: connecting]");
 
         // and create a new one
-        do {
-            try {
-                System.out.println("starting thread ...");
-                semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
-                semThread.start();
-                Thread.sleep(2000);
-            } catch (Exception e) {
-            }
-        } while (!semThread.isAlive());
+        Platform.runLater(() -> startThreadLambda());
+    }
 
-        this.btn.setText("Disconnect");
-        this.txt.setText("Connected");
-        btn.setOnAction((event) -> stopSEMThread());
-        btn.setDisable(false);
+    private void startThreadLambda() {
+        if (semThread != null && semThread.isAlive()) {
+            this.btn.setText("Disconnect");
+            this.txt.setText("Connected");
+            btn.setOnAction((event) -> stopSEMThread());
+            btn.setDisable(false);
+            return;
+        }
+        try {
+            System.out.println("starting thread ...");
+            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
+            semThread.start();
+        } catch (Exception e) {
+            System.out.println("exception starting thread.");
+            System.out.println(e.getMessage());
+        }
+
+        runLaterAfterDelay(2000, () -> startThreadLambda());
+    }
+
+    public void runLaterAfterDelay(int ms, Runnable r) {
+        final KeyFrame kf1 = new KeyFrame(Duration.millis(ms), (e) -> r.run());
+        final Timeline timeline = new Timeline(kf1);
+        timeline.play();
     }
 
     private void stopSEMThread() {
