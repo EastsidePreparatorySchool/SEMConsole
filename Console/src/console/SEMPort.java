@@ -43,6 +43,7 @@ public class SEMPort {
 
     int[] rawMultiChannelBuffer;
     int proposedBytes;
+    long frameStartTime;
     SEMImage si;
 
     SEMPort() {
@@ -207,6 +208,7 @@ public class SEMPort {
                         int width = Short.toUnsignedInt(buffer.getShort());
                         int height = Short.toUnsignedInt(buffer.getShort());
                         int time = Short.toUnsignedInt(buffer.getShort());
+                        frameStartTime = System.currentTimeMillis();
 
                         Console.print("width: " + width + ", height: " + height);
                         Console.print(", line scan time: ");
@@ -315,7 +317,8 @@ public class SEMPort {
                             buffer.position(0);
                             //System.out.print("[read " + n + "bytes]");
                         }
-                        Console.print(Short.toUnsignedInt(buffer.getShort()) + "ms, OKs: ");
+                        buffer.getShort(); //unused frame time from Arduino
+                        Console.print((System.currentTimeMillis()-frameStartTime) + "ms, OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors);
                         synchronized (ltq) {
                             ltq.add(this.si);
