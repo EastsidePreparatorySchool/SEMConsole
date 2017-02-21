@@ -5,11 +5,21 @@
 //
 
 
+// set to 1 to test, empty to run normal
+#define TEST 1
+// set to number of seconds to stay in mode
+#define TEST_MODE_LENGTH 20
+
 
 
 // test mode
+#if TEST == 1
+  #define TEST(a,b,c) test(a,b,c,TEST_MODE_LENGTH)
+#else
+  #define TEST(a,b,c) 
+#endif
 
-#define FRAMES_PER_TEST 4
+#define TESTSIGNAL TEST(false, false, 0);
 
 
 
@@ -58,11 +68,17 @@ struct Resolution *g_pCurrentRes;
 #define NUM_MODES 3
 
 struct Resolution g_allRes[NUM_MODES] = {
-  {   145,   155,  284, 1,  533 }, // RAPID2
+  {   100,   200,  250, 1,  533 }, // RAPID2
+  {  4900,  5100, 2000, 4, 1000 }, // SLOW1
+  { 39000, 41000, 4200, 2, 2500 }  // H6V7
+};
+/*
+struct Resolution g_allRes[NUM_MODES] = {
+  {   130,   160,  284, 1,  533 }, // RAPID2
   {  4900,  5100, 2200, 4, 1000 }, // SLOW1
   { 39000, 41000, 4770, 2, 2500 }  // H6V7
 };
-
+*/
 
 
 #define HSYNC_PIN   1
@@ -200,6 +216,8 @@ void setup() {
   blinkBuiltInLED(2);  
   g_pCurrentRes = NULL;
   g_phase = PHASE_IDLE;
+
+  TEST(true, true, 1); // start test signal simulation in mode 1
 }
 
 
@@ -230,6 +248,7 @@ bool sendLine(int bytes) {
     long wait = micros();
     long acceptable = wait + (USB_TIMEOUT);
     while (SerialUSB.available() == 0 && wait<acceptable) {
+      TESTSIGNAL;
       delayMicroseconds(10);
       wait = micros();
     }
@@ -313,7 +332,7 @@ void sendFrameHeader() {
   SerialUSB_write_uint16_t(g_pCurrentRes->numChannels); // number of channels                       
   SerialUSB_write_uint16_t(g_pCurrentRes->numPixels);   // width in pixels
   SerialUSB_write_uint16_t(g_pCurrentRes->numLines);    // height in lines
-  SerialUSB_write_uint16_t(0);                          // stand-in for line scan time
+  SerialUSB_write_uint16_t(g_measuredLineTime);         // measured line scan time that determined resolution
   
   switch (g_pCurrentRes->numChannels) {
     case 4:
@@ -486,6 +505,9 @@ void setupInterrupts() {
 void vsyncHandler() {
   switch (g_phase) {
     case PHASE_IDLE:
+      g_phase = PHASE_READY_TO_MEASURE;
+      break;
+      
     case PHASE_SCANNING:
       // time to end the frame and send the image
       g_phase = PHASE_IDLE;
@@ -519,7 +541,7 @@ void hsyncHandler() {
       break;
       
     case PHASE_SCANNING:
-      // start ADC (completion handled by other interrupt)
+      // start ADC (completion handled by ADC interrupt)
       startADC();
       break;
   }
@@ -544,30 +566,39 @@ struct Resolution *getResolution(int lineTime) {
 
 
 void loop () {
-  int numLines = 0;
-  int timeFrame = 0;
+  static int numLines = 0;
+  static int timeFrame = 0;
+  static bool fFrameInProgress = false;
+  static struct Resolution *lastRes = NULL;
+
   int timeLineScan = 0;
-  bool fFrameInProgress = false;
   char o,k;
 
   // 
   // let hsync measure the time
   //
+  
   while (g_phase == PHASE_READY_TO_MEASURE) {
+    TESTSIGNAL;
     delayMicroseconds (10);
   }
 
   while (g_phase == PHASE_MEASURING) {
+    TESTSIGNAL;
     delayMicroseconds (10);
   }
 
   //
   // time has been measured by hsync, let's do our calculations, set up the scan buffers and start scanning!
   //
-  while (g_phase == PHASE_READY_FOR_SCAN) {
+  if (g_phase == PHASE_READY_FOR_SCAN) {
     g_pCurrentRes = getResolution(g_measuredLineTime);
     if (g_pCurrentRes != NULL) {
-      adjustToNewRes();
+      if (g_pCurrentRes != lastRes) {
+        adjustToNewRes();
+        lastRes = g_pCurrentRes;
+      }
+      
       fFrameInProgress = true;
       sendFrameHeader();
       numLines = 0;
@@ -576,12 +607,14 @@ void loop () {
     } else
       g_phase = PHASE_IDLE;
   }
+  TESTSIGNAL;
 
   //
   // main line scanning
   // vsync will get us out of this
   //
   while (g_phase == PHASE_SCANNING) {
+    TESTSIGNAL;
     // wait for scan completion, get line out of the way of the DMA controller
     scanAndCopyOneLine();
 
@@ -602,9 +635,10 @@ void loop () {
 
   //
   // aftermath
-  // no "while" here, we would get stuck. loop() will accomplish the same thing for us.
+  // send frame, check for abort
   //
   while (g_phase == PHASE_IDLE) {
+    TESTSIGNAL;
     if (fFrameInProgress) {
       timeFrame = millis() - timeFrame;
       sendEndFrame (timeLineScan, timeFrame);
@@ -612,11 +646,13 @@ void loop () {
     } else {
       sendIdle();
     }
-    delayMicroseconds (100); // TODO: Good sleep value? need to sleep at all?
+    g_phase = PHASE_READY_TO_MEASURE;
+    //delayMicroseconds (100); // TODO: Good sleep value? need to sleep at all?
     
     // check for abort
     o = 0;
     while (SerialUSB.available()) {
+      TESTSIGNAL;
       k = SerialUSB.read();
       if (o == 'A' && k == 'B') {
         reset();
@@ -645,6 +681,7 @@ void adjustToNewRes() {
 
 void scanAndCopyOneLine() {
   while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
+    TESTSIGNAL;
     delayMicroseconds(10);                                            // wait for buffer to be full
   }
 
@@ -659,11 +696,67 @@ void sendIdle() {
 }
 
 
-void test() {
-  /*
-    analogWrite(2, (line*1024/numLines) % 256);
-    analogWrite(DAC0, (line*256/numLines) % 256);
-    analogWrite(DAC1, 256-((line*256/numLines) % 256));
-    */
+void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
+  static int timeModeStart = 0;
+  static int timeMillisStart = 0;
+  static int timeMicrosStart = 0;
+  static struct Resolution *pRes = NULL;
+  static int curMode;
+  static int line;
+  static int lineTime;
+  static int timeModeLength;
+
+  if (fResetMode) {
+    blinkBuiltInLED(3);
+    timeModeStart = millis();
+    timeModeLength = modeSeconds;
+    pRes = &g_allRes[mode];
+    curMode = mode;
+    line = 0;
+    lineTime = (pRes->minLineTime + pRes->maxLineTime) / 2;
+  }
+
+  if (fResetFrame) {
+    // new frame, possibly new res
+    timeMillisStart = millis();
+    timeMicrosStart = micros();
+    line = 0;
+    // simulate vsync event
+    vsyncHandler();
+    
+    return;
+  } 
+
+  int timeMicros = micros()-timeMicrosStart;  // micros in line
+  int timeMillis = millis()-timeMillisStart;  // millis in frame
+  int timeMode = millis()-timeModeStart;      // time in current resolution mode
+
+  if (line == pRes->numLines) {
+    // frame done
+    // todo: select new res mode here from time to time
+    
+    // end frame, trigger vsync
+    if (timeMode > (timeModeLength*1000)) {
+      curMode = (curMode+1)%NUM_MODES;
+      test(true, true, curMode, timeModeLength);
+    } else {
+      test(false, true, curMode, timeModeLength);
+    }
+  }
+
+  if (timeMicros > lineTime) {
+    // line is up, trigger hsync
+    timeMicrosStart = micros();
+    hsyncHandler();
+    line++;
+    return;
+  }
+
+  // if we make it to here, we are inside a line
+
+  analogWrite(2, (line*1024/pRes->numLines) % 256);
+  analogWrite(DAC0, (line*256/pRes->numLines) % 256);
+  analogWrite(DAC1, 256-((line*256/pRes->numLines) % 256));
 }
+
 

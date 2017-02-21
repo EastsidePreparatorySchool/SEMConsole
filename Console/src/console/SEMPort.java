@@ -171,12 +171,12 @@ public class SEMPort {
                         return SEMThread.Phase.ABORTED;
 
                     case "EPS_SEM_IDLE....":
-                        if (dotCounter % (30000 * lines) == 0) {
+                        if (dotCounter % (20000 * lines) == 0) {
                             Console.println();
                             Console.print("[SEM idle or resolution not recognized]");
                         }
                         if (dotCounter % (100 * lines) == 0) {
-                            Console.print(".");
+                            Console.print("[]");
                         }
                         dotCounter++;
                         return SEMThread.Phase.WAITING_FOR_FRAME;
