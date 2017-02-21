@@ -150,7 +150,7 @@ public class SEMPort {
         byte[] ab;
         int checkSum = 0;
         int checkSumRead = 0;
-        int lines = 100;
+        int lines = 10;
 
         try {
             buffer.position(0);

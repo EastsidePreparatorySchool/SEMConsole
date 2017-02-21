@@ -222,24 +222,23 @@ public class Console extends Application {
             }
         }
 
+        if (newImages.isEmpty()) {
+            return;
+        }
+
         Console.println("[Console: Received " + newImages.size() + " image set"
                 + (newImages.size() == 1 ? "" : "s") + "]");
 
         for (SEMImage si : newImages) {
-            if (si.channels > 1) {
+            if (si.channels > 1 || !this.isLive) {
+                // for not live, or image sets, add to thumbnails
                 addThumbnail(si);
-            }
-        }
-
-        // for live view, show  images
-        if (this.isLive) {
-            SEMImage si = newImages.get(newImages.size() - 1);
-            if (si.channels == 1) {
+            } else {
+                // for live view, show  images
                 this.currentImageSet = si;
                 displayImageSet(this.currentImageSet);
             }
         }
-
     }
 
     private void startSEMThread() {

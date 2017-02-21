@@ -9,7 +9,7 @@
 #define TEST 1
 // set to number of seconds to stay in mode
 #define TEST_MODE_LENGTH 4
-#define TEST_MODE_INITIAL 0
+#define TEST_MODE_INITIAL 1
 
 
 
@@ -69,17 +69,10 @@ struct Resolution *g_pCurrentRes;
 #define NUM_MODES 3
 
 struct Resolution g_allRes[NUM_MODES] = {
-  {   150,  200, 1,  533, 0 }, // RAPID2
-  {  5000, 1330, 2, 1000, 1 }, // SLOW1
+  {   150,   80, 1,  533, 0 }, // RAPID2 doesn't work right now, need to consider interlacing
+  {  5000, 1600, 2, 1000, 2 }, // SLOW1
   { 40000, 3333, 4, 2500, 5 }  // H6V7
 };
-/*
-struct Resolution g_allRes[NUM_MODES] = {
-  {   130,   160,  284, 1,  533 }, // RAPID2
-  {  4900,  5100, 2200, 4, 1000 }, // SLOW1
-  { 39000, 41000, 4770, 2, 2500 }  // H6V7
-};
-*/
 
 
 #define HSYNC_PIN   1
@@ -116,8 +109,8 @@ volatile int g_measuredLineTime;
 
 
 
-#define MAX_ERRORS  50
-#define USB_TIMEOUT 50
+#define MAX_ERRORS  100
+#define USB_TIMEOUT 100
 
 
 
@@ -218,7 +211,14 @@ void setup() {
   g_pCurrentRes = NULL;
   g_phase = PHASE_IDLE;
 
-  TEST(true, true, TEST_MODE_INITIAL); // start test signal simulation
+  #ifdef TEST
+  pinMode (5, INPUT_PULLUP);
+  pinMode (6, INPUT_PULLUP);
+  pinMode (7, INPUT_PULLUP);
+  int mode = getMode();
+  TEST(true, true, mode); // start test signal simulation
+  #endif
+
 }
 
 
@@ -250,7 +250,7 @@ bool sendLine(int bytes) {
     long acceptable = wait + (USB_TIMEOUT);
     while (SerialUSB.available() == 0 && wait<acceptable) {
       TESTSIGNAL;
-      delayMicroseconds(10);
+      //delayMicroseconds(10);
       wait = micros();
     }
     
@@ -580,12 +580,12 @@ void loop () {
   
   while (g_phase == PHASE_READY_TO_MEASURE) {
     TESTSIGNAL;
-    delayMicroseconds (10);
+    //delayMicroseconds (10);
   }
 
   while (g_phase == PHASE_MEASURING) {
     TESTSIGNAL;
-    delayMicroseconds (10);
+    //delayMicroseconds (10);
   }
 
   //
@@ -682,7 +682,7 @@ void adjustToNewRes() {
 void scanAndCopyOneLine() {
   while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
     TESTSIGNAL;
-    delayMicroseconds(10);                                            // wait for buffer to be full
+    //delayMicroseconds(10);                                            // wait for buffer to be full
   }
 
   // put the line somewhere safe from adc, just past the params header:
@@ -695,7 +695,7 @@ void sendIdle() {
     SerialUSB.write(headerIdle, 16);
 }
 
-
+#ifdef TEST
 void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
   static int timeModeStart = 0;
   static int timeMillisStart = 0;
@@ -733,11 +733,12 @@ void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
 
   if (line == pRes->numLines) {
     // frame done
-    // todo: select new res mode here from time to time
     
-    // end frame, trigger vsync
-    if (timeMode > (timeModeLength*1000)) {
-      curMode = (curMode+1)%NUM_MODES;
+    // end frame, detect mode, trigger vsync
+    mode = getMode();
+ 
+    if (curMode != mode){
+      curMode = mode;
       test(true, true, curMode, timeModeLength);
     } else {
       test(false, true, curMode, timeModeLength);
@@ -745,7 +746,7 @@ void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
   }
 
   if (timeMicros > lineTime) {
-    // line is up, trigger hsync
+    // line is up, trigger hsync and reset our time
     timeMicrosStart = micros();
     hsyncHandler();
     line++;
@@ -757,23 +758,32 @@ void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
   int x = timeMicros *100 / lineTime;
   int y = line * 100 / pRes->numLines;
 
-  bool white = getPixel(x, y);
-
-  analogWrite(2, white? 255:((line*1024/pRes->numLines) % 256));
-  analogWrite(DAC0, white? 255:((line*256/pRes->numLines) % 256));
-  analogWrite(DAC1, white? 255:256-(((line*256/pRes->numLines) % 256)));
+  if (getPixel(x, y)) {
+    digitalWrite(2, HIGH);
+    analogWrite(DAC0, 255);
+    analogWrite(DAC1, 255);
+  } else {
+    analogWrite(2, (line*1024/pRes->numLines) % 256);
+    analogWrite(DAC0,(line*256/pRes->numLines) % 256);
+    analogWrite(DAC1, 256-((line*256/pRes->numLines) % 256));
+  }
+  
 }
 
 bool getPixel(int x, int y) {
-  const int xMin = 25;
+  const int xMin = 10;
   const int xMax = 75;
-  const int yMin = 25;
-  const int yMax = 75;
+  const int yMin = 35;
+  const int yMax = 60;
 
-  const int TEST_NUM_RANGES = 1;
+  const int TEST_NUM_RANGES = 5;
 
-  int range1[] = {25, 30, 6, 20, 35, 40, 55, 60, 75};
-  int *ranges[TEST_NUM_RANGES] = { range1 };
+  int range0[] = {35, 40, 6, 10, 25, 30, 45, 50, 75};
+  int range1[] = {40, 45,10, 10, 15, 30, 35, 50, 55, 60, 65, 70, 75};
+  int range2[] = {45, 50,10, 10, 25, 30, 40, 50, 55, 60, 65, 70, 75};
+  int range3[] = {50, 55, 8, 20, 25, 30, 35, 50, 55, 70, 75};
+  int range4[] = {55, 60, 8, 10, 25, 30, 45, 50, 55, 70, 75};
+  int *ranges[TEST_NUM_RANGES] = { range0, range1, range2, range3, range4 };
 
   if (x < xMin || x > xMax || y < yMin || y > yMax) {
     return false;
@@ -784,9 +794,8 @@ bool getPixel(int x, int y) {
   for (int i = 0; i < TEST_NUM_RANGES; i++) {
     int *r = ranges[i];
     if (y >= r[0] && y < r[1]) {
-      return true;
       for (int j = 3; j < r[2] + 3; j++) {
-        if (x >= r[j]) {
+        if (x < r[j]) {
           return white;
         }
         white = !white;
@@ -796,5 +805,22 @@ bool getPixel(int x, int y) {
   }
   return white;
 }
+
+int getMode() {
+      if (digitalRead(7) == LOW) {
+      return 2;
+    } else if (digitalRead(6) == LOW) {
+      return 1;
+    } else if (digitalRead(5) == LOW) {
+      return 0;
+    } else {
+      return 1;
+    }
+}
+
+#endif
+
+
+
 
 
