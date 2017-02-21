@@ -9,7 +9,7 @@ int pulseDownTime = 50; // Micros, can't be higher than 150
 
 uint8_t lineBrightness = 0;
 int freqIndex;
-int nextFreqIndex = 0;
+int nextFreqIndex = 1;
 int freqs[3][3] = {
   {0, 150 - pulseDownTime, 533},
   {4, 1000 - pulseDownTime, 1000},
@@ -19,7 +19,7 @@ void setup() {
   pinMode (vSyncPin, OUTPUT);
   pinMode (hSyncPin, OUTPUT);
   pinMode (lLED, OUTPUT);
-  pinMode (buttonPin, INPUT);
+  pinMode (buttonPin, INPUT_PULLUP);
   pinMode (signalPin, OUTPUT);
   
   digitalWrite(vSyncPin, HIGH);
