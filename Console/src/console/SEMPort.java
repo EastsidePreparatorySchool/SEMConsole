@@ -172,12 +172,25 @@ public class SEMPort {
                         return SEMThread.Phase.ABORTED;
 
                     case "EPS_SEM_IDLE....":
+                        // read scanline of unrecognized freq
+                        buffer.rewind();
+                        buffer.limit(4);
+                        n = channel.read(buffer);
+                        //System.out.print("[read " + n + "bytes]");
+                        if (n != 4) {
+                            throw new SEMException(SEMError.ERROR_BYTE_COUNT);
+                        }
+                        buffer.flip();
+
+                        // read line number (unsigned short)
+                        int scanTime = buffer.getInt();
+
                         if (dotCounter % (20000 * lines) == 0) {
                             Console.println();
                             Console.print("[SEM idle or resolution not recognized]");
                         }
-                        if (dotCounter % (100 * lines) == 0) {
-                            Console.print("[]");
+                        if (dotCounter % (10 * lines) == 0) {
+                            Console.print("[" + scanTime + "]");
                         }
                         dotCounter++;
                         return SEMThread.Phase.WAITING_FOR_FRAME;
@@ -318,7 +331,7 @@ public class SEMPort {
                             //System.out.print("[read " + n + "bytes]");
                         }
                         buffer.getShort(); //unused frame time from Arduino
-                        Console.print((System.currentTimeMillis()-frameStartTime) + "ms, OKs: ");
+                        Console.print((System.currentTimeMillis() - frameStartTime) + "ms, OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors);
                         synchronized (ltq) {
                             ltq.add(this.si);

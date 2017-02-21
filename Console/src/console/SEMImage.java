@@ -99,7 +99,7 @@ public class SEMImage {
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
     int getValue(int word) {
-        word = ((word & 0xFFF) >> 2) - SEMImage.floorValue; //TODO: better calibration and adjustment
+        word = ((word & 0xFFF)); // - SEMImage.floorValue;
         if (word > 255) {
             word = 255;
         }
@@ -111,11 +111,33 @@ public class SEMImage {
     }
 
     int grayScale(int realChannel, int intensity) {
-        return 0xFF000000
+    
+        if (realChannel == 0) {
+            //special treatment
+            int highSix = ((intensity >> 6) & 0x3F)<<2;
+            int lowSix = intensity & 0x3F;
+            int r = lowSix & 0x3;
+            lowSix >>= 2;
+            int g = lowSix & 0x3;
+            lowSix >>= 2;
+            int b = lowSix & 0x3;
+            
+            return 0xFF000000               // full alpha
+                    + ((highSix+r) << 16)   // red
+                    + ((highSix+g) << 8)    // green
+                    +  (highSix+b);         // blue
+        } else {
+            final int shiftFactor = 2;
+            return 0xFF000000 // full alpha
+                    + (realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor) << 16) // red
+                    + (realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor) << 8) // green
+                    + (realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor));      // blue
+        }
+        /*    return 0xFF000000
                 + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 4)) << 16) // red
                 + ((realChannel == 0 || realChannel == 1 ? intensity : (intensity / 4)) << 8) // green
                 + ((realChannel == 0 || realChannel == 3 ? intensity : (intensity / 4)));      // blue
-
+         */
     }
 
     // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)

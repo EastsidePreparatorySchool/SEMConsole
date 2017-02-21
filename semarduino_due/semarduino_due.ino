@@ -1,12 +1,12 @@
 // 
 // SEM EPS for Arduino Due
-// Input: Analog in A0, A1, A2, A3, hsync and vsync at D1 and D2
+// Input: Analog in A0, A1, A2, A3, hsync and vsync at D3 and D4
 // Output: USB frames to PC
 //
 
 
 // set to 1 to test, empty to run normal
-#define TEST 1
+//#define TEST 1
 // set to number of seconds to stay in mode
 #define TEST_MODE_LENGTH 4
 #define TEST_MODE_INITIAL 1
@@ -75,8 +75,8 @@ struct Resolution g_allRes[NUM_MODES] = {
 };
 
 
-#define HSYNC_PIN   1
-#define VSYNC_PIN   2
+#define HSYNC_PIN   3
+#define VSYNC_PIN   4
 
 #define PHASE_IDLE                0
 #define PHASE_READY_TO_MEASURE    1
@@ -164,9 +164,10 @@ void reset() {
   setup();
 }
 
+bool g_fIRQ = false;
 
 void setup() {
-    // start USB
+  // start USB
   SerialUSB.begin(0); 
 
   // set up built-in blink LED, custom led, pushButton
@@ -211,12 +212,14 @@ void setup() {
   g_pCurrentRes = NULL;
   g_phase = PHASE_IDLE;
 
-  #ifdef TEST
+  #if TEST == 1
   pinMode (5, INPUT_PULLUP);
   pinMode (6, INPUT_PULLUP);
   pinMode (7, INPUT_PULLUP);
   int mode = getMode();
   TEST(true, true, mode); // start test signal simulation
+  #else
+  setupInterrupts();
   #endif
 
 }
@@ -414,7 +417,7 @@ void initializeADC() {
 
   pmc_enable_periph_clk(ID_ADC);
   adc_init(ADC, SystemCoreClock, ADC_FREQ_MAX, ADC_STARTUP_FAST);
-  analogReadResolution(8);
+  analogReadResolution(12);
   adcConfigureGain();
 
   ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out. 
@@ -444,7 +447,7 @@ void initializeADC() {
 
   NVIC_EnableIRQ(ADC_IRQn);
 
-  ADC->ADC_IDR = ~(1 << 27);              // disable other interrupts
+  //ADC->ADC_IDR = ~(1 << 27);              // disable other interrupts
   ADC->ADC_IER = 1 << 27;                 // enable the DMA one
   ADC->ADC_RPR = (uint32_t)padcBuffer[0]; // set up DMA buffer
   ADC->ADC_RCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;           // and number of words
@@ -461,6 +464,7 @@ void initializeADC() {
 
 void ADC_Handler() {
   // move DMA pointers to next buffer
+  interrupts(); // to allow VSYNC to happen
 
   int flags = ADC->ADC_ISR;                           // read interrupt register
   if (flags & (1 << 27)) {                            // if this was a completed DMA
@@ -500,9 +504,11 @@ void setupInterrupts() {
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
   attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);   // catch rising edge of hsync to start ADC
+//  NVIC_SetPriority(vsyncHandler, 0);
 }
 
 void vsyncHandler() {
+
   switch (g_phase) {
     case PHASE_IDLE:
       g_phase = PHASE_READY_TO_MEASURE;
@@ -574,6 +580,13 @@ void loop () {
   int timeLineScan = 0;
   char o,k;
 
+/*
+  if (g_fIRQ) {
+    g_fIRQ = false;
+    blinkBuiltInLED(1);
+  }
+  return;
+*/
   // 
   // let hsync measure the time
   //
@@ -594,6 +607,7 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN) {
     g_pCurrentRes = getResolution(g_measuredLineTime);
     if (g_pCurrentRes != NULL) {
+      //blinkBuiltInLED(1);
       if (g_pCurrentRes != lastRes) {
         adjustToNewRes();
         lastRes = g_pCurrentRes;
@@ -605,6 +619,7 @@ void loop () {
       timeFrame = millis();
       g_phase = PHASE_SCANNING;
     } else
+      //blinkBuiltInLED(2);
       g_phase = PHASE_IDLE;
   }
   TESTSIGNAL;
@@ -631,6 +646,9 @@ void loop () {
     }
               
     numLines++;
+    if (numLines >= g_pCurrentRes->numLines-4) {
+      g_phase = PHASE_IDLE;
+    }
   }
 
   //
@@ -644,7 +662,7 @@ void loop () {
       sendEndFrame (timeLineScan, timeFrame);
       fFrameInProgress = false;
     } else {
-      sendIdle();
+      sendIdle(g_measuredLineTime);
     }
     g_phase = PHASE_READY_TO_MEASURE;
     //delayMicroseconds (100); // TODO: Good sleep value? need to sleep at all?
@@ -691,8 +709,9 @@ void scanAndCopyOneLine() {
 }
 
 
-void sendIdle() {
+void sendIdle(int scanTime) {
     SerialUSB.write(headerIdle, 16);
+    SerialUSB_write_uint32_t(scanTime);
 }
 
 #ifdef TEST
