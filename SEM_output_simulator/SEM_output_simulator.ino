@@ -1,26 +1,26 @@
 int vSyncPin = 8;
 int hSyncPin = 9;
-int redColorPin = 2;
-int greenColorPin = 3;
-int blueColorPin = 4;
-int buttonPin = 10;
 int lLED = 13;
+int buttonPin = 2;
+int signalPin = 3;
+volatile boolean prevButtonState = LOW; 
 
-boolean makingPhoto;
-int lines = 100;
-int millisPerLine = 40 - 1;
-double pulseDownTime = 100;
-int microsPerLine = 1000 - pulseDownTime;
+int pulseDownTime = 50; // Micros, can't be higher than 150
+
+uint8_t lineBrightness = 0;
+int freqIndex;
+int nextFreqIndex = 0;
+int freqs[3][3] = {
+  {0, 150 - pulseDownTime, 533},
+  {4, 1000 - pulseDownTime, 1000},
+  {39, 1000 - pulseDownTime, 2500}};
 
 void setup() {
-  // put your setup code here, to run once:
-  pinMode (buttonPin, INPUT);
   pinMode (vSyncPin, OUTPUT);
   pinMode (hSyncPin, OUTPUT);
   pinMode (lLED, OUTPUT);
-  pinMode (redColorPin, OUTPUT);
-  pinMode (greenColorPin, OUTPUT);
-  pinMode (blueColorPin, OUTPUT);
+  pinMode (buttonPin, INPUT);
+  pinMode (signalPin, OUTPUT);
   
   digitalWrite(vSyncPin, HIGH);
   digitalWrite(hSyncPin, HIGH);
@@ -28,12 +28,16 @@ void setup() {
 }
 
 void loop() {
+    freqIndex = nextFreqIndex;
     pulseBothPins(vSyncPin, lLED);
     
-    for (int i = 0; i < lines; i++) {
+    for (int i = 0; i < freqs[freqIndex][2]; i++) {
+      analogWrite(signalPin, lineBrightness);
+      lineBrightness++;
       pulsePin(hSyncPin, pulseDownTime);
-      delay(millisPerLine);
-      delayMicroseconds(microsPerLine);
+      delay(freqs[freqIndex][0]);
+      delayMicroseconds(freqs[freqIndex][1]);
+      makeButtonUpdates();
     }
     pulseThreePins(hSyncPin, vSyncPin, lLED);
 }
@@ -47,7 +51,7 @@ void pulsePin(int pin, int uS) { // Causes a 1 microsecond delay in program
 void pulseBothPins(int pin1, int pin2) {
   digitalWrite(pin1, LOW);
   digitalWrite(pin2, HIGH);
-  delayMicroseconds(300);
+  delayMicroseconds(100);
   digitalWrite(pin1, HIGH);
   digitalWrite(pin2, LOW);
 }
@@ -56,16 +60,21 @@ void pulseThreePins(int pin1, int pin2, int pin3) {
   digitalWrite(pin1, LOW);
   digitalWrite(pin2, LOW);
   digitalWrite(pin3, HIGH);
-  delayMicroseconds(300);
+  delayMicroseconds(100);
   digitalWrite(pin1, HIGH);
   digitalWrite(pin2, HIGH);
   digitalWrite(pin3, LOW);
 }
 
-unsigned int rng() {
-  static unsigned int y = 0;
-  y += micros(); // seeded with changing number
-  y ^= y << 2; y ^= y >> 7; y ^= y << 7;
-  return (y/255);
+void makeButtonUpdates() {
+  boolean buttonState = digitalRead(buttonPin);
+  
+  if (buttonState == HIGH && prevButtonState == LOW) {
+    nextFreqIndex += 1;
+    if (nextFreqIndex >= 3) {
+      nextFreqIndex = 0;
+    }
+  }
+  prevButtonState = buttonState;
 }
 
