@@ -8,7 +8,8 @@
 // set to 1 to test, empty to run normal
 #define TEST 1
 // set to number of seconds to stay in mode
-#define TEST_MODE_LENGTH 20
+#define TEST_MODE_LENGTH 4
+#define TEST_MODE_INITIAL 0
 
 
 
@@ -52,25 +53,25 @@ struct BytesParams *g_pbp = NULL;
 //
 
 struct Resolution {
-  int minLineTime;  // window of scan length (in microseconds) for recognizing this resolution
-  int maxLineTime;
+  int scanLineTime; // scan length (in microseconds) for recognizing this resolution
   int numPixels;    // number of pixels we will set up to scan for line
   int numChannels;  // number of channels for every pixel
   int numLines;     // documented number of lines (in actuality, we will obey vsync)
+  int preScaler;    // prescale factor for Arduino Due ADC; ADC clock is slowed by factor (prescale+1)*2 
 };
 
 struct Resolution *g_pCurrentRes;
 
 
 // resolutions are stored in this array in ascending order of horizontal scan times
-// min time, max time, pixels, channels, spec lines
+// scan line time, pixels, channels, spec lines, prescaler
 
 #define NUM_MODES 3
 
 struct Resolution g_allRes[NUM_MODES] = {
-  {   100,   200,  250, 1,  533 }, // RAPID2
-  {  4900,  5100, 2000, 4, 1000 }, // SLOW1
-  { 39000, 41000, 4200, 2, 2500 }  // H6V7
+  {   150,  200, 1,  533, 0 }, // RAPID2
+  {  5000, 1330, 2, 1000, 1 }, // SLOW1
+  { 40000, 3333, 4, 2500, 5 }  // H6V7
 };
 /*
 struct Resolution g_allRes[NUM_MODES] = {
@@ -93,7 +94,7 @@ struct Resolution g_allRes[NUM_MODES] = {
 
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
-int g_channelSelection2 = 2; // TODO: For now, make sure that SEI is on A0 and AEI on A1
+int g_channelSelection2 = 3; // TODO: For now, make sure that SEI is on A0 and AEI on A1
 
 //
 // Buffers are really independent of the resolution we are tracking, just make them big enough
@@ -217,7 +218,7 @@ void setup() {
   g_pCurrentRes = NULL;
   g_phase = PHASE_IDLE;
 
-  TEST(true, true, 1); // start test signal simulation in mode 1
+  TEST(true, true, TEST_MODE_INITIAL); // start test signal simulation
 }
 
 
@@ -243,7 +244,7 @@ bool sendLine(int bytes) {
   
   for (errorCount = 0; errorCount < 50; errorCount++) {
     SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-    
+
     // wait for response
     long wait = micros();
     long acceptable = wait + (USB_TIMEOUT);
@@ -416,11 +417,9 @@ void initializeADC() {
   analogReadResolution(8);
   adcConfigureGain();
 
-  // prescale : ADC clock is mck/((prescale+1)*2).  mck is 84MHZ. 
-  // prescale : 0x00 -> 40 Mhz
-
-  ADC->ADC_MR &=0xFFFF0000;     // mode register "prescale" zeroed out. 
-  ADC->ADC_MR |=0x80000000;     // high bit indicates to use sequence numbers
+  ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out. 
+  ADC->ADC_MR |= 0x80000000;     // high bit indicates to use sequence numbers
+  ADC->ADC_MR |= g_pCurrentRes->preScaler << 8;     
   ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
   ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
 
@@ -428,7 +427,7 @@ void initializeADC() {
     case 4:
     // set 4 channels 
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
-    ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
+    ADC->ADC_SEQR1 = 0x76540000;  // produce these channel readings for every completion
     break;
     
     case 2:
@@ -439,6 +438,7 @@ void initializeADC() {
 
     case 1:
     ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
+    ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
     break;
   }
 
@@ -556,7 +556,7 @@ struct Resolution *getResolution(int lineTime) {
   int i;
 
   for (i=0; i<(sizeof(g_allRes)/sizeof(struct Resolution)); i++) {
-    if (lineTime > g_allRes[i].minLineTime && lineTime < g_allRes[i].maxLineTime) {
+    if (lineTime > (g_allRes[i].scanLineTime - 100) && lineTime < (g_allRes[i].scanLineTime + 100)) {
       return &g_allRes[i];
     }
   }
@@ -713,7 +713,7 @@ void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
     pRes = &g_allRes[mode];
     curMode = mode;
     line = 0;
-    lineTime = (pRes->minLineTime + pRes->maxLineTime) / 2;
+    lineTime = pRes->scanLineTime;
   }
 
   if (fResetFrame) {
@@ -754,9 +754,47 @@ void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
 
   // if we make it to here, we are inside a line
 
-  analogWrite(2, (line*1024/pRes->numLines) % 256);
-  analogWrite(DAC0, (line*256/pRes->numLines) % 256);
-  analogWrite(DAC1, 256-((line*256/pRes->numLines) % 256));
+  int x = timeMicros *100 / lineTime;
+  int y = line * 100 / pRes->numLines;
+
+  bool white = getPixel(x, y);
+
+  analogWrite(2, white? 255:((line*1024/pRes->numLines) % 256));
+  analogWrite(DAC0, white? 255:((line*256/pRes->numLines) % 256));
+  analogWrite(DAC1, white? 255:256-(((line*256/pRes->numLines) % 256)));
+}
+
+bool getPixel(int x, int y) {
+  const int xMin = 25;
+  const int xMax = 75;
+  const int yMin = 25;
+  const int yMax = 75;
+
+  const int TEST_NUM_RANGES = 1;
+
+  int range1[] = {25, 30, 6, 20, 35, 40, 55, 60, 75};
+  int *ranges[TEST_NUM_RANGES] = { range1 };
+
+  if (x < xMin || x > xMax || y < yMin || y > yMax) {
+    return false;
+  }
+ 
+  bool white = false;
+  
+  for (int i = 0; i < TEST_NUM_RANGES; i++) {
+    int *r = ranges[i];
+    if (y >= r[0] && y < r[1]) {
+      return true;
+      for (int j = 3; j < r[2] + 3; j++) {
+        if (x >= r[j]) {
+          return white;
+        }
+        white = !white;
+      }
+      return white;
+    }
+  }
+  return white;
 }
 
 
