@@ -3,7 +3,7 @@ int hSyncPin = 9;
 int lLED = 13;
 int buttonPin = 2;
 int signalPin = 3;
-volatile boolean prevButtonState = LOW; 
+volatile boolean prevButtonState = HIGH; 
 
 int pulseDownTime = 50; // Micros, can't be higher than 150
 
@@ -69,7 +69,7 @@ void pulseThreePins(int pin1, int pin2, int pin3) {
 void makeButtonUpdates() {
   boolean buttonState = digitalRead(buttonPin);
   
-  if (buttonState == HIGH && prevButtonState == LOW) {
+  if (buttonState == LOW && prevButtonState == HIGH) {
     nextFreqIndex += 1;
     if (nextFreqIndex >= 3) {
       nextFreqIndex = 0;

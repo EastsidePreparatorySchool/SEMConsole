@@ -508,6 +508,14 @@ void setupInterrupts() {
 }
 
 void vsyncHandler() {
+  static bool fOn = false;
+  if (fOn) {
+    analogWrite(13, 0);
+    fOn = false;
+  } else {
+    analogWrite(13, 30);
+    fOn = true;
+  }
 
   switch (g_phase) {
     case PHASE_IDLE:
