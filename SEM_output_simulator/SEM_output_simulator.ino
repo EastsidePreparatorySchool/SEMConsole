@@ -3,6 +3,8 @@ int hSyncPin = 9;
 int lLED = 13;
 int buttonPin = 2;
 int signalPin = 3;
+int signalPin2 = 4;
+const int range = 4096; // DAC range for AnagogWrite
 volatile boolean fChange = false; 
 
 int pulseDownTime = 50; // Micros, can't be higher than 150
@@ -16,11 +18,13 @@ int freqs[NUM_MODES][4] = {
   };
 
 void setup() {
+  analogWriteResolution(12);
   pinMode (vSyncPin, OUTPUT);
   pinMode (hSyncPin, OUTPUT);
   pinMode (lLED, OUTPUT);
   pinMode (buttonPin, INPUT_PULLUP);
   pinMode (signalPin, OUTPUT);
+  pinMode (signalPin2, OUTPUT);
   
   digitalWrite(vSyncPin, HIGH);
   digitalWrite(hSyncPin, HIGH);
@@ -93,16 +97,14 @@ void testPattern(long timePercent, long linesPercent) {
 
   if (getPixel(timePercent, linesPercent)) {
     digitalWrite(signalPin, HIGH);
-    analogWrite(DAC0, 255);
-    analogWrite(DAC1, 255);
+    digitalWrite(signalPin2, HIGH);
+    analogWrite(DAC0, range-1);
+    analogWrite(DAC1, range-1);
   } else {
-    analogWrite(signalPin, ((linesPercent*400)/256)%256);
-    analogWrite(DAC0, 0);
-    analogWrite(DAC1, 0);
-//todo: check
-return;
-    analogWrite(DAC0,((linesPercent*256)/100) % 256);
-    analogWrite(DAC1, 256-(((linesPercent*256)/100) % 256));
+    analogWrite(signalPin, ((linesPercent*range)/100)%range);
+    analogWrite(signalPin2, ((linesPercent*2*range)/100)%range);
+    analogWrite(DAC0,((linesPercent*range)/1000) % range);
+    analogWrite(DAC1, ((linesPercent*range)/500) % range);
   }
   
 }
