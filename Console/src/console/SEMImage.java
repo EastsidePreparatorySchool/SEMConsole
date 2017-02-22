@@ -111,7 +111,10 @@ public class SEMImage {
     }
 
     int grayScale(int realChannel, int intensity) {
-    
+        // todo: real gain calibration
+        intensity *= 16;
+        intensity = Math.min(intensity, 4095);
+        
         if (realChannel == 0) {
             //special treatment
             int highSix = ((intensity >> 6) & 0x3F)<<2;

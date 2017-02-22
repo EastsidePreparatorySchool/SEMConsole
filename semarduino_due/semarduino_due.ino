@@ -430,13 +430,13 @@ void initializeADC() {
     case 4:
     // set 4 channels 
     ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
-    ADC->ADC_SEQR1 = 0x76540000;  // produce these channel readings for every completion
+    ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
     break;
     
     case 2:
     // set 2 channels  
     ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-    ADC->ADC_SEQR1 = (channel1 << (channel1 *4)) | (channel2 << (channel2*4));
+    ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel2 << (channel1*4));
     break;
 
     case 1:
@@ -593,8 +593,6 @@ void loop () {
   char o,k;
 
 
-//todo:remove
-return;
   // 
   // let hsync measure the time
   //
@@ -654,9 +652,9 @@ return;
     }
               
     numLines++;
-    if (numLines >= g_pCurrentRes->numLines-4) {
-      g_phase = PHASE_IDLE;
-    }
+//    if (numLines >= g_pCurrentRes->numLines-4) {
+//      g_phase = PHASE_IDLE;
+//    }
   }
 
   //

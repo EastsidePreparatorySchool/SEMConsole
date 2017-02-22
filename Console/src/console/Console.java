@@ -248,7 +248,7 @@ public class Console extends Application {
         stopSEMThread();
         this.txt.setText("Trying to connect, please be patient ...");
         Console.println();
-        Console.println("[Console: connecting]");
+        Console.println("[Console: connecting ...]");
 
         // and create a new one
         Platform.runLater(() -> startThreadLambda());
@@ -256,6 +256,7 @@ public class Console extends Application {
 
     private void startThreadLambda() {
         if (semThread != null && semThread.isAlive()) {
+            Console.println("[Console: connected]");
             this.btn.setText("Disconnect");
             this.txt.setText("Connected");
             btn.setOnAction((event) -> stopSEMThread());
@@ -285,7 +286,7 @@ public class Console extends Application {
         this.txt.setText("Stopping worker thread ...");
 
         Console.println();
-        Console.println("[Console: disconnecting]");
+        Console.println("[Console: disconnecting ...]");
         // stop any existing SEM thread
         if (semThread != null) {
             semThread.interrupt();
@@ -296,6 +297,7 @@ public class Console extends Application {
             }
             semThread = null;
         }
+        Console.println("[Console: disconnected]");
         this.btn.setText("Connect");
         this.txt.setText("Not connected");
 
