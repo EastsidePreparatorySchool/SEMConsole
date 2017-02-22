@@ -75,8 +75,8 @@ struct Resolution g_allRes[NUM_MODES] = {
 };
 
 
+#define VSYNC_PIN   2
 #define HSYNC_PIN   3
-#define VSYNC_PIN   4
 
 #define PHASE_IDLE                0
 #define PHASE_READY_TO_MEASURE    1
@@ -464,7 +464,6 @@ void initializeADC() {
 
 void ADC_Handler() {
   // move DMA pointers to next buffer
-  interrupts(); // to allow VSYNC to happen
 
   int flags = ADC->ADC_ISR;                           // read interrupt register
   if (flags & (1 << 27)) {                            // if this was a completed DMA
@@ -504,60 +503,65 @@ void setupInterrupts() {
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
   attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);   // catch rising edge of hsync to start ADC
-//  NVIC_SetPriority(vsyncHandler, 0);
 }
 
+
 void vsyncHandler() {
-  static bool fOn = false;
-  if (fOn) {
-    analogWrite(13, 0);
-    fOn = false;
-  } else {
-    analogWrite(13, 30);
-    fOn = true;
-  }
+  volatile static bool fOn = false;
 
-  switch (g_phase) {
-    case PHASE_IDLE:
-      g_phase = PHASE_READY_TO_MEASURE;
-      break;
-      
-    case PHASE_SCANNING:
-      // time to end the frame and send the image
-      g_phase = PHASE_IDLE;
-      break;
-
-    case PHASE_READY_TO_MEASURE:
-    case PHASE_MEASURING:
-    case PHASE_READY_FOR_SCAN:
-      // we should never get here, but hey, just stop everything
-      g_phase = PHASE_IDLE;
-      break;
+  if (digitalRead(VSYNC_PIN) == LOW) { 
+    if (fOn) {
+      analogWrite(13, 0);
+      fOn = false;
+    } else {
+      analogWrite(13, 30);
+      fOn = true;
+    }
+  
+    switch (g_phase) {
+      case PHASE_IDLE:
+        g_phase = PHASE_READY_TO_MEASURE;
+        break;
+        
+      case PHASE_SCANNING:
+        // time to end the frame and send the image
+        g_phase = PHASE_IDLE;
+        break;
+  
+      case PHASE_READY_TO_MEASURE:
+      case PHASE_MEASURING:
+      case PHASE_READY_FOR_SCAN:
+        // we should never get here, but hey, just stop everything
+        g_phase = PHASE_IDLE;
+        break;
+    }
   }
 }
 
 void hsyncHandler() {
-  switch (g_phase) {
-    case PHASE_IDLE:
-      // not doing anything right now
-      break;
-    
-    case PHASE_READY_TO_MEASURE:
-      // start stopwatch, switch phase
-      g_measuredLineTime = micros();
-      g_phase = PHASE_MEASURING;
-      break;
-
-    case PHASE_MEASURING:
-      // take scan time, get ready to start scanning (initiated by main program, need to set up ADC first)
-      g_measuredLineTime = micros() - g_measuredLineTime;
-      g_phase = PHASE_READY_FOR_SCAN;
-      break;
+  if (digitalRead(HSYNC_PIN) == HIGH) {
+    switch (g_phase) {
+      case PHASE_IDLE:
+        // not doing anything right now
+        break;
       
-    case PHASE_SCANNING:
-      // start ADC (completion handled by ADC interrupt)
-      startADC();
-      break;
+      case PHASE_READY_TO_MEASURE:
+        // start stopwatch, switch phase
+        g_measuredLineTime = micros();
+        g_phase = PHASE_MEASURING;
+        break;
+  
+      case PHASE_MEASURING:
+        // take scan time, get ready to start scanning (initiated by main program, need to set up ADC first)
+        g_measuredLineTime = micros() - g_measuredLineTime;
+        g_phase = PHASE_READY_FOR_SCAN;
+        break;
+        
+      case PHASE_SCANNING:
+        // start ADC (completion handled by ADC interrupt)
+        startADC();
+        break;
+    }
   }
 }
 
@@ -588,13 +592,9 @@ void loop () {
   int timeLineScan = 0;
   char o,k;
 
-/*
-  if (g_fIRQ) {
-    g_fIRQ = false;
-    blinkBuiltInLED(1);
-  }
-  return;
-*/
+
+//todo:remove
+return;
   // 
   // let hsync measure the time
   //
@@ -786,11 +786,9 @@ void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
   int y = line * 100 / pRes->numLines;
 
   if (getPixel(x, y)) {
-    digitalWrite(2, HIGH);
     analogWrite(DAC0, 255);
     analogWrite(DAC1, 255);
   } else {
-    analogWrite(2, (line*1024/pRes->numLines) % 256);
     analogWrite(DAC0,(line*256/pRes->numLines) % 256);
     analogWrite(DAC1, 256-((line*256/pRes->numLines) % 256));
   }

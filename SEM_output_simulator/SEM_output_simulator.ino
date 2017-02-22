@@ -8,8 +8,7 @@ volatile boolean prevButtonState = HIGH;
 int pulseDownTime = 50; // Micros, can't be higher than 150
 
 uint8_t lineBrightness = 0;
-int freqIndex;
-int nextFreqIndex = 1;
+int freqIndex = 1;
 int freqs[3][3] = {
   {0, 150 - pulseDownTime, 533},
   {4, 1000 - pulseDownTime, 1000},
@@ -28,18 +27,17 @@ void setup() {
 }
 
 void loop() {
-    freqIndex = nextFreqIndex;
-    pulseBothPins(vSyncPin, lLED);
-    
     for (int i = 0; i < freqs[freqIndex][2]; i++) {
       analogWrite(signalPin, lineBrightness);
       lineBrightness++;
       pulsePin(hSyncPin, pulseDownTime);
       delay(freqs[freqIndex][0]);
       delayMicroseconds(freqs[freqIndex][1]);
-      makeButtonUpdates();
+      freqIndex = makeButtonUpdates();
     }
-    pulseThreePins(hSyncPin, vSyncPin, lLED);
+    digitalWrite(lLED, HIGH);
+    pulsePin(vSyncPin, 3*pulseDownTime);
+    digitalWrite(lLED, LOW);
 }
 
 void pulsePin(int pin, int uS) { // Causes a 1 microsecond delay in program
@@ -48,33 +46,14 @@ void pulsePin(int pin, int uS) { // Causes a 1 microsecond delay in program
   digitalWrite(pin, HIGH);
 }
 
-void pulseBothPins(int pin1, int pin2) {
-  digitalWrite(pin1, LOW);
-  digitalWrite(pin2, HIGH);
-  delayMicroseconds(100);
-  digitalWrite(pin1, HIGH);
-  digitalWrite(pin2, LOW);
-}
-
-void pulseThreePins(int pin1, int pin2, int pin3) {
-  digitalWrite(pin1, LOW);
-  digitalWrite(pin2, LOW);
-  digitalWrite(pin3, HIGH);
-  delayMicroseconds(100);
-  digitalWrite(pin1, HIGH);
-  digitalWrite(pin2, HIGH);
-  digitalWrite(pin3, LOW);
-}
-
-void makeButtonUpdates() {
+int makeButtonUpdates() {
   boolean buttonState = digitalRead(buttonPin);
+  int f;
   
   if (buttonState == LOW && prevButtonState == HIGH) {
-    nextFreqIndex += 1;
-    if (nextFreqIndex >= 3) {
-      nextFreqIndex = 0;
-    }
+    f = (freqIndex + 1) % 3;
   }
   prevButtonState = buttonState;
+  return f;
 }
 
