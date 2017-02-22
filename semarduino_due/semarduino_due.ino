@@ -5,23 +5,6 @@
 //
 
 
-// set to 1 to test, empty to run normal
-//#define TEST 1
-// set to number of seconds to stay in mode
-#define TEST_MODE_LENGTH 4
-#define TEST_MODE_INITIAL 1
-
-
-
-// test mode
-#if TEST == 1
-  #define TEST(a,b,c) test(a,b,c,TEST_MODE_LENGTH)
-#else
-  #define TEST(a,b,c) 
-#endif
-
-#define TESTSIGNAL TEST(false, false, 0);
-
 
 
 // USB communication headers
@@ -66,10 +49,10 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 // scan line time, pixels, channels, spec lines, prescaler
 
-#define NUM_MODES 3
+#define NUM_MODES 2
 
 struct Resolution g_allRes[NUM_MODES] = {
-  {   150,   80, 1,  533, 0 }, // RAPID2 doesn't work right now, need to consider interlacing
+//  {   150,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
   {  5000, 1600, 2, 1000, 2 }, // SLOW1
   { 40000, 3333, 4, 2500, 5 }  // H6V7
 };
@@ -212,16 +195,7 @@ void setup() {
   g_pCurrentRes = NULL;
   g_phase = PHASE_IDLE;
 
-  #if TEST == 1
-  pinMode (5, INPUT_PULLUP);
-  pinMode (6, INPUT_PULLUP);
-  pinMode (7, INPUT_PULLUP);
-  int mode = getMode();
-  TEST(true, true, mode); // start test signal simulation
-  #else
   setupInterrupts();
-  #endif
-
 }
 
 
@@ -252,8 +226,6 @@ bool sendLine(int bytes) {
     long wait = micros();
     long acceptable = wait + (USB_TIMEOUT);
     while (SerialUSB.available() == 0 && wait<acceptable) {
-      TESTSIGNAL;
-      //delayMicroseconds(10);
       wait = micros();
     }
     
@@ -598,13 +570,9 @@ void loop () {
   //
   
   while (g_phase == PHASE_READY_TO_MEASURE) {
-    TESTSIGNAL;
-    //delayMicroseconds (10);
   }
 
   while (g_phase == PHASE_MEASURING) {
-    TESTSIGNAL;
-    //delayMicroseconds (10);
   }
 
   //
@@ -628,14 +596,12 @@ void loop () {
       //blinkBuiltInLED(2);
       g_phase = PHASE_IDLE;
   }
-  TESTSIGNAL;
 
   //
   // main line scanning
   // vsync will get us out of this
   //
   while (g_phase == PHASE_SCANNING) {
-    TESTSIGNAL;
     // wait for scan completion, get line out of the way of the DMA controller
     scanAndCopyOneLine();
 
@@ -662,7 +628,6 @@ void loop () {
   // send frame, check for abort
   //
   while (g_phase == PHASE_IDLE) {
-    TESTSIGNAL;
     if (fFrameInProgress) {
       timeFrame = millis() - timeFrame;
       sendEndFrame (timeLineScan, timeFrame);
@@ -676,7 +641,6 @@ void loop () {
     // check for abort
     o = 0;
     while (SerialUSB.available()) {
-      TESTSIGNAL;
       k = SerialUSB.read();
       if (o == 'A' && k == 'B') {
         reset();
@@ -705,8 +669,6 @@ void adjustToNewRes() {
 
 void scanAndCopyOneLine() {
   while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
-    TESTSIGNAL;
-    //delayMicroseconds(10);                                            // wait for buffer to be full
   }
 
   // put the line somewhere safe from adc, just past the params header:
@@ -719,130 +681,6 @@ void sendIdle(int scanTime) {
     SerialUSB.write(headerIdle, 16);
     SerialUSB_write_uint32_t(scanTime);
 }
-
-#ifdef TEST
-void test(bool fResetMode, bool fResetFrame, int mode, int modeSeconds) {
-  static int timeModeStart = 0;
-  static int timeMillisStart = 0;
-  static int timeMicrosStart = 0;
-  static struct Resolution *pRes = NULL;
-  static int curMode;
-  static int line;
-  static int lineTime;
-  static int timeModeLength;
-
-  if (fResetMode) {
-    blinkBuiltInLED(3);
-    timeModeStart = millis();
-    timeModeLength = modeSeconds;
-    pRes = &g_allRes[mode];
-    curMode = mode;
-    line = 0;
-    lineTime = pRes->scanLineTime;
-  }
-
-  if (fResetFrame) {
-    // new frame, possibly new res
-    timeMillisStart = millis();
-    timeMicrosStart = micros();
-    line = 0;
-    // simulate vsync event
-    vsyncHandler();
-    
-    return;
-  } 
-
-  int timeMicros = micros()-timeMicrosStart;  // micros in line
-  int timeMillis = millis()-timeMillisStart;  // millis in frame
-  int timeMode = millis()-timeModeStart;      // time in current resolution mode
-
-  if (line == pRes->numLines) {
-    // frame done
-    
-    // end frame, detect mode, trigger vsync
-    mode = getMode();
- 
-    if (curMode != mode){
-      curMode = mode;
-      test(true, true, curMode, timeModeLength);
-    } else {
-      test(false, true, curMode, timeModeLength);
-    }
-  }
-
-  if (timeMicros > lineTime) {
-    // line is up, trigger hsync and reset our time
-    timeMicrosStart = micros();
-    hsyncHandler();
-    line++;
-    return;
-  }
-
-  // if we make it to here, we are inside a line
-
-  int x = timeMicros *100 / lineTime;
-  int y = line * 100 / pRes->numLines;
-
-  if (getPixel(x, y)) {
-    analogWrite(DAC0, 255);
-    analogWrite(DAC1, 255);
-  } else {
-    analogWrite(DAC0,(line*256/pRes->numLines) % 256);
-    analogWrite(DAC1, 256-((line*256/pRes->numLines) % 256));
-  }
-  
-}
-
-bool getPixel(int x, int y) {
-  const int xMin = 10;
-  const int xMax = 75;
-  const int yMin = 35;
-  const int yMax = 60;
-
-  const int TEST_NUM_RANGES = 5;
-
-  int range0[] = {35, 40, 6, 10, 25, 30, 45, 50, 75};
-  int range1[] = {40, 45,10, 10, 15, 30, 35, 50, 55, 60, 65, 70, 75};
-  int range2[] = {45, 50,10, 10, 25, 30, 40, 50, 55, 60, 65, 70, 75};
-  int range3[] = {50, 55, 8, 20, 25, 30, 35, 50, 55, 70, 75};
-  int range4[] = {55, 60, 8, 10, 25, 30, 45, 50, 55, 70, 75};
-  int *ranges[TEST_NUM_RANGES] = { range0, range1, range2, range3, range4 };
-
-  if (x < xMin || x > xMax || y < yMin || y > yMax) {
-    return false;
-  }
- 
-  bool white = false;
-  
-  for (int i = 0; i < TEST_NUM_RANGES; i++) {
-    int *r = ranges[i];
-    if (y >= r[0] && y < r[1]) {
-      for (int j = 3; j < r[2] + 3; j++) {
-        if (x < r[j]) {
-          return white;
-        }
-        white = !white;
-      }
-      return white;
-    }
-  }
-  return white;
-}
-
-int getMode() {
-      if (digitalRead(7) == LOW) {
-      return 2;
-    } else if (digitalRead(6) == LOW) {
-      return 1;
-    } else if (digitalRead(5) == LOW) {
-      return 0;
-    } else {
-      return 1;
-    }
-}
-
-#endif
-
 
 
 
