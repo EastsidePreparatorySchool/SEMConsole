@@ -256,7 +256,7 @@ public class Console extends Application {
 
     private void startThreadLambda() {
         if (semThread != null && semThread.isAlive()) {
-            Console.println("[Console: connected]");
+//            Console.println("[Console: connected]");
             this.btn.setText("Disconnect");
             this.txt.setText("Connected");
             btn.setOnAction((event) -> stopSEMThread());

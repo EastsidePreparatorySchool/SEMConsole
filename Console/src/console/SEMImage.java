@@ -132,9 +132,9 @@ public class SEMImage {
         } else {
             final int shiftFactor = 2;
             return 0xFF000000 // full alpha
-                    + (realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor) << 16) // red
-                    + (realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor) << 8) // green
-                    + (realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor));      // blue
+                    + ((realChannel == 2 ? (intensity >> 4) : (intensity & 0xF) << shiftFactor) << 16) // red
+                    + ((realChannel == 1 ? (intensity >> 4) : (intensity & 0xF) << shiftFactor) << 8) // green
+                    + ((realChannel == 3 ? (intensity >> 4) : (intensity & 0xF) << shiftFactor));      // blue
         }
         /*    return 0xFF000000
                 + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 4)) << 16) // red
