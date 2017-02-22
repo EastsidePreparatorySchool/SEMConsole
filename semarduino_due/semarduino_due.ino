@@ -479,16 +479,16 @@ void setupInterrupts() {
 
 
 void vsyncHandler() {
-  volatile static bool fOn = false;
+//  volatile static bool fOn = false;
 
   if (digitalRead(VSYNC_PIN) == LOW) { 
-    if (fOn) {
-      analogWrite(13, 0);
-      fOn = false;
-    } else {
-      analogWrite(13, 30);
-      fOn = true;
-    }
+//    if (fOn) {
+//      analogWrite(13, 0);
+//      fOn = false;
+//    } else {
+//      analogWrite(13, 30);
+//      fOn = true;
+//    }
   
     switch (g_phase) {
       case PHASE_IDLE:
