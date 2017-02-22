@@ -30,6 +30,8 @@ public class SEMImage {
 
     private final boolean firstLine;
     private final int[] rawBuffer;
+    public int rangeMin[];
+    public int rangeMax[];
 
     private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
     static Random r = new Random();
@@ -41,12 +43,16 @@ public class SEMImage {
         this.height = height;
         this.rawBuffer = new int[width];
         this.capturedChannels = new int[channels];
-
+        this.rangeMin = new int[channels];
+        this.rangeMax = new int[channels];
+    
         images = new WritableImage[channels];
         writers = new PixelWriter[channels];
         for (int i = 0; i < channels; i++) {
             images[i] = new WritableImage(width, height);
             writers[i] = images[i].getPixelWriter();
+            rangeMin[i] = 4095;
+            rangeMax[i] = 0;
         }
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
@@ -69,6 +75,7 @@ public class SEMImage {
             capturedChannel = translateChannel(getEncodedChannel(data[channel]));
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
+                recordRange(channel, intensity);
                 /*
                 // TODO: remove this stand-in grid
                 if (line % 100 < 2 || ((i - channel)/ this.channels)% 100 < 2) {
@@ -109,6 +116,16 @@ public class SEMImage {
         //word = r.nextInt(256);
         return word;
     }
+    
+    void recordRange(int channel, int intensity) {
+        if (intensity < rangeMin[channel]) {
+            rangeMin[channel] = intensity;
+        }
+        
+        if (intensity > rangeMax[channel]) {
+            rangeMax[channel] = intensity;
+        }
+    }
 
     int grayScale(int realChannel, int intensity) {
         // todo: real gain calibration
@@ -132,9 +149,9 @@ public class SEMImage {
         } else {
             final int shiftFactor = 2;
             return 0xFF000000 // full alpha
-                    + ((realChannel == 2 ? (intensity >> 4) : (intensity & 0xF) << shiftFactor) << 16) // red
-                    + ((realChannel == 1 ? (intensity >> 4) : (intensity & 0xF) << shiftFactor) << 8) // green
-                    + ((realChannel == 3 ? (intensity >> 4) : (intensity & 0xF) << shiftFactor));      // blue
+                    + ((realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 16) // red
+                    + ((realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 8) // green
+                    + ((realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)));      // blue
         }
         /*    return 0xFF000000
                 + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 4)) << 16) // red

@@ -54,7 +54,7 @@ struct Resolution *g_pCurrentRes;
 struct Resolution g_allRes[NUM_MODES] = {
 //  {   150,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
   {  5000, 1600, 2, 1000, 2 }, // SLOW1
-  { 40000, 3300, 4, 2500, 5 }  // H6V7
+  { 40000, 3200, 4, 2500, 5 }  // H6V7
 };
 
 
@@ -362,6 +362,8 @@ void SerialUSB_write_uint32_t(uint32_t word) {
 
 
 void adcConfigureGain() {
+//todo: check this
+return;
   adc_enable_anch(ADC); 
   
   adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[0].ulADCChannelNumber), ADC_GAINVALUE_0);

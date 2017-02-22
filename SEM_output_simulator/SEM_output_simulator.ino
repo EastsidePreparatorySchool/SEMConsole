@@ -7,7 +7,6 @@ volatile boolean fChange = false;
 
 int pulseDownTime = 50; // Micros, can't be higher than 150
 
-uint8_t lineBrightness = 0;
 int freqIndex = 0;
 #define NUM_MODES 2
 int freqs[NUM_MODES][4] = {
@@ -31,15 +30,13 @@ void setup() {
 }
 
 void loop() {
-    static int frames = 0;
-    int lineStart;
-    int lineTime;
-    int endLineTime = (freqs[freqIndex][0]*1000) +freqs[freqIndex][1];
+    static long frames = 0;
+    long lineStart;
+    long lineTime;
+    long endLineTime = (freqs[freqIndex][0]*1000) +freqs[freqIndex][1];
     
-    for (int i = 0; i < freqs[freqIndex][2]; i++) {
+    for (long i = 0; i < freqs[freqIndex][2]; i++) {
       lineStart = micros();
-      analogWrite(signalPin, lineBrightness);
-      lineBrightness++;
       pulsePin(hSyncPin, pulseDownTime);
       do {
         lineTime = micros()-lineStart;
@@ -92,23 +89,29 @@ void changeFreq() {
 
 
 
-void testPattern(int timePercent, int linesPercent) {
+void testPattern(long timePercent, long linesPercent) {
 
   if (getPixel(timePercent, linesPercent)) {
+    digitalWrite(signalPin, HIGH);
     analogWrite(DAC0, 255);
     analogWrite(DAC1, 255);
   } else {
+    analogWrite(signalPin, ((linesPercent*400)/256)%256);
+    analogWrite(DAC0, 0);
+    analogWrite(DAC1, 0);
+//todo: check
+return;
     analogWrite(DAC0,((linesPercent*256)/100) % 256);
     analogWrite(DAC1, 256-(((linesPercent*256)/100) % 256));
   }
   
 }
 
-bool getPixel(int x, int y) {
-  const int xMin = 10;
-  const int xMax = 75;
-  const int yMin = 35;
-  const int yMax = 60;
+bool getPixel(long x, long y) {
+  const long xMin = 10;
+  const long xMax = 75;
+  const long yMin = 35;
+  const long yMax = 60;
 
   const int TEST_NUM_RANGES = 5;
 

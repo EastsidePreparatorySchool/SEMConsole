@@ -333,6 +333,13 @@ public class SEMPort {
                         buffer.getShort(); //unused frame time from Arduino
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors);
+                        Console.print("Ranges:");
+
+                        for (int i = 0; i < si.channels; i++) {
+                            Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + "]");
+                        }
+                        Console.println();
+
                         synchronized (ltq) {
                             ltq.add(this.si);
                             this.si = null;
