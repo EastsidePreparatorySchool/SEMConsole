@@ -7,14 +7,20 @@ int signalPin2 = 4;
 const int range = 4096; // DAC range for AnagogWrite
 volatile boolean fChange = false; 
 
-int pulseDownTime = 50; // Micros, can't be higher than 150
-
 int freqIndex = 0;
-#define NUM_MODES 2
-int freqs[NUM_MODES][4] = {
-//  {0, 150 - pulseDownTime, 266, 250},// no workie, crashes scanner
-  {4, 1000 - pulseDownTime, 1000, 2},
-  {39, 1000 - pulseDownTime, 2500, 1}
+struct Resolution {
+  long usHSync;
+  long usHPulseTime;
+  long lines;
+  long usVPulseTime;
+  long frames;
+};
+
+#define NUM_MODES 1
+struct Resolution freqs[2] = {
+//    {160, 50, 3000, 266, 10},// no workie, crashes scanner
+    {4500, 500, 1110, 8000, 20}
+//  {25000, 4500, 4000, 1}  //
   };
 
 void setup() {
@@ -37,27 +43,25 @@ void loop() {
     static long frames = 0;
     long lineStart;
     long lineTime;
-    long endLineTime = (freqs[freqIndex][0]*1000) +freqs[freqIndex][1];
+    long endLineTime = freqs[freqIndex].usHSync;
     
-    for (long i = 0; i < freqs[freqIndex][2]; i++) {
+    for (long i = 0; i < freqs[freqIndex].lines; i++) {
       lineStart = micros();
-      pulsePin(hSyncPin, pulseDownTime);
+      pulsePin(hSyncPin, freqs[freqIndex].usHPulseTime);
       do {
         lineTime = micros()-lineStart;
-        testPattern ((lineTime*100)/endLineTime, (i*100)/freqs[freqIndex][2]);
+        testPattern ((lineTime*100)/endLineTime, (i*100)/freqs[freqIndex].lines);
       } while (lineTime < endLineTime);
       
-      //delay(freqs[freqIndex][0]);
-      //delayMicroseconds(freqs[freqIndex][1]);
       if (fChange) {
         break;
       }
     }
     digitalWrite(LED_BUILTIN, HIGH);
-    pulsePin(vSyncPin, 10*pulseDownTime);
+    pulsePin(vSyncPin, freqs[freqIndex].usVPulseTime);
     digitalWrite(LED_BUILTIN, LOW);
 
-    if (++frames > freqs[freqIndex][3] || fChange) {
+    if (++frames > freqs[freqIndex].frames || fChange) {
       freqIndex = (freqIndex + 1) % NUM_MODES;
       frames = 0;
       fChange = false;
@@ -79,7 +83,7 @@ void blinkLED(int n) {
   }
 }
 
-void pulsePin(int pin, int uS) { 
+void pulsePin(int pin, long uS) { 
   digitalWrite(pin, LOW);
   delayMicroseconds(uS);
   digitalWrite(pin, HIGH);

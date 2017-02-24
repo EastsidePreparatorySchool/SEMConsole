@@ -52,9 +52,9 @@ struct Resolution *g_pCurrentRes;
 #define NUM_MODES 2
 
 struct Resolution g_allRes[NUM_MODES] = {
-//  {   150,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
-  {  5000, 1600, 2, 1000, 2 }, // SLOW1
-  { 40000, 3200, 4, 2500, 5 }  // H6V7
+//  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
+  {  5790, 1700, 2, 1000, 2 }, // SLOW1
+  { 33326, 2660, 4, 2500, 5 }  // H6V7
 };
 
 
