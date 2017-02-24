@@ -507,15 +507,18 @@ public class Console extends Application {
             String name = createFolderName(folder);
             createFolder(name);
 
-            for (int i = 0; i < si.channels; i++) {
-                File file = new File(name + "\\channel_" + si.capturedChannels[i] + ".png");
-                try {
-                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
-                    Console.println("Image written to " + file.getName());
-                } catch (Exception ex) {
-                    System.out.println(ex.getMessage());
+            Thread t = new Thread(() -> {
+                for (int i = 0; i < si.channels; i++) {
+                    File file = new File(name + "\\channel_" + si.capturedChannels[i] + ".png");
+                    try {
+                        ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+                        Console.println("Image written to " + file.getName());
+                    } catch (Exception ex) {
+                        System.out.println(ex.getMessage());
+                    }
                 }
-            }
+            });
+            t.start();
         }
     }
 
