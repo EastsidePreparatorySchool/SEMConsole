@@ -16,14 +16,25 @@ struct Resolution {
   long frames;
 };
 
-#define NUM_MODES 1
+#define NUM_MODES 2
 struct Resolution freqs[2] = {
-//    {160, 50, 3000, 266, 10},// no workie, crashes scanner
-    {4500, 500, 1110, 8000, 20}
-//  {25000, 4500, 4000, 1}  //
+//    {160,   50, 3000,  266, 10},// no workie, crashes scanner
+
+  { 5790,  500,  865, 8000, 20},
+  {33326, 4500, 3000, 4500,  1}  
   };
 
+
+long lineTime;
+long lineStart;
+long endLineTime;
+long currentLine;
+long frames = 0;
+
+
 void setup() {
+  frames = 0;
+  
   analogWriteResolution(12);
   pinMode (vSyncPin, OUTPUT);
   pinMode (hSyncPin, OUTPUT);
@@ -40,17 +51,15 @@ void setup() {
 }
 
 void loop() {
-    static long frames = 0;
-    long lineStart;
-    long lineTime;
-    long endLineTime = freqs[freqIndex].usHSync;
     
-    for (long i = 0; i < freqs[freqIndex].lines; i++) {
+    endLineTime = freqs[freqIndex].usHSync;
+    
+    for (currentLine = 0; currentLine < freqs[freqIndex].lines; currentLine++) {
       lineStart = micros();
       pulsePin(hSyncPin, freqs[freqIndex].usHPulseTime);
       do {
         lineTime = micros()-lineStart;
-        testPattern ((lineTime*100)/endLineTime, (i*100)/freqs[freqIndex].lines);
+        testPattern ();
       } while (lineTime < endLineTime);
       
       if (fChange) {
@@ -85,7 +94,12 @@ void blinkLED(int n) {
 
 void pulsePin(int pin, long uS) { 
   digitalWrite(pin, LOW);
-  delayMicroseconds(uS);
+  long timeStart = micros();
+  long timeEnd = timeStart + uS;
+  while (micros() < timeEnd) {
+    lineTime = micros()-lineStart;
+    testPattern();
+  }
   digitalWrite(pin, HIGH);
 }
 
@@ -97,18 +111,33 @@ void changeFreq() {
 
 
 
-void testPattern(long timePercent, long linesPercent) {
+void testPattern() {
+  long timePercent;
+  long linesPercent;
+  
+  timePercent = (lineTime*100)/endLineTime;
+  linesPercent = (currentLine*100)/freqs[freqIndex].lines;
 
   if (getPixel(timePercent, linesPercent)) {
+    // "SEM" text
     digitalWrite(signalPin, HIGH);
     digitalWrite(signalPin2, HIGH);
     analogWrite(DAC0, range-1);
     analogWrite(DAC1, range-1);
   } else {
-    analogWrite(signalPin, ((linesPercent*range)/100)%range);
-    analogWrite(signalPin2, ((linesPercent*2*range)/100)%range);
-    analogWrite(DAC0,((linesPercent*range)/1000) % range);
-    analogWrite(DAC1, ((linesPercent*range)/500) % range);
+    if (linesPercent > 65 && linesPercent < 70) {
+      // channel marker
+      digitalWrite(signalPin, timePercent > 10 && timePercent < 20 ? HIGH: LOW);
+      digitalWrite(signalPin2, timePercent > 28 && timePercent < 38? HIGH: LOW);
+      analogWrite(DAC0, timePercent > 48 && timePercent < 58? range-1: 0);
+      analogWrite(DAC1, timePercent > 65 && timePercent < 75? range-1: 0);
+    } else {
+      // pattern unique to channel
+      analogWrite(signalPin, ((linesPercent*range)/100)%range);
+      analogWrite(signalPin2, ((linesPercent*2*range)/100)%range);
+      analogWrite(DAC0,((linesPercent*(range-1))/100));
+      analogWrite(DAC1, (((100-linesPercent)*(range-1))/100));
+    }
   }
   
 }
@@ -129,7 +158,7 @@ bool getPixel(long x, long y) {
   int *ranges[TEST_NUM_RANGES] = { range0, range1, range2, range3, range4 };
 
   if (x < xMin || x > xMax || y < yMin || y > yMax) {
-    return false;
+     return false;
   }
  
   bool white = false;

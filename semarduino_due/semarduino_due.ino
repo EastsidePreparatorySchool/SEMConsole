@@ -53,8 +53,8 @@ struct Resolution *g_pCurrentRes;
 
 struct Resolution g_allRes[NUM_MODES] = {
 //  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
-  {  5790, 1700, 2, 1000, 2 }, // SLOW1
-  { 33326, 2660, 4, 2500, 5 }  // H6V7
+  {  5790, 1700, 2,  864, 2 }, // SLOW1
+  { 33326, 2660, 4, 3000, 5 }  // H6V7
 };
 
 
@@ -86,9 +86,13 @@ volatile int nextBuffer;
 uint16_t *padcBuffer[NUM_BUFFERS];   
 volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
+volatile bool g_adcInProgress;
 int g_lineBytes;
 volatile int g_phase = PHASE_IDLE;
 volatile int g_measuredLineTime;
+volatile long g_trackTimeStart;
+volatile long g_prevTrackTimeStart;
+volatile long g_trackTime;
 
 
 
@@ -434,6 +438,7 @@ void initializeADC() {
   ADC->ADC_PTCR = 1;
   ADC->ADC_CR = 2;
 
+  g_adcInProgress = false;
 }
 
 void ADC_Handler() {
@@ -445,6 +450,7 @@ void ADC_Handler() {
     nextBuffer = NEXT_BUFFER(nextBuffer);             // get the next buffer (and let the main program know)
     ADC->ADC_RNPR = (uint32_t)padcBuffer[nextBuffer]; // put it in place
     ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;
+    g_adcInProgress = false;
     }
 }
 
@@ -454,6 +460,7 @@ void stopADC() {
 }
 
 void startADC() {
+  if (!g_adcInProgress) {
     switch (g_pCurrentRes->numChannels) {
       case 4:
         ADC->ADC_MR |=0x000000F0;     // a0-a3 free running
@@ -467,7 +474,9 @@ void startADC() {
         ADC->ADC_MR |= (1<<(7-g_channelSelection1));     // one channel free running
         break;
     }
+  g_adcInProgress = true;
   g_adcLineTimeStart = micros();
+  }
  
 }
 
@@ -476,21 +485,21 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);   // catch rising edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, FALLING);  // catch falling edge of hsync to start ADC
 }
 
 
 void vsyncHandler() {
-//  volatile static bool fOn = false;
+  volatile static bool fOn = false;
 
   if (digitalRead(VSYNC_PIN) == LOW) { 
-//    if (fOn) {
-//      analogWrite(13, 0);
-//      fOn = false;
-//    } else {
-//      analogWrite(13, 30);
-//      fOn = true;
-//    }
+    if (fOn) {
+      analogWrite(13, 0);
+      fOn = false;
+    } else {
+      analogWrite(13, 30);
+      fOn = true;
+    }
   
     switch (g_phase) {
       case PHASE_IDLE:
@@ -513,7 +522,7 @@ void vsyncHandler() {
 }
 
 void hsyncHandler() {
-  if (digitalRead(HSYNC_PIN) == HIGH) {
+  if (digitalRead(HSYNC_PIN) == LOW) {
     switch (g_phase) {
       case PHASE_IDLE:
         // not doing anything right now
@@ -532,6 +541,11 @@ void hsyncHandler() {
         break;
         
       case PHASE_SCANNING:
+        // keep track of hsync interval, if resolution changes, main loop will trigger vsync and end frame
+        g_prevTrackTimeStart = g_trackTime;
+        g_trackTimeStart = micros();
+        g_trackTime - g_trackTimeStart - g_prevTrackTimeStart;
+        
         // start ADC (completion handled by ADC interrupt)
         startADC();
         break;
