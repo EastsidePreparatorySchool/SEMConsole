@@ -487,24 +487,26 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, FALLING);  // catch falling edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch falling edge of hsync to start ADC
 }
 
 
-void vsyncHandler() {
+void flipLED() {
   volatile static bool fOn = false;
+
+    if (fOn) {
+      analogWrite(LED_BUILTIN, 0);
+      fOn = false;
+    } else {
+      analogWrite(LED_BUILTIN, 30);
+      fOn = true;
+    }
+}
+
+void vsyncHandler() {
 
   if (digitalRead(VSYNC_PIN) == LOW) { 
    
-    if (fOn) {
-      analogWrite(13, 0);
-      fOn = false;
-    } else {
-      analogWrite(13, 30);
-      fOn = true;
-    }
-   
-  
     switch (g_phase) {
       case PHASE_IDLE:
         g_phase = PHASE_READY_TO_MEASURE;
@@ -526,7 +528,7 @@ void vsyncHandler() {
 }
 
 void hsyncHandler() {
-  if (digitalRead(HSYNC_PIN) == LOW) {
+  if (digitalRead(HSYNC_PIN) == HIGH) {
     switch (g_phase) {
       case PHASE_IDLE:
         // not doing anything right now
@@ -585,6 +587,7 @@ void loop () {
   int timeLineScan = 0;
   char o,k;
 
+  flipLED();
 
   // 
   // let hsync measure the time

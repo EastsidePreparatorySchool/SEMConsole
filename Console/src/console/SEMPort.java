@@ -40,6 +40,7 @@ public class SEMPort {
     int numErrors = 0;
     int numOKs = 0;
     int lastBytes = 0;
+    long lastTime = 0;
 
     int[] rawMultiChannelBuffer;
     int proposedBytes;
@@ -185,16 +186,12 @@ public class SEMPort {
                         // read line number (unsigned short)
                         int scanTime = buffer.getInt();
 
-                        if (dotCounter % (20000 * lines) == 0) {
+                        if (System.currentTimeMillis() > lastTime + 1000) {
+                            lastTime = System.currentTimeMillis();
                             Console.println();
                             Console.print("[SEM idle or resolution not recognized]");
-                        }
-                        if (dotCounter % (10 * lines) == 0) {
-                            Console.print("[" + scanTime + "]");
-                            if (dotCounter % (20* lines) == 0) {
-                                Console.println();
-                            }
- 
+                            Console.println("[" + scanTime + "]");
+                            
                         }
                         dotCounter++;
                         return SEMThread.Phase.WAITING_FOR_FRAME;
@@ -343,7 +340,7 @@ public class SEMPort {
 
                         Console.print("Ranges:");
                         for (int i = 0; i < si.channels; i++) {
-                            Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + ",Line " + si.rangeMaxLine[i]+"] ");
+                            Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + ",Line " + si.rangeMaxLine[i] + "] ");
                         }
                         Console.println();
 
