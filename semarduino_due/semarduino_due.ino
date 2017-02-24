@@ -490,9 +490,10 @@ void setupInterrupts() {
 
 
 void vsyncHandler() {
-  volatile static bool fOn = false;
+  //volatile static bool fOn = false;
 
   if (digitalRead(VSYNC_PIN) == LOW) { 
+  /*  
     if (fOn) {
       analogWrite(13, 0);
       fOn = false;
@@ -500,6 +501,7 @@ void vsyncHandler() {
       analogWrite(13, 30);
       fOn = true;
     }
+    */
   
     switch (g_phase) {
       case PHASE_IDLE:
@@ -607,6 +609,7 @@ void loop () {
       sendFrameHeader();
       numLines = 0;
       timeFrame = millis();
+      g_trackTime = g_measuredLineTime;
       g_phase = PHASE_SCANNING;
     } else
       //blinkBuiltInLED(2);
@@ -634,9 +637,11 @@ void loop () {
     }
               
     numLines++;
-//    if (numLines >= g_pCurrentRes->numLines-4) {
-//      g_phase = PHASE_IDLE;
-//    }
+
+    // if resolution changed, end the frame by switching to next phase
+    if (g_trackTime > (g_measuredLineTime + 100)) {
+      g_phase = PHASE_IDLE;
+    }
   }
 
   //
