@@ -6,8 +6,10 @@
 package console;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.logging.Level;
@@ -29,14 +31,22 @@ import javafx.geometry.Pos;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
@@ -66,6 +76,7 @@ public class Console extends Application {
     private BorderPane bp;
     private Stage bigStage = null;
     private boolean isLive = true;
+    private StackPane selectedPane = null;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -89,8 +100,11 @@ public class Console extends Application {
         this.btn = new Button("Connect");
         btn.setOnAction((event) -> startSEMThread());
 
-        Button btn3 = new Button("Save as ...");
-        btn3.setOnAction((event) -> saveFile());
+        Button btn3 = new Button("Save SEI image as ...");
+        btn3.setOnAction((event) -> saveFile(this.currentImageSet));
+
+        Button btn4 = new Button("Save image set in ...");
+        btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
 
         txt = new Text("Not connected");
         HBox h = new HBox();
@@ -99,7 +113,7 @@ public class Console extends Application {
         h.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, btn3);
+        top.getChildren().addAll(btn, h, btn3, btn4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -131,6 +145,7 @@ public class Console extends Application {
             this.isLive = true;
             //System.out.println("Console: switched to live view");
             displayImageSet(this.currentImageSet);
+            selectPane(sp1);
             e.consume();
         });
 
@@ -213,6 +228,8 @@ public class Console extends Application {
         for (int i = 0; i < 4; i++) {
             setSizeNormal(aViews[i], i);
         }
+
+        this.currentImageSet = si;
     }
 
     private void updateDisplay() {
@@ -227,17 +244,18 @@ public class Console extends Application {
             return;
         }
 
-        Console.println("[Console: Received " + newImages.size() + " image set"
-                + (newImages.size() == 1 ? "" : "s") + "]");
-
+//        Console.println("[Console: Received " + newImages.size() + " image set"
+//                + (newImages.size() == 1 ? "" : "s") + "]");
         for (SEMImage si : newImages) {
-            if (si.channels > 1 || !this.isLive) {
-                // for not live, or image sets, add to thumbnails
-                addThumbnail(si);
+            if (si.width < 2000) {
+                if (this.isLive) {
+                    // for live view, show  images
+                    this.currentImageSet = si;
+                    displayImageSet(this.currentImageSet);
+                }
             } else {
-                // for live view, show  images
-                this.currentImageSet = si;
-                displayImageSet(this.currentImageSet);
+                // for large (photo button) images, add to thumbnails
+                addThumbnail(si);
             }
         }
     }
@@ -395,6 +413,15 @@ public class Console extends Application {
         return result;
     }
 
+    private void selectPane(StackPane sp) {
+        if (this.selectedPane != null) {
+            this.selectedPane.setBackground(null);
+            sp.setBackground(new Background(new BackgroundFill(Color.LIGHTSKYBLUE, CornerRadii.EMPTY, Insets.EMPTY)));
+            sp.setBorder(new Border(new BorderStroke(Color.LIGHTSKYBLUE, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderStroke.THIN)));
+            this.selectedPane = sp;
+        }
+    }
+
     private void addThumbnail(SEMImage si) {
         StackPane sp = new StackPane();
         for (int i = si.channels - 1; i >= 0; i--) {
@@ -416,6 +443,7 @@ public class Console extends Application {
         sp.setOnMouseClicked((e) -> {
             this.isLive = false;
             displayImageSet(si);
+            selectPane(sp);
         });
 
         List t = thumbnails.getChildren();
@@ -427,17 +455,19 @@ public class Console extends Application {
 
     }
 
-    public void saveFile() {
+    public void saveFile(SEMImage si) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Save Image");
-        System.out.println(this.aViews[0].getId());
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG", "*.png"));
         File file = fileChooser.showSaveDialog(stage);
         if (file != null) {
+            if (!file.getName().toLowerCase().endsWith("png")) {
+                // TODO: create new file object with added extension
+                file = new File(file.getName() + ".png");
+            }
+
             try {
-                if (!file.getName().toLowerCase().endsWith("png")) {
-                    // TODO: create new file object with added extension
-                }
-                ImageIO.write(SwingFXUtils.fromFXImage(this.aViews[0].getImage(), null), "png", file);
+                ImageIO.write(SwingFXUtils.fromFXImage(si.images[0], null), "png", file);
                 Console.println("Image written to " + file.getName());
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
@@ -445,6 +475,53 @@ public class Console extends Application {
         }
     }
 
+    private String createFolderName(String path) {
+        Date date = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+
+        String fileName = "";
+        try {
+            fileName = path + "\\imageset_" + dateFormat.format(date);
+        } catch (Exception e) {
+            System.err.println("visgrid: Cannot create log file " + fileName);
+        }
+
+        return fileName;
+    }
+
+    public static void createFolder(String folder) {
+        File file = new File(folder);
+        if (!file.exists()) {
+            if (!file.mkdirs()) {
+                System.err.println("Folder " + folder + "does not exist and cannot be created");
+            }
+        }
+
+    }
+
+    public void saveImageSet(SEMImage si) {
+        final DirectoryChooser directoryChooser = new DirectoryChooser();
+        final File selectedDirectory = directoryChooser.showDialog(stage);
+        if (selectedDirectory != null) {
+            String folder = selectedDirectory.getAbsolutePath();
+            String name = createFolderName(folder);
+            createFolder(name);
+
+            for (int i = 0; i < si.channels; i++) {
+                File file = new File(name + "\\channel_" + si.capturedChannels[i] + ".png");
+                try {
+                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+                    Console.println("Image written to " + file.getName());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
+            }
+        }
+    }
+
+    /*
+          
+     */
     private void animateListItem(StackPane sp, int fullHeight) {
 
         sp.setOpacity(0);

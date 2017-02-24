@@ -69,7 +69,7 @@ void loop() {
     pulsePin(vSyncPin, freqs[freqIndex].usVPulseTime);
     digitalWrite(LED_BUILTIN, LOW);
 
-    if (++frames > freqs[freqIndex].frames || fChange) {
+    ++frames;
       freqIndex = (freqIndex + 1) % NUM_MODES;
       frames = 0;
       blinkLED(2);

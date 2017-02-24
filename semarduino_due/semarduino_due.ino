@@ -49,13 +49,15 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 // scan line time, pixels, channels, spec lines, prescaler
 
-#define NUM_MODES 2
-
-struct Resolution g_allRes[NUM_MODES] = {
-//  {   162,  100, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
+struct Resolution g_allRes[] = {
+//  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
   {  5790, 1700, 2,  864, 2 }, // SLOW1
   { 33326, 2660, 4, 3000, 5 }  // H6V7
 };
+
+#define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
+
+
 
 
 #define VSYNC_PIN   2
@@ -490,10 +492,10 @@ void setupInterrupts() {
 
 
 void vsyncHandler() {
-  //volatile static bool fOn = false;
+  volatile static bool fOn = false;
 
   if (digitalRead(VSYNC_PIN) == LOW) { 
-  /*  
+   
     if (fOn) {
       analogWrite(13, 0);
       fOn = false;
@@ -501,7 +503,7 @@ void vsyncHandler() {
       analogWrite(13, 30);
       fOn = true;
     }
-    */
+   
   
     switch (g_phase) {
       case PHASE_IDLE:
@@ -563,7 +565,7 @@ void hsyncHandler() {
 struct Resolution *getResolution(int lineTime) {
   int i;
 
-  for (i=0; i<(sizeof(g_allRes)/sizeof(struct Resolution)); i++) {
+  for (i=0; i<NUM_MODES; i++) {
     if (lineTime > (g_allRes[i].scanLineTime - 100) && lineTime < (g_allRes[i].scanLineTime + 100)) {
       return &g_allRes[i];
     }
