@@ -52,7 +52,7 @@ struct Resolution *g_pCurrentRes;
 #define NUM_MODES 2
 
 struct Resolution g_allRes[NUM_MODES] = {
-//  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
+//  {   162,  100, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
   {  5790, 1700, 2,  864, 2 }, // SLOW1
   { 33326, 2660, 4, 3000, 5 }  // H6V7
 };
@@ -578,6 +578,7 @@ void loop () {
   static int timeFrame = 0;
   static bool fFrameInProgress = false;
   static struct Resolution *lastRes = NULL;
+  static int dropCount = 0;
 
   int timeLineScan = 0;
   char o,k;
@@ -610,6 +611,7 @@ void loop () {
       numLines = 0;
       timeFrame = millis();
       g_trackTime = g_measuredLineTime;
+      dropCount = 0;
       g_phase = PHASE_SCANNING;
     } else
       //blinkBuiltInLED(2);
@@ -621,6 +623,11 @@ void loop () {
   // vsync will get us out of this
   //
   while (g_phase == PHASE_SCANNING) {
+    // drop the first few lines
+    if (dropCount > 0) {
+      --dropCount;
+      break;
+    }
     // wait for scan completion, get line out of the way of the DMA controller
     scanAndCopyOneLine();
 

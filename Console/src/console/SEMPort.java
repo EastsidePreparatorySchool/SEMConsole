@@ -191,6 +191,10 @@ public class SEMPort {
                         }
                         if (dotCounter % (10 * lines) == 0) {
                             Console.print("[" + scanTime + "]");
+                            if (dotCounter % (20* lines) == 0) {
+                                Console.println();
+                            }
+ 
                         }
                         dotCounter++;
                         return SEMThread.Phase.WAITING_FOR_FRAME;
@@ -303,7 +307,8 @@ public class SEMPort {
                         channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                         channel.flush(false, true);
                         numOKs++;
-                        this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
+                        this.si.fileDataLine(line, this.rawMultiChannelBuffer, bytes / 2);
+                        //this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
 
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         break;
@@ -333,13 +338,16 @@ public class SEMPort {
                         buffer.getShort(); //unused frame time from Arduino
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors);
-                        Console.print("Ranges:");
+                        // process the raw data
+                        this.si.parseAllLines();
 
+                        Console.print("Ranges:");
                         for (int i = 0; i < si.channels; i++) {
-                            Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + "]");
+                            Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + ",Line " + si.rangeMaxLine[i]+"] ");
                         }
                         Console.println();
 
+                        // transfer image to ui thread
                         synchronized (ltq) {
                             ltq.add(this.si);
                             this.si = null;

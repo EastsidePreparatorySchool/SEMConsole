@@ -34,6 +34,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.StageStyle;
@@ -352,6 +353,7 @@ public class Console extends Application {
             this.bigStage = new Stage(StageStyle.UNDECORATED);
             this.bigStage.setFullScreenExitHint("");
             Scene sc = new Scene(sp);
+//            sc.setFill(Color.YELLOW);
             sc.setOnMouseClicked((e) -> {
                 toggleImage(e, image);
                 e.consume();

@@ -16,11 +16,10 @@ struct Resolution {
   long frames;
 };
 
-#define NUM_MODES 2
-struct Resolution freqs[2] = {
-//    {160,   50, 3000,  266, 10},// no workie, crashes scanner
-
-  { 5790,  500,  865, 8000, 20},
+#define NUM_MODES 3
+struct Resolution freqs[NUM_MODES] = {
+  {  160,   50,  266, 3000, 20},// no workie, crashes scanner
+  { 5790,  500,  865, 8000,  5},
   {33326, 4500, 3000, 4500,  1}  
   };
 
@@ -73,9 +72,9 @@ void loop() {
     if (++frames > freqs[freqIndex].frames || fChange) {
       freqIndex = (freqIndex + 1) % NUM_MODES;
       frames = 0;
-      fChange = false;
       blinkLED(2);
-      delay(2000);
+      delay(1000);
+      fChange = false;
     }
 }
 
