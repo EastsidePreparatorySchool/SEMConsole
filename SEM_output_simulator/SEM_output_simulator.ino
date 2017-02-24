@@ -1,7 +1,7 @@
 int vSyncPin = 8;
 int hSyncPin = 9;
 int lLED = 13;
-int buttonPin = 2;
+int buttonPin = 45;
 int signalPin = 3;
 int signalPin2 = 4;
 const int range = 4096; // DAC range for AnagogWrite
