@@ -100,8 +100,8 @@ public class Console extends Application {
         this.btn = new Button("Connect");
         btn.setOnAction((event) -> startSEMThread());
 
-        Button btn3 = new Button("Save SEI image as ...");
-        btn3.setOnAction((event) -> saveFile(this.currentImageSet));
+//        Button btn3 = new Button("Save SEI image as ...");
+//        btn3.setOnAction((event) -> saveFile(this.currentImageSet));
 
         Button btn4 = new Button("Save image set in ...");
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
@@ -113,7 +113,7 @@ public class Console extends Application {
         h.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, btn3, btn4);
+        top.getChildren().addAll(btn, h, /*btn3, */btn4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
