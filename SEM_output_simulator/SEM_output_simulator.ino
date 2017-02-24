@@ -70,6 +70,7 @@ void loop() {
     digitalWrite(LED_BUILTIN, LOW);
 
     ++frames;
+    if (frames >= freqs[freqIndex].frames || fChange) {
       freqIndex = (freqIndex + 1) % NUM_MODES;
       frames = 0;
       blinkLED(2);
