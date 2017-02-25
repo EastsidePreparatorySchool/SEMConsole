@@ -23,6 +23,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -71,6 +72,8 @@ public class Console extends Application {
     private Stage bigStage = null;
     private boolean isLive = true;
     private StackPane selectedPane = null;
+    private CheckBox autoSave = null;
+    private CheckBox autoUpload = null;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -101,12 +104,19 @@ public class Console extends Application {
 
         txt = new Text("Not connected");
         HBox h = new HBox();
-
         h.getChildren().add(txt);
         h.setPadding(new Insets(6, 12, 6, 12));
 
+        autoSave = new CheckBox("Auto save    ");
+        autoSave.setOnAction((e) -> {if (!autoSave.isSelected())autoUpload.setSelected(false);});
+        autoSave.setSelected(true);
+        autoUpload = new CheckBox("Auto upload");
+        HBox h2 = new HBox();
+        h2.getChildren().addAll(autoSave, autoUpload);
+        h2.setPadding(new Insets(6, 12, 6, 12));
+
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, /*btn3, */ btn4);
+        top.getChildren().addAll(btn, h, btn4, h2);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -199,10 +209,10 @@ public class Console extends Application {
     }
 
     private void displayImageSet(SEMImage si) {
-    /*    if (si == null) {
+        /*    if (si == null) {
             return;
         }
-    */
+         */
         // set absent channel images to empty
         if (si.channels < 4) {
             for (int i = si.channels; i < 4; i++) {
@@ -266,7 +276,7 @@ public class Console extends Application {
         Console.println("[Console: connecting ...]");
 
         // and create a new one
-       try {
+        try {
             System.out.println("starting thread ...");
             semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
             semThread.start();
@@ -286,7 +296,7 @@ public class Console extends Application {
             btn.setOnAction((event) -> stopSEMThread());
             btn.setDisable(false);
         }
-     }
+    }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
         final KeyFrame kf1 = new KeyFrame(Duration.millis(ms), (e) -> r.run());
@@ -452,7 +462,9 @@ public class Console extends Application {
         }
         //    animateListItem(sp,  si.channels * 8 + 158);
 
-        saveImageSet(si);
+        if (autoSave.isSelected()) {
+            saveImageSet(si);
+        }
 
     }
 
@@ -502,28 +514,29 @@ public class Console extends Application {
 
     public void saveImageSet(SEMImage si) {
         //todo: re-enable this
-        /*
-           String folder = getImageDir();
-            String name = createFolderName(folder);
-            createFolder(name);
 
-            Thread t = new Thread(() -> {
-                for (int i = 0; i < si.channels; i++) {
-                    String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
-                    File file = new File(fullName);
-                    try {
-                        ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
-                        Console.println("Image written to " + file.getName());
-                    } catch (Exception ex) {
-                        System.out.println(ex.getMessage());
-                    }
-                    if (i == 0) {
-                        FileUpload.Upload(fullName);
-                    }
+        final boolean upload = this.autoUpload.isSelected();
+        String folder = getImageDir();
+        String name = createFolderName(folder);
+        createFolder(name);
+
+        Thread t = new Thread(() -> {
+            for (int i = 0; i < si.channels; i++) {
+                String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
+                File file = new File(fullName);
+                try {
+                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+                    Console.println("Image written to " + file.getName());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
                 }
-            });
-            t.start();
-         */
+                if (i == 0 && upload) {
+                    FileUpload.Upload(fullName);
+                }
+            }
+        });
+        t.start();
+
     }
 
     String getImageDir() {
