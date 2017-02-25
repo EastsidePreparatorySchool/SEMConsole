@@ -50,7 +50,7 @@ struct Resolution *g_pCurrentRes;
 // scan line time, pixels, channels, spec lines, prescaler
 
 struct Resolution g_allRes[] = {
-  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
+  {   162,  240, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
   {  5790, 1700, 2,  864, 2 }, // SLOW1
   { 33326, 2660, 4, 3000, 5 }  // H6V7
 };
@@ -68,6 +68,7 @@ struct Resolution g_allRes[] = {
 #define PHASE_MEASURING           2
 #define PHASE_READY_FOR_SCAN      3
 #define PHASE_SCANNING            4
+#define PHASE_CHECK               5
 
 
 
@@ -90,16 +91,19 @@ volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
 volatile bool g_adcInProgress;
 int g_lineBytes;
-volatile int g_phase = PHASE_IDLE;
+volatile int g_phase = PHASE_CHECK;
 volatile int g_measuredLineTime;
 volatile long g_trackTimeStart;
 volatile long g_prevTrackTimeStart;
 volatile long g_trackTime;
+volatile int g_reason = 0;
+volatile int g_argument;
 
 
 
 #define MAX_ERRORS  100
 #define USB_TIMEOUT 100
+#define USB_MIN_WRITE_BUFFER_SIZE 60
 
 
 
@@ -203,7 +207,8 @@ void setup() {
   SerialUSB.flush();
   blinkBuiltInLED(2);  
   g_pCurrentRes = NULL;
-  g_phase = PHASE_IDLE;
+  g_phase = PHASE_CHECK;
+  g_reason = 0;
 
   setupInterrupts();
 }
@@ -242,10 +247,14 @@ bool sendLine(int bytes) {
     if (wait >= acceptable)
       continue;
     
-    // process two bytes of response, either "OK" or "NG"
-    o = SerialUSB.read();   
-    k = SerialUSB.read();
-    
+    // process last two bytes of response, either "OK" or "NG"
+    o = 0;
+    k = 0;
+    while (SerialUSB.available()> 0) {
+      o = k;
+      k = SerialUSB.read();
+    }
+
     if (o == 'O' && k == 'K') // ok, on to next lines
       break;
       
@@ -254,7 +263,8 @@ bool sendLine(int bytes) {
 
     if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
       return false;
-    
+      
+    // and if it was neither? send again by continuing loop.
   }
   
   if (errorCount >= MAX_ERRORS) {
@@ -347,9 +357,11 @@ void sendFrameHeader() {
 }
 
 void sendEndFrame(int lineTime, int frameTime) {
-    SerialUSB.write(headerEndFrame, 16);     // send EFRAME (end frame), line time, frame time
-    SerialUSB_write_uint16_t((uint16_t)lineTime);
-    SerialUSB_write_uint16_t((uint16_t)frameTime);
+  delayMicroseconds(lineTime / 2);  
+  SerialUSB.write(headerEndFrame, 16);     // send EFRAME (end frame), line time, frame time
+  SerialUSB_write_uint16_t((uint16_t)lineTime);
+  SerialUSB_write_uint16_t((uint16_t)frameTime);
+  delayMicroseconds(lineTime / 2);  
 }
 
   
@@ -372,8 +384,6 @@ void SerialUSB_write_uint32_t(uint32_t word) {
 
 
 void adcConfigureGain() {
-//todo: check this
-return;
   adc_enable_anch(ADC); 
   
   adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[0].ulADCChannelNumber), ADC_GAINVALUE_0);
@@ -424,8 +434,11 @@ void initializeADC() {
     break;
 
     case 1:
-    ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
-    ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
+//    ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
+//    ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
+    // set 2 channels  
+    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
+    ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel1 << (channel1*4));
     break;
   }
 
@@ -491,7 +504,7 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch falling edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch rising edge of hsync to start ADC
 }
 
 
@@ -499,16 +512,16 @@ void flipLED() {
   volatile static bool fOn = false;
 
     if (fOn) {
-      analogWrite(LED_BUILTIN, 0);
+      digitalWrite(LED_BUILTIN, LOW);
       fOn = false;
     } else {
-      analogWrite(LED_BUILTIN, 30);
+      digitalWrite(LED_BUILTIN, HIGH);
       fOn = true;
     }
 }
 
 void vsyncHandler() {
-
+  flipLED();
   if (digitalRead(VSYNC_PIN) == LOW) { 
    
     switch (g_phase) {
@@ -518,6 +531,7 @@ void vsyncHandler() {
         
       case PHASE_SCANNING:
         // time to end the frame and send the image
+        g_reason = 3; 
         g_phase = PHASE_IDLE;
         break;
   
@@ -525,7 +539,7 @@ void vsyncHandler() {
       case PHASE_MEASURING:
       case PHASE_READY_FOR_SCAN:
         // we should never get here, but hey, just stop everything
-        g_phase = PHASE_IDLE;
+        g_phase = PHASE_CHECK;
         break;
     }
   }
@@ -551,7 +565,7 @@ void hsyncHandler() {
         break;
         
       case PHASE_SCANNING:
-        // keep track of hsync interval, if resolution changes, main loop will trigger vsync and end frame
+        // keep track of hsync interval, if resolution changes, main routine will trigger vsync and end frame
         g_prevTrackTimeStart = g_trackTime;
         g_trackTimeStart = micros();
         g_trackTime - g_trackTimeStart - g_prevTrackTimeStart;
@@ -580,6 +594,11 @@ struct Resolution *getResolution(int lineTime) {
 }
 
 
+bool okToWrite() {
+  return (g_measuredLineTime > 1000) || (SerialUSB.availableForWrite() > USB_MIN_WRITE_BUFFER_SIZE);
+}
+
+
 
 void loop () {
   static int numLines = 0;
@@ -590,8 +609,6 @@ void loop () {
 
   int timeLineScan = 0;
   char o,k;
-
-  flipLED();
 
   // 
   // let hsync measure the time
@@ -609,22 +626,27 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN) {
     g_pCurrentRes = getResolution(g_measuredLineTime);
     if (g_pCurrentRes != NULL) {
-      //blinkBuiltInLED(1);
       if (g_pCurrentRes != lastRes) {
         adjustToNewRes();
         lastRes = g_pCurrentRes;
       }
-      
-      fFrameInProgress = true;
-      sendFrameHeader();
-      numLines = 0;
-      timeFrame = millis();
-      g_trackTime = g_measuredLineTime;
-      dropCount = 0;
-      g_phase = PHASE_SCANNING;
+
+      // if lowres, make sure the queue has room. if hires, we have time to block on the write
+      if (okToWrite()) {
+        fFrameInProgress = true;
+        sendFrameHeader();
+  
+        numLines = 0;
+        timeFrame = millis();
+        g_trackTime = g_measuredLineTime;
+        dropCount = 0;
+        g_phase = PHASE_SCANNING;
+      } else {
+        g_phase = PHASE_CHECK;
+      }
     } else
-      //blinkBuiltInLED(2);
-      g_phase = PHASE_IDLE;
+      //g_trackTime = g_measuredLineTime;
+      g_phase = PHASE_CHECK;
   }
 
   //
@@ -647,15 +669,18 @@ void loop () {
     computeCheckSum(numLines, g_lineBytes);
 
     // try to send the line, if things go wrong too often, reset.
-    if (!sendLine(g_lineBytes)) {
-      reset();
-      return;
+    if (okToWrite()) {
+      if (!sendLine(g_lineBytes)) {
+        reset();
+        return;
+      }
     }
-              
+           
     numLines++;
-
     // if resolution changed, end the frame by switching to next phase
     if (g_trackTime > (g_measuredLineTime + 100)) {
+      g_reason = 2;
+      g_argument = g_trackTime;
       g_phase = PHASE_IDLE;
     }
   }
@@ -664,17 +689,22 @@ void loop () {
   // aftermath
   // send frame, check for abort
   //
-  while (g_phase == PHASE_IDLE) {
+  if (g_phase == PHASE_IDLE) {
     if (fFrameInProgress) {
       timeFrame = millis() - timeFrame;
-      sendEndFrame (timeLineScan, timeFrame);
+      sendEndFrame (timeLineScan, g_reason);
       fFrameInProgress = false;
     } else {
-      sendIdle(g_measuredLineTime);
+      if (okToWrite()) {
+        sendIdle(g_reason, g_argument);
+      
+      }
     }
-    g_phase = PHASE_READY_TO_MEASURE;
-    //delayMicroseconds (100); // TODO: Good sleep value? need to sleep at all?
-    
+    fFrameInProgress = false;
+    g_phase = PHASE_CHECK;
+  }
+
+  if (g_phase == PHASE_CHECK) {
     // check for abort
     o = 0;
     while (SerialUSB.available()) {
@@ -685,6 +715,7 @@ void loop () {
       } 
       o = k;
     }
+    g_phase = PHASE_READY_TO_MEASURE;
   }
 
   
@@ -714,9 +745,10 @@ void scanAndCopyOneLine() {
 }
 
 
-void sendIdle(int scanTime) {
+void sendIdle(int reason, int argument) {
     SerialUSB.write(headerIdle, 16);
-    SerialUSB_write_uint32_t(scanTime);
+    SerialUSB_write_uint32_t(reason);
+    SerialUSB_write_uint32_t(argument);
 }
 
 

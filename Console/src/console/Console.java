@@ -290,7 +290,7 @@ public class Console extends Application {
             System.out.println(e.getMessage());
         }
 
-        runLaterAfterDelay(2000, () -> startThreadLambda());
+        runLaterAfterDelay(5000, () -> startThreadLambda());
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
@@ -501,11 +501,9 @@ public class Console extends Application {
     }
 
     public void saveImageSet(SEMImage si) {
-        //final DirectoryChooser directoryChooser = new DirectoryChooser();
-        //final File selectedDirectory = directoryChooser.showDialog(stage);
-        //if (selectedDirectory != null) {
-            //String folder = selectedDirectory.getAbsolutePath();
-            String folder = getImageDir();
+        //todo: re-enable this
+        /*
+           String folder = getImageDir();
             String name = createFolderName(folder);
             createFolder(name);
 
@@ -525,7 +523,7 @@ public class Console extends Application {
                 }
             });
             t.start();
-        //}
+        */
     }
 
     String getImageDir() {

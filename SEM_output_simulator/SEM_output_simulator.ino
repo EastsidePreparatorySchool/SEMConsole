@@ -16,12 +16,13 @@ struct Resolution {
   long frames;
 };
 
-#define NUM_MODES 3
-struct Resolution freqs[NUM_MODES] = {
-  {  160,   50,  266, 3000, 20},// no workie, crashes scanner
+struct Resolution freqs[] = {
+  {  160,   50,  266, 3000, 20},
   { 5790,  500,  865, 8000,  5},
   {33326, 4500, 3000, 4500,  1}  
   };
+  
+#define NUM_MODES (sizeof(freqs)/sizeof(struct Resolution))
 
 
 long lineTime;
@@ -47,24 +48,34 @@ void setup() {
   digitalWrite(lLED, LOW);
 
   attachInterrupt(buttonPin, changeFreq, FALLING);
+
+  digitalWrite(LED_BUILTIN, HIGH);
+  pulsePin(vSyncPin, freqs[freqIndex].usVPulseTime);
+  digitalWrite(LED_BUILTIN, LOW);
+
 }
 
 void loop() {
     
-    endLineTime = freqs[freqIndex].usHSync;
-    
+    endLineTime = freqs[freqIndex].usHSync - freqs[freqIndex].usHPulseTime;
+    //lineStart = micros();
+
     for (currentLine = 0; currentLine < freqs[freqIndex].lines; currentLine++) {
       lineStart = micros();
-      pulsePin(hSyncPin, freqs[freqIndex].usHPulseTime);
       do {
-        lineTime = micros()-lineStart;
         testPattern ();
+        lineTime = micros()-lineStart;
       } while (lineTime < endLineTime);
+      testPattern ();
       
+      pulsePin(hSyncPin, freqs[freqIndex].usHPulseTime);
+
       if (fChange) {
         break;
       }
+      lineStart += freqs[freqIndex].usHSync;
     }
+    
     digitalWrite(LED_BUILTIN, HIGH);
     pulsePin(vSyncPin, freqs[freqIndex].usVPulseTime);
     digitalWrite(LED_BUILTIN, LOW);
@@ -133,7 +144,7 @@ void testPattern() {
       analogWrite(DAC1, timePercent > 65 && timePercent < 75? range-1: 0);
     } else {
       // pattern unique to channel
-      analogWrite(signalPin, ((linesPercent*range)/100)%range);
+      analogWrite(signalPin, (((100-linesPercent)*range)/100)%range);
       analogWrite(signalPin2, ((linesPercent*2*range)/100)%range);
       analogWrite(DAC0,((linesPercent*(range-1))/100));
       analogWrite(DAC1, (((100-linesPercent)*(range-1))/100));

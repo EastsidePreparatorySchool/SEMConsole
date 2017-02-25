@@ -68,28 +68,35 @@ public class SEMImage {
     }
 
     void parseAllLines() {
-        int[] lastLine = alineBuffers.get(alineBuffers.size()-1);
-        
-        this.height = lastLine[lastLine.length-1] + 1; // height = line number of last line + 1
+        int size = alineBuffers.size();
+        if (size > 0) {
+            int[] lastLine = alineBuffers.get(size - 1);
 
-        // allocate images
-        for (int i = 0; i < channels; i++) {
-            images[i] = new WritableImage(width, height);
-            writers[i] = images[i].getPixelWriter();
-            rangeMin[i] = 4095;
-            rangeMax[i] = 0;
-        }
+            this.height = lastLine[lastLine.length - 1] + 1; // height = line number of last line + 1
 
-        // compute ranges
-        for (int[]data:alineBuffers) {
-            rangeLine(data[data.length-1], data, data.length-1); // don't range that last int, which is the line number
-        }
-        
-        
-        // parse all lines, correcting data values for ranges
-        for (int i = 0; i<alineBuffers.size(); i++) {
-            int[] line = alineBuffers.get(i);
-            this.parseRawLine(line[line.length-1], line, line.length-1);
+            // allocate images
+            for (int i = 0; i < channels; i++) {
+                images[i] = new WritableImage(width, height);
+                writers[i] = images[i].getPixelWriter();
+                rangeMin[i] = 4095;
+                rangeMax[i] = 0;
+            }
+
+            // compute ranges
+            for (int[] data : alineBuffers) {
+                rangeLine(data[data.length - 1], data, data.length - 1); // don't range that last int, which is the line number
+            }
+
+            // parse all lines, correcting data values for ranges
+            int prevLine = -1;
+            for (int i = 0; i < size; i++) {
+                int[] lineData = alineBuffers.get(i);
+                int line = lineData[lineData.length - 1];
+                while (++prevLine <= line) {
+                    this.parseRawLine(prevLine, lineData, lineData.length - 1);
+                }
+                prevLine = line;
+            }
         }
     }
 
@@ -104,7 +111,7 @@ public class SEMImage {
             }
         }
     }
-    
+
     //todo: is this what we want?
     int autoContrast(int value, int min, int max) {
         return value;
@@ -147,7 +154,7 @@ public class SEMImage {
 
     // get the encoded channel number from a word in the data stream
     int getEncodedChannel(int word) {
-        return this.channels == 1 ? this.capturedChannels[0] : (word >> 12);
+        return (word >> 12);
 
     }
 
