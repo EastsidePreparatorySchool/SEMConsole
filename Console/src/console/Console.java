@@ -8,12 +8,9 @@ package console;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -23,9 +20,7 @@ import javafx.stage.Stage;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.event.ActionEvent;
 import javafx.event.Event;
-import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.ScrollPane;
@@ -44,9 +39,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
-import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
-import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
@@ -69,6 +62,7 @@ public class Console extends Application {
     private StackPane right;
     private LinkedTransferQueue<SEMImage> ltq;
     private SEMImage currentImageSet = null;
+    private SEMImage nextImageSet = null;
     private Button btn;
     private Text txt;
     private Scene scene;
@@ -143,7 +137,7 @@ public class Console extends Application {
         sp1.setOnMouseClicked((e) -> {
             this.isLive = true;
             //System.out.println("Console: switched to live view");
-            displayImageSet(this.currentImageSet);
+            displayImageSet(this.nextImageSet);
             selectPane(sp1);
             e.consume();
         });
@@ -205,10 +199,10 @@ public class Console extends Application {
     }
 
     private void displayImageSet(SEMImage si) {
-        if (si == null) {
+    /*    if (si == null) {
             return;
         }
-
+    */
         // set absent channel images to empty
         if (si.channels < 4) {
             for (int i = si.channels; i < 4; i++) {
@@ -246,11 +240,14 @@ public class Console extends Application {
 //        Console.println("[Console: Received " + newImages.size() + " image set"
 //                + (newImages.size() == 1 ? "" : "s") + "]");
         for (SEMImage si : newImages) {
-            if (si.width < 2000) {
+            if (si.height < 1500) {
                 if (this.isLive) {
                     // for live view, show  images
                     this.currentImageSet = si;
                     displayImageSet(this.currentImageSet);
+                } else {
+                    // for when we return to live view
+                    this.nextImageSet = si;
                 }
             } else {
                 // for large (photo button) images, add to thumbnails
@@ -523,7 +520,7 @@ public class Console extends Application {
                 }
             });
             t.start();
-        */
+         */
     }
 
     String getImageDir() {

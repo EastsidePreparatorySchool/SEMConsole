@@ -47,12 +47,11 @@ struct Resolution *g_pCurrentRes;
 
 
 // resolutions are stored in this array in ascending order of horizontal scan times
-// scan line time, pixels, channels, spec lines, prescaler
-
 struct Resolution g_allRes[] = {
-  {   162,  240, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
-  {  5790, 1700, 2,  864, 2 }, // SLOW1
-  { 33326, 2660, 4, 3000, 5 }  // H6V7
+// scan line time, pixels, channels, spec lines, prescaler
+  {           160,    260,        1,        266,         0 }, // RAPID2
+  {          5790,   1920,        2,        864,         2 }, // SLOW1
+  {         33326,   2760,        4,       3000,         5 }  // H6V7
 };
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
@@ -504,7 +503,7 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch rising edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, FALLING);  // catch rising edge of hsync to start ADC
 }
 
 
@@ -522,7 +521,7 @@ void flipLED() {
 
 void vsyncHandler() {
   flipLED();
-  if (digitalRead(VSYNC_PIN) == LOW) { 
+//  if (digitalRead(VSYNC_PIN) == LOW) { 
    
     switch (g_phase) {
       case PHASE_IDLE:
@@ -542,11 +541,11 @@ void vsyncHandler() {
         g_phase = PHASE_CHECK;
         break;
     }
-  }
+//  }
 }
 
 void hsyncHandler() {
-  if (digitalRead(HSYNC_PIN) == HIGH) {
+//  if (digitalRead(HSYNC_PIN) == LOW) {
     switch (g_phase) {
       case PHASE_IDLE:
         // not doing anything right now
@@ -574,7 +573,7 @@ void hsyncHandler() {
         startADC();
         break;
     }
-  }
+//  }
 }
 
 

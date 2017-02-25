@@ -183,14 +183,9 @@ public class SEMImage {
 
     int grayScale(int realChannel, int intensity) {
         // todo: real gain calibration
-        intensity *= 4;
         intensity = Math.min(intensity, 4095);
 
         if (realChannel == 0) {
-            if (intensity == 4095) {
-                intensity -= 1;
-                intensity += 1;
-            }
             //special treatment
             int highSix = ((intensity >> 6) & 0x3F) << 2;
             int lowSix = intensity & 0x3F;
@@ -205,6 +200,7 @@ public class SEMImage {
                     + ((highSix + g) << 8) // green
                     + (highSix + b);         // blue
         } else {
+            intensity *= 4;
             final int shiftFactor = 0;
             return 0xFF000000 // full alpha
                     + ((realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 16) // red

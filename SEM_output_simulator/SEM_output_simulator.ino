@@ -30,10 +30,12 @@ long lineStart;
 long endLineTime;
 long currentLine;
 long frames = 0;
+long numFrames = 1;
 
 
 void setup() {
   frames = 0;
+  numFrames = 1;
   
   analogWriteResolution(12);
   pinMode (vSyncPin, OUTPUT);
@@ -52,16 +54,16 @@ void setup() {
   digitalWrite(LED_BUILTIN, HIGH);
   pulsePin(vSyncPin, freqs[freqIndex].usVPulseTime);
   digitalWrite(LED_BUILTIN, LOW);
+  numFrames = freqs[freqIndex].frames;
 
 }
 
 void loop() {
     
     endLineTime = freqs[freqIndex].usHSync - freqs[freqIndex].usHPulseTime;
-    //lineStart = micros();
+    lineStart = micros();
 
     for (currentLine = 0; currentLine < freqs[freqIndex].lines; currentLine++) {
-      lineStart = micros();
       do {
         testPattern ();
         lineTime = micros()-lineStart;
@@ -81,8 +83,13 @@ void loop() {
     digitalWrite(LED_BUILTIN, LOW);
 
     ++frames;
-    if (frames >= freqs[freqIndex].frames || fChange) {
+    if (frames >= numFrames || fChange) {
       freqIndex = (freqIndex + 1) % NUM_MODES;
+      if (fChange) {
+        numFrames = 20000;
+      } else {
+        numFrames = freqs[freqIndex].frames;
+      }
       frames = 0;
       blinkLED(2);
       delay(1000);
