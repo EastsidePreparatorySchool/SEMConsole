@@ -17,13 +17,14 @@ struct Resolution {
 };
 
 struct Resolution freqs[] = {
-  {  160,   50,  266, 3000, 20},
+  {  160,   50,  168, 3000, 20},
   { 5790,  500,  865, 8000,  5},
   {33326, 4500, 3000, 4500,  1}  
   };
   
 #define NUM_MODES (sizeof(freqs)/sizeof(struct Resolution))
 
+#define H_FUDGE 30
 
 long lineTime;
 long lineStart;
@@ -60,22 +61,29 @@ void setup() {
 
 void loop() {
     
-    endLineTime = freqs[freqIndex].usHSync - freqs[freqIndex].usHPulseTime;
+    endLineTime = freqs[freqIndex].usHSync;
     lineStart = micros();
 
     for (currentLine = 0; currentLine < freqs[freqIndex].lines; currentLine++) {
+//      if (endLineTime < 1000) {
+//        noInterrupts();
+//      }
+      pulsePin(hSyncPin, freqs[freqIndex].usHPulseTime - H_FUDGE);
+
       do {
         testPattern ();
         lineTime = micros()-lineStart;
       } while (lineTime < endLineTime);
       testPattern ();
       
-      pulsePin(hSyncPin, freqs[freqIndex].usHPulseTime);
 
       if (fChange) {
         break;
       }
       lineStart += freqs[freqIndex].usHSync;
+//      if (endLineTime < 1000) {
+//        interrupts();
+//      }
     }
     
     digitalWrite(LED_BUILTIN, HIGH);
@@ -111,12 +119,14 @@ void blinkLED(int n) {
 }
 
 void pulsePin(int pin, long uS) { 
-  digitalWrite(pin, LOW);
   long timeStart = micros();
+  digitalWrite(pin, LOW);
+  long timeNow = timeStart;
   long timeEnd = timeStart + uS;
-  while (micros() < timeEnd) {
-    lineTime = micros()-lineStart;
+  while (timeNow < timeEnd) {
+    lineTime = timeNow-lineStart;
     testPattern();
+    timeNow = micros();
   }
   digitalWrite(pin, HIGH);
 }
@@ -177,6 +187,10 @@ bool getPixel(long x, long y) {
 
   if (x < xMin || x > xMax || y < yMin || y > yMax) {
      return false;
+  }
+
+  if (freqs[freqIndex].usHSync < 500) {
+    return true;
   }
  
   bool white = false;
