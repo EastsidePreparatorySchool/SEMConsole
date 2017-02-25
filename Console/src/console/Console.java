@@ -102,7 +102,6 @@ public class Console extends Application {
 
 //        Button btn3 = new Button("Save SEI image as ...");
 //        btn3.setOnAction((event) -> saveFile(this.currentImageSet));
-
         Button btn4 = new Button("Save image set in ...");
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
 
@@ -113,7 +112,7 @@ public class Console extends Application {
         h.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, /*btn3, */btn4);
+        top.getChildren().addAll(btn, h, /*btn3, */ btn4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -453,6 +452,8 @@ public class Console extends Application {
         }
         //    animateListItem(sp,  si.channels * 8 + 158);
 
+        saveImageSet(si);
+
     }
 
     public void saveFile(SEMImage si) {
@@ -481,7 +482,7 @@ public class Console extends Application {
 
         String fileName = "";
         try {
-            fileName = path + "\\imageset_" + dateFormat.format(date);
+            fileName = path + "imageset_" + dateFormat.format(date);
         } catch (Exception e) {
             System.err.println("visgrid: Cannot create log file " + fileName);
         }
@@ -500,26 +501,46 @@ public class Console extends Application {
     }
 
     public void saveImageSet(SEMImage si) {
-        final DirectoryChooser directoryChooser = new DirectoryChooser();
-        final File selectedDirectory = directoryChooser.showDialog(stage);
-        if (selectedDirectory != null) {
-            String folder = selectedDirectory.getAbsolutePath();
+        //final DirectoryChooser directoryChooser = new DirectoryChooser();
+        //final File selectedDirectory = directoryChooser.showDialog(stage);
+        //if (selectedDirectory != null) {
+            //String folder = selectedDirectory.getAbsolutePath();
+            String folder = getImageDir();
             String name = createFolderName(folder);
             createFolder(name);
 
             Thread t = new Thread(() -> {
                 for (int i = 0; i < si.channels; i++) {
-                    File file = new File(name + "\\channel_" + si.capturedChannels[i] + ".png");
+                    String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
+                    File file = new File(fullName);
                     try {
                         ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
                         Console.println("Image written to " + file.getName());
                     } catch (Exception ex) {
                         System.out.println(ex.getMessage());
                     }
+                    if (i == 0) {
+                        FileUpload.Upload(fullName);
+                    }
                 }
             });
             t.start();
-        }
+        //}
+    }
+
+    String getImageDir() {
+        // probably started from other folder
+        String path = System.getProperty("user.home");
+        path = path.toLowerCase();
+        path += System.getProperty("file.separator");
+        path += "Documents";
+        path += System.getProperty("file.separator");
+        path += "SEM_Images";
+        createFolder(path);
+
+        path += System.getProperty("file.separator");
+        return path;
+
     }
 
     /*

@@ -50,7 +50,7 @@ struct Resolution *g_pCurrentRes;
 // scan line time, pixels, channels, spec lines, prescaler
 
 struct Resolution g_allRes[] = {
-//  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
+  {   162,   50, 1,  266, 0 }, // RAPID2 doesn't work right now, best not to recognize it
   {  5790, 1700, 2,  864, 2 }, // SLOW1
   { 33326, 2660, 4, 3000, 5 }  // H6V7
 };
@@ -142,6 +142,10 @@ void halt(int blinks) {
 //
 
 void reset() {
+
+  detachInterrupt(VSYNC_PIN); 
+  detachInterrupt(HSYNC_PIN); 
+
   freeLineBuffers(); // safe to do
   
   while(SerialUSB.available()) {

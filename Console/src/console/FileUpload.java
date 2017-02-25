@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package fileuploadtest;
+package console;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,21 +12,19 @@ import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.*;
-import org.apache.commons.logging.LogFactory;
-import org.apache.commons.codec.DecoderException;
 
 
-public class FileUploadTest {
-    public static void main(String[] args) throws Exception {
-        uploadImage("http://semphotogallery.appspot.com/upload", "lamprey_ra.jpg");
+public class FileUpload {
+    public static void Upload(String name) {
+        uploadImage("http://semphotogallery.appspot.com/upload", name);
     }
     public static void uploadImage(String urlString, String imagePath) {
         try {
             File f = new File(imagePath);
             PostMethod postMessage = new PostMethod(urlString);
             Part[] parts = {
-                    new StringPart("specimen", "foobar"),
-                    new StringPart("magnification", "492"),
+                    new StringPart("specimen", "unknown"),
+                    new StringPart("magnification", "1"),
                     new FilePart("img", f)
             };
             postMessage.setRequestEntity(new MultipartRequestEntity(parts, postMessage.getParams()));
