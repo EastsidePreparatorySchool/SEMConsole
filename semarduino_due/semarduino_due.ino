@@ -154,7 +154,6 @@ void reset() {
   while(SerialUSB.available()) {
     SerialUSB.read();
   }
-  SerialUSB.write(headerReset, 16);
   delay(100);
 
   setup();
@@ -165,6 +164,7 @@ bool g_fIRQ = false;
 void setup() {
   // start USB
   SerialUSB.begin(0); 
+  SerialUSB.write(headerReset, 16);
 
   // set up built-in blink LED, custom led, pushButton
   pinMode (builtInLEDPin, OUTPUT);

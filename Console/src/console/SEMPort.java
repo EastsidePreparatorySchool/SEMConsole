@@ -79,7 +79,7 @@ public class SEMPort {
             }
             try {
                 // Configure the connection
-                port.setTimeout(100);
+                port.setTimeout(300);
 
                 channel = port.getChannel();
                 //ostream = port.getOutputStream();
@@ -329,7 +329,9 @@ public class SEMPort {
 
                         // print dot for successful lines, send "ok", process line
                         if (++dotCounter % lines == 0) {
-                            Console.print(".");
+                            if (this.si.height > 500) {
+                                Console.print(".");
+                            }
                         }
                         channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
                         channel.flush(false, true);
@@ -391,8 +393,16 @@ public class SEMPort {
             } else {
                 //  we get here through timeout
                 //Thread.sleep(1);
-                //result = SEMThread.Phase.ABORTED;
-                result = phase;
+                if (phase == SEMThread.Phase.WAITING_FOR_FRAME) {
+                    result = phase;
+                } else if (phase == SEMThread.Phase.WAITING_TO_CONNECT) {
+                    result = phase;
+                }  else if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
+                    result = SEMThread.Phase.WAITING_FOR_FRAME;
+                } else {
+                    result = SEMThread.Phase.ABORTED;
+                }
+                //result = phase;
             }
         } catch (SEMException e) {
             String command = "NG";

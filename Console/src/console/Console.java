@@ -266,7 +266,16 @@ public class Console extends Application {
         Console.println("[Console: connecting ...]");
 
         // and create a new one
-        Platform.runLater(() -> startThreadLambda());
+       try {
+            System.out.println("starting thread ...");
+            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
+            semThread.start();
+        } catch (Exception e) {
+            System.out.println("exception starting thread.");
+            System.out.println(e.getMessage());
+        }
+
+        runLaterAfterDelay(500, () -> startThreadLambda());
     }
 
     private void startThreadLambda() {
@@ -276,19 +285,8 @@ public class Console extends Application {
             this.txt.setText("Connected");
             btn.setOnAction((event) -> stopSEMThread());
             btn.setDisable(false);
-            return;
         }
-        try {
-            System.out.println("starting thread ...");
-            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
-            semThread.start();
-        } catch (Exception e) {
-            System.out.println("exception starting thread.");
-            System.out.println(e.getMessage());
-        }
-
-        runLaterAfterDelay(5000, () -> startThreadLambda());
-    }
+     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
         final KeyFrame kf1 = new KeyFrame(Duration.millis(ms), (e) -> r.run());
@@ -321,9 +319,14 @@ public class Console extends Application {
     }
 
     private void restartSEMThread() {
-        Console.println();
-        Console.println("[Console: restarting SEM thread]");
-        startSEMThread();
+        Console.printOn();
+        Console.println("[Console: disconnected]");
+        this.btn.setText("Connect");
+        this.txt.setText("Not connected");
+
+//        Console.println();
+//        Console.println("[Console: restarting SEM thread]");
+//        startSEMThread();
     }
 
     private void setSizeNormal(ImageView iv, int channel) {

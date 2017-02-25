@@ -23,6 +23,7 @@ public class SEMThread extends Thread {
     }
 
     private Phase phase = Phase.WAITING_TO_CONNECT;
+    private Phase lastPhase;
     private LinkedTransferQueue<SEMImage> ltq;
     private Runnable update;
     private Runnable restart;
@@ -48,6 +49,7 @@ public class SEMThread extends Thread {
             // main loop waiting for FRAME or BYTES or EFRAME messages
             this.phase = Phase.WAITING_FOR_FRAME;
             while (!this.isInterrupted() && this.phase != Phase.FINISHED && this.phase != Phase.ABORTED) {
+                this.lastPhase = this.phase;
                 this.phase = semport.processMessage(this.ltq, this.update, this.phase);
                 Thread.yield();
             }
@@ -60,6 +62,7 @@ public class SEMThread extends Thread {
             }
         }
         if (this.phase == Phase.ABORTED) {
+            System.out.println("Aborted phase: " + this.lastPhase);
             Platform.runLater(this.restart);
         }
     }
