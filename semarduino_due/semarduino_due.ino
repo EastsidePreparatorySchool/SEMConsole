@@ -50,7 +50,7 @@ struct Resolution *g_pCurrentRes;
 struct Resolution g_allRes[] = {
 // scan line time, pixels, channels, spec lines, prescaler
   {           160,    260,        1,        266,         0 }, // RAPID2
-  {          5790,   1920,        2,        864,         2 }, // SLOW1
+  {          5790,   3840,        1,        864,         2 }, // SLOW1
   {         33326,   2760,        4,       3000,         5 }  // H6V7
 };
 
@@ -582,19 +582,61 @@ void hsyncHandler() {
 //
 
 struct Resolution *getResolution(int lineTime) {
+  static struct Resolution customRes;
   int i;
 
+  // if currently in autosync custom res, try to stay in it
+  if (g_pCurrentRes == &customRes) {
+    if ((lineTime < (customRes.scanLineTime + 20)) && (lineTime  > (customRes.scanLineTime - 20)))
+      return &customRes;
+  }
+
+  // go through known resolutions
+  
   for (i=0; i<NUM_MODES; i++) {
     if (lineTime > (g_allRes[i].scanLineTime - 100) && lineTime < (g_allRes[i].scanLineTime + 100)) {
       return &g_allRes[i];
     }
   }
+
+  // autosync
+// todo: not working yet
+return NULL;
+
+  if (lineTime > 150 && lineTime < 50000) {
+    /*
+     scan line time, pixels, channels, spec lines, prescaler
+    {           160,    260,        1,        266,         0 }, // RAPID2 1.77 samples/us
+    {          5790,   1920,        2,        864,         2 }, // SLOW1  0.67 samples/us
+    {         33326,   2760,        4,       3000,         5 }  // H6V7   0.33 samples/us
+    */
+    // suppose we had around 12kb to play with
+    long maxWords = 6000;
+    long maxLineSamples = (long) ((double)lineTime * (double) 1.77); 
+
+    customRes.scanLineTime = lineTime;        // that one was easy
+    customRes.numChannels  = 1;               // also easy
+    customRes.numLines     = 200;             // complete guess
+    customRes.preScaler    = 1;               // this is where we start
+    customRes.numPixels    = maxLineSamples;  // what we wish for
+    
+    while (customRes.numPixels > maxWords) {
+      customRes.preScaler++;
+      customRes.numPixels /= 2;
+    }
+
+    customRes.numPixels &= (~7); // round down to nearest 8
+    customRes.preScaler--; // encoded: - 1
+    return &customRes;
+  }
+
+  // nothing to be done
   return NULL;
 }
 
 
 bool okToWrite() {
-  return (g_measuredLineTime > 1000) || (SerialUSB.availableForWrite() > USB_MIN_WRITE_BUFFER_SIZE);
+  return (g_measuredLineTime > 4500) || (SerialUSB.availableForWrite() > USB_MIN_WRITE_BUFFER_SIZE);
 }
 
 
@@ -677,7 +719,7 @@ void loop () {
            
     numLines++;
     // if resolution changed, end the frame by switching to next phase
-    if (g_trackTime > (g_measuredLineTime + 100)) {
+    if ((g_trackTime > (g_measuredLineTime + 20)) || (g_trackTime < (g_measuredLineTime - 20))) {
       g_reason = 2;
       g_argument = g_trackTime;
       g_phase = PHASE_IDLE;

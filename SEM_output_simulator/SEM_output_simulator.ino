@@ -17,9 +17,10 @@ struct Resolution {
 };
 
 struct Resolution freqs[] = {
-  {  160,   50,  168, 3000, 20},
-  { 5790,  500,  865, 8000,  5},
-  {33326, 4500, 3000, 4500,  1}  
+//  { 1000,  200, 1000, 3000,10000}, autosync not working yet on scanner
+  {  160,   50,  168, 3000,   20},
+  { 5790,  500,  865, 8000,    5},
+  {33326, 4500, 3000, 4500,    1}  
   };
   
 #define NUM_MODES (sizeof(freqs)/sizeof(struct Resolution))
