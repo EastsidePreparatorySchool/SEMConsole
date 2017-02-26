@@ -614,6 +614,8 @@ public class Console extends Application {
 
     // main fx launcher
     public static void main(String[] args) {
+        
+        UsbJava.test();
         try {
             launch(args);
         } finally {
