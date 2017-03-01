@@ -531,7 +531,7 @@ public class Console extends Application {
                     System.out.println(ex.getMessage());
                 }
                 if (i == 0 && upload) {
-                    FileUpload.Upload(fullName);
+                    FileUpload.uploadFileToServer(fullName);
                 }
             }
         });
