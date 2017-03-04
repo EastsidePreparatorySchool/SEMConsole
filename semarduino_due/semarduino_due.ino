@@ -52,7 +52,8 @@ struct Resolution g_allRes[] = {
   {           160,    200,        1,        266,         0 }, // RAPID2 mag 100+
   {          1183,   1200,        1,        422,         0 }, // RAPID2 mag 10
   {          5790,   3540,        1,        864,         2 }, // SLOW1
-  {         11070,   9600,        1,       9000,         1 }, // H3V7
+  {         10561,  10500,        1,       4500,         1 }, // H3V7 at 9000x
+  {         11070,  10500,        1,       4500,         1 }, // H3V7 at 10x
   {         33326,   4770,        2,       3000,         5 }  // H6V7
 };
 
@@ -103,6 +104,7 @@ volatile long g_trackTime;
 volatile long g_trackFaults;
 volatile int g_reason = REASON_IDLE;
 volatile int g_argument;
+volatile int g_numLines;
 
 
 
@@ -570,6 +572,7 @@ void hsyncHandler() {
         g_measuredLineTime = micros() - g_measuredLineTime;
         g_phase = PHASE_READY_FOR_SCAN;
         g_trackTimeStart = 0;
+        g_numLines = 0;
         break;
         
       case PHASE_SCANNING:
@@ -582,6 +585,7 @@ void hsyncHandler() {
         
         // start ADC (completion handled by ADC interrupt)
         startADC();
+        ++g_numLines;
         break;
     }
   }
@@ -653,7 +657,6 @@ bool okToWrite() {
 
 
 void loop () {
-  static int numLines = 0;
   static int timeFrame = 0;
   static bool fFrameInProgress = false;
   static struct Resolution *lastRes = NULL;
@@ -688,7 +691,6 @@ void loop () {
         fFrameInProgress = true;
         sendFrameHeader();
   
-        numLines = 0;
         timeFrame = millis();
         g_trackTime = g_measuredLineTime;
         g_trackFaults = 0;
@@ -722,7 +724,7 @@ void loop () {
     timeLineScan = max(timeLineScan, g_adcLineTime);
 
     // compute check sum and fill in line and bytes
-    computeCheckSum(numLines, g_lineBytes);
+    computeCheckSum(g_numLines, g_lineBytes);
 
     // try to send the line, if things go wrong too often, reset.
     if (okToWrite()) {
@@ -732,7 +734,6 @@ void loop () {
       }
     }
            
-    numLines++;
     // if resolution changed, end the frame by switching to next phase
     if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
       if (++g_trackFaults >= MAX_TRACK_FAULTS){
