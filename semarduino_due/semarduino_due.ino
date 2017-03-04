@@ -50,9 +50,10 @@ struct Resolution *g_pCurrentRes;
 struct Resolution g_allRes[] = {
 // scan line time, pixels, channels, spec lines, prescaler
   {           160,    200,        1,        266,         0 }, // RAPID2 mag 100+
-  {          1183,   1300,        1,        422,         0 }, // RAPID2 mag 10
+  {          1183,   1200,        1,        422,         0 }, // RAPID2 mag 10
   {          5790,   3540,        1,        864,         2 }, // SLOW1
-  {         33326,   9440,        1,       3000,         5 }  // H6V7
+  {         11070,   9600,        1,       9000,         1 }, // H3V7
+  {         33326,   4770,        2,       3000,         5 }  // H6V7
 };
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))

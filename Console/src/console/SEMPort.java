@@ -43,6 +43,8 @@ public class SEMPort {
     long lastTime = 0;
 
     int[] rawMultiChannelBuffer;
+    private int rawLength = 0;
+
     int proposedBytes;
     long frameStartTime;
     SEMImage si;
@@ -269,7 +271,10 @@ public class SEMPort {
                         this.proposedBytes = channelCount * width * 2;
 
                         // allocate buffer and image
-                        rawMultiChannelBuffer = new int[channelCount * width];
+                        if (rawLength < channelCount * width) {
+                            rawLength = channelCount * width;
+                            rawMultiChannelBuffer = new int[rawLength];
+                        }
                         this.si = new SEMImage(channelCount, capturedChannels, width, height);
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         lastBytes = this.proposedBytes + 24;

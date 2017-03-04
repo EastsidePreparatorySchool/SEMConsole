@@ -36,6 +36,7 @@ public class SEMImage {
     public int rangeMin[];
     public int rangeMax[];
     public int rangeMaxLine[];
+    private int maxLine = 0;
 
     private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
 
@@ -60,9 +61,16 @@ public class SEMImage {
     }
 
     void fileDataLine(int line, int[] data, int count) {
+        if (line < 0) {
+            return;
+        }
+
         int[] copy = Arrays.copyOf(data, count + 1);
         copy[count] = line;
         this.alineBuffers.add(copy);
+        if (line > maxLine) {
+            maxLine = line;
+        }
 
     }
 
@@ -71,8 +79,9 @@ public class SEMImage {
         if (size > 0) {
             int[] lastLine = alineBuffers.get(size - 1);
 
-            this.height = lastLine[lastLine.length - 1] + 1; // height = line number of last line + 1
-
+            if (maxLine + 1 > height) {
+                this.height = maxLine + 1;
+            }
             // allocate images
             for (int i = 0; i < channels; i++) {
                 images[i] = new WritableImage(width, height);
@@ -83,8 +92,13 @@ public class SEMImage {
 
             // compute ranges from first 75% of image. ignore duplicates as best we can
             int prevLine = -1;
-            for (int i = 0; i < (size*3/4); i++) {
+            for (int i = 0; i < (size * 3 / 4); i++) {
                 int[] data = alineBuffers.get(i);
+                
+                if (i == 0) {
+                    Console.print("{" + Integer.toHexString(data[0])+"}");
+                }
+                
                 int line = data[data.length - 1];
                 if (line != prevLine) {
                     rangeLine(line, data, data.length - 1); // don't range that last int, which is the line number
@@ -120,7 +134,7 @@ public class SEMImage {
     //todo: is this what we want?
     int autoContrast(int value, int min, int max) {
         //return value;
-        int newValue = (int)(((double)value - (double)min) * (double)4095 / ((double)max - (double)min));
+        int newValue = (int) (((double) value - (double) min) * (double) 4095 / ((double) max - (double) min));
         if (newValue > 4095) {
             newValue = 4095;
         } else if (newValue < 0) {
