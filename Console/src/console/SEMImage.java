@@ -26,19 +26,18 @@ public class SEMImage {
     public WritableImage[] images;
     public final int[] capturedChannels;
 
-    private final PixelWriter[] writers;
+    private PixelWriter[] writers;
     private PixelFormat pf;
-    private final WritablePixelFormat<IntBuffer> format;
+    private WritablePixelFormat<IntBuffer> format;
 
     private final boolean firstLine;
-    private final int[] rawBuffer;
+    private int[] rawBuffer;
     ArrayList<int[]> alineBuffers;
     public int rangeMin[];
     public int rangeMax[];
     public int rangeMaxLine[];
 
     private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
-    static Random r = new Random();
 
     SEMImage(int channels, int[] capturedChannels, int width, int height) {
         this.format = WritablePixelFormat.getIntArgbInstance();
@@ -82,13 +81,19 @@ public class SEMImage {
                 rangeMax[i] = 0;
             }
 
-            // compute ranges
-            for (int[] data : alineBuffers) {
-                rangeLine(data[data.length - 1], data, data.length - 1); // don't range that last int, which is the line number
+            // compute ranges from first 75% of image. ignore duplicates as best we can
+            int prevLine = -1;
+            for (int i = 0; i < (size*3/4); i++) {
+                int[] data = alineBuffers.get(i);
+                int line = data[data.length - 1];
+                if (line != prevLine) {
+                    rangeLine(line, data, data.length - 1); // don't range that last int, which is the line number
+                }
+                prevLine = line;
             }
 
             // parse all lines, correcting data values for ranges
-            int prevLine = -1;
+            prevLine = -1;
             for (int i = 0; i < size; i++) {
                 int[] lineData = alineBuffers.get(i);
                 int line = lineData[lineData.length - 1];
@@ -114,8 +119,14 @@ public class SEMImage {
 
     //todo: is this what we want?
     int autoContrast(int value, int min, int max) {
-        return value;
-        //return ((value - min) * 4095) / (max-min);
+        //return value;
+        int newValue = (int)(((double)value - (double)min) * (double)4095 / ((double)max - (double)min));
+        if (newValue > 4095) {
+            newValue = 4095;
+        } else if (newValue < 0) {
+            newValue = 0;
+        }
+        return newValue;
     }
 
     //
@@ -148,7 +159,12 @@ public class SEMImage {
                 }
             }
             // write rawBuffer into images[writeChannel]
-            writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
+            try {
+                writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
+            } catch (Exception e) {
+                System.out.println("Write failed: " + line);
+                System.out.println(e.getStackTrace());
+            }
         }
     }
 
@@ -217,5 +233,18 @@ public class SEMImage {
     // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
     int translateChannel(int word) {
         return 7 - word;
+    }
+
+    void cleanUp() {
+        for (int i = 0; i < channels; i++) {
+            writers[i] = null;
+        }
+
+        format = null;
+        pf = null;
+
+        rawBuffer = null;
+        alineBuffers = null;
+
     }
 }

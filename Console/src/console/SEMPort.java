@@ -84,7 +84,7 @@ public class SEMPort {
                 channel = port.getChannel();
                 //ostream = port.getOutputStream();
                 //istream = port.getInputStream();
-                buffer = ByteBuffer.allocateDirect(1000000);
+                buffer = ByteBuffer.allocateDirect(32000);
                 buffer.order(ByteOrder.LITTLE_ENDIAN);
 
                 ByteBuffer command = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
@@ -365,7 +365,11 @@ public class SEMPort {
                             //System.out.print("[read " + n + "bytes]");
                         }
                         int reasonEnd = buffer.getShort(); //unused frame time from Arduino
-                        Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonEnd + ", OKs: ");
+                        String reasonS = "unknown";
+                        if (reasonEnd < 4) {
+                            reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
+                        }
+                        Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors);
                         // process the raw data
                         this.si.parseAllLines();
@@ -378,6 +382,7 @@ public class SEMPort {
 
                         // transfer image to ui thread
                         synchronized (ltq) {
+                            this.si.cleanUp();
                             ltq.add(this.si);
                             this.si = null;
                         }
