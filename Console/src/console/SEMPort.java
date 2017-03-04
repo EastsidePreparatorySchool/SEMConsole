@@ -291,8 +291,8 @@ public class SEMPort {
                             n = channel.read(buffer);
                             //System.out.print("[prefetch read " + n + "bytes]");
                             if (n != lastBytes) {
-                                channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
-                                channel.flush(false, true); // flush output buffers
+//                                channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+//                                channel.flush(false, true); // flush output buffers
                                 numErrors++;
                                 Console.print("-");
                                 dotCounter++;
@@ -312,8 +312,8 @@ public class SEMPort {
                         // read line bytes
                         checkSum = bytes + line;
                         if (bytes != this.proposedBytes) {
-                            channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
-                            channel.flush(false, true); // flush output buffers
+//                            channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
+//                            channel.flush(false, true); // flush output buffers
                             numErrors++;
                             Console.print("-");
                             dotCounter++;
@@ -334,12 +334,13 @@ public class SEMPort {
 
                         // print dot for successful lines, send "ok", process line
                         if (++dotCounter % lines == 0) {
-                            if (this.si.height > 500) {
+                            if (this.si.height > 600) {
                                 Console.print(".");
                             }
                         }
-                        channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
-                        channel.flush(false, true);
+                        //todo:
+                        //channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
+                        //channel.flush(false, true);
                         numOKs++;
                         this.si.fileDataLine(line, this.rawMultiChannelBuffer, bytes / 2);
                         //this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
@@ -375,23 +376,25 @@ public class SEMPort {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
-                        Console.println(numOKs + ", errors: " + numErrors);
+                        Console.println(numOKs + ", errors: " + numErrors +", maxline: " + si.maxLine);
                         // process the raw data
-                        this.si.parseAllLines();
+                        if (reasonEnd == 3 &&  si.maxLine > (si.height-10)) { // vsync normal
+                            this.si.parseAllLines();
 
-                        Console.print("Ranges:");
-                        for (int i = 0; i < si.channels; i++) {
-                            Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + ",Line " + si.rangeMaxLine[i] + "] ");
-                        }
-                        Console.println();
+                            Console.print("Ranges:");
+                            for (int i = 0; i < si.channels; i++) {
+                                Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + ",Line " + si.rangeMaxLine[i] + "] ");
+                            }
+                            Console.println();
 
-                        // transfer image to ui thread
-                        synchronized (ltq) {
-                            this.si.cleanUp();
-                            ltq.add(this.si);
-                            this.si = null;
+                            // transfer image to ui thread
+                            synchronized (ltq) {
+                                this.si.cleanUp();
+                                ltq.add(this.si);
+                                this.si = null;
+                            }
+                            Platform.runLater(updateDisplayLambda);
                         }
-                        Platform.runLater(updateDisplayLambda);
                         result = SEMThread.Phase.WAITING_FOR_FRAME;
                         break;
 
@@ -407,7 +410,7 @@ public class SEMPort {
                     result = phase;
                 } else if (phase == SEMThread.Phase.WAITING_TO_CONNECT) {
                     result = phase;
-                }  else if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
+                } else if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
                     result = SEMThread.Phase.WAITING_FOR_FRAME;
                 } else {
                     result = SEMThread.Phase.ABORTED;
@@ -415,34 +418,34 @@ public class SEMPort {
                 //result = phase;
             }
         } catch (SEMException e) {
-            String command = "NG";
-//            Console.printOn();
-//            Console.print("-");
-//            Console.print(" " +e.error.name()+" ");
-            if (findSentinel()) {
-                if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
-                    result = phase;
-                } else {
-                    command = "AB"; //abort frame
-                    result = SEMThread.Phase.WAITING_FOR_FRAME;
-                }
-            } else {
-                Console.println("Unable to recover, closing connection.");
-                command = "AB"; //abort frame
-                result = SEMThread.Phase.ABORTED;
-            }
+            //todo:
+            result = phase;
 
-            try {
-                channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
-                numErrors++;
-                if (command.equals("AB")) {
-                    // drain the channel in a desparate attempt to reset the frame transport
-                    channel.flush(true, true);
-                }
-            } catch (IOException ex) {
-                Console.println("Unable to communicate, closing connection.");
-                result = SEMThread.Phase.ABORTED;
-            }
+//            String command = "NG";
+//            if (findSentinel()) {
+//                if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
+//                    result = phase;
+//                } else {
+//                    command = "AB"; //abort frame
+//                    result = SEMThread.Phase.WAITING_FOR_FRAME;
+//                }
+//            } else {
+//                Console.println("Unable to recover, closing connection.");
+//                command = "AB"; //abort frame
+//                result = SEMThread.Phase.ABORTED;
+//            }
+//
+//            try {
+//                channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
+//                numErrors++;
+//                if (command.equals("AB")) {
+//                    // drain the channel in a desparate attempt to reset the frame transport
+//                    channel.flush(true, true);
+//                }
+//            } catch (IOException ex) {
+//                Console.println("Unable to communicate, closing connection.");
+//                result = SEMThread.Phase.ABORTED;
+//            }
         } catch (Exception e) {
             System.out.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {

@@ -49,8 +49,8 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
 // scan line time, pixels, channels, spec lines, prescaler
-  {           160,    200,        1,        266,         0 }, // RAPID2 mag 100+
-  {          1183,   1200,        1,        422,         0 }, // RAPID2 mag 10
+  {           160,    200,        1,        182,         0 }, // RAPID2 mag 100+
+  {          1183,   1200,        1,        536,         0 }, // RAPID2 mag 10
   {          5790,   3540,        1,        864,         2 }, // SLOW1
   {         10561,  10500,        1,       4500,         1 }, // H3V7 at 9000x
   {         11070,  10500,        1,       4500,         1 }, // H3V7 at 10x
@@ -105,10 +105,11 @@ volatile long g_trackFaults;
 volatile int g_reason = REASON_IDLE;
 volatile int g_argument;
 volatile int g_numLines;
+volatile int g_resFaults;
 
 
-
-#define MAX_TRACK_FAULTS 5
+#define MAX_RES_FAULTS 10
+#define MAX_TRACK_FAULTS 10
 #define MAX_ERRORS  100
 #define USB_TIMEOUT 100
 #define USB_MIN_WRITE_BUFFER_SIZE 60
@@ -244,7 +245,8 @@ bool sendLine(int bytes) {
   
   for (errorCount = 0; errorCount < 50; errorCount++) {
     SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-
+//todo:
+return true;
     // wait for response
     long wait = micros();
     long acceptable = wait + (USB_TIMEOUT);
@@ -536,6 +538,7 @@ void vsyncHandler() {
     switch (g_phase) {
       case PHASE_IDLE:
         g_phase = PHASE_READY_TO_MEASURE;
+        g_resFaults = 0;
         break;
         
       case PHASE_SCANNING:
@@ -700,10 +703,12 @@ void loop () {
         g_phase = PHASE_CHECK;
       }
     } else {// res not recognized
-      //g_trackTime = g_measuredLineTime;
-      g_reason = REASON_NO_RES;
-      g_argument = g_measuredLineTime;
-      g_phase = PHASE_IDLE;
+      if (g_resFaults++ > MAX_RES_FAULTS) {
+        g_reason = REASON_NO_RES;
+        g_argument = g_measuredLineTime;
+        g_phase = PHASE_IDLE;
+      } else
+        g_phase = PHASE_READY_TO_MEASURE;
     }    
   }
 

@@ -36,7 +36,7 @@ public class SEMImage {
     public int rangeMin[];
     public int rangeMax[];
     public int rangeMaxLine[];
-    private int maxLine = 0;
+    public int maxLine = 0;
 
     private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
 
@@ -110,7 +110,7 @@ public class SEMImage {
             prevLine = -1;
             for (int i = 0; i < size; i++) {
                 int[] lineData = alineBuffers.get(i);
-                int line = lineData[lineData.length - 1];
+                int line = (lineData[lineData.length - 1]) + (height-maxLine+1); // correct for vsync jitter by aligning at bottom
                 while (++prevLine <= line) {
                     this.parseRawLine(prevLine, lineData, lineData.length - 1);
                 }
