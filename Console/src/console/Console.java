@@ -97,9 +97,7 @@ public class Console extends Application {
         this.btn = new Button("Connect");
         btn.setOnAction((event) -> startSEMThread());
 
-//        Button btn3 = new Button("Save SEI image as ...");
-//        btn3.setOnAction((event) -> saveFile(this.currentImageSet));
-        Button btn4 = new Button("Save image set in ...");
+        Button btn4 = new Button("Save image set");
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
 
         txt = new Text("Not connected");
@@ -107,8 +105,12 @@ public class Console extends Application {
         h.getChildren().add(txt);
         h.setPadding(new Insets(6, 12, 6, 12));
 
-        autoSave = new CheckBox("Auto save    ");
-        autoSave.setOnAction((e) -> {if (!autoSave.isSelected())autoUpload.setSelected(false);});
+        autoSave = new CheckBox("Auto save photos   ");
+        autoSave.setOnAction((e) -> {
+            if (!autoSave.isSelected()) {
+                autoUpload.setSelected(false);
+            }
+        });
         autoSave.setSelected(true);
         autoUpload = new CheckBox("Auto upload");
         HBox h2 = new HBox();
@@ -116,7 +118,7 @@ public class Console extends Application {
         h2.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, btn4, h2);
+        top.getChildren().addAll(btn, h, h2, btn4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -209,25 +211,26 @@ public class Console extends Application {
     }
 
     private void displayImageSet(SEMImage si) {
-        /*    if (si == null) {
-            return;
+        int channels = 0;
+        if (si != null) {
+            channels = si.channels;
         }
-         */
+
         // set absent channel images to empty
-        if (si.channels < 4) {
-            for (int i = si.channels; i < 4; i++) {
+        if (channels < 4) {
+            for (int i = channels; i < 4; i++) {
                 this.aViews[i].setImage(null);
             }
         }
 
         // put the images in place
-        for (int i = 0; i < si.channels; i++) {
+        for (int i = 0; i < channels; i++) {
             this.aViews[i].setImage(si.images[i]);
 
         }
 
         // adjust all of their sizes
-        this.channels = si.channels;
+        this.channels = channels;
         for (int i = 0; i < 4; i++) {
             setSizeNormal(aViews[i], i);
         }
@@ -546,7 +549,7 @@ public class Console extends Application {
         path += System.getProperty("file.separator");
         path += "Documents";
         path += System.getProperty("file.separator");
-        path += "SEM_Images";
+        path += "SEM Images";
         createFolder(path);
 
         path += System.getProperty("file.separator");
@@ -614,8 +617,8 @@ public class Console extends Application {
 
     // main fx launcher
     public static void main(String[] args) {
-        
-        UsbJava.test();
+
+        //UsbJava.test();
         try {
             launch(args);
         } finally {

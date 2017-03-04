@@ -49,9 +49,10 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
 // scan line time, pixels, channels, spec lines, prescaler
-  {           160,    260,        1,        266,         0 }, // RAPID2
-  {          5790,   3840,        1,        864,         2 }, // SLOW1
-  {         33326,   2760,        4,       3000,         5 }  // H6V7
+  {           160,    200,        1,        266,         0 }, // RAPID2 mag 100+
+  {          1183,   1300,        1,        422,         0 }, // RAPID2 mag 10
+  {          5790,   3540,        1,        864,         2 }, // SLOW1
+  {         33326,   9440,        1,       3000,         5 }  // H6V7
 };
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
@@ -69,7 +70,10 @@ struct Resolution g_allRes[] = {
 #define PHASE_SCANNING            4
 #define PHASE_CHECK               5
 
-
+#define REASON_IDLE   0
+#define REASON_NO_RES 1
+#define REASON_TRACK  2
+#define REASON_VSYNC  3
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
 int g_channelSelection2 = 3; // TODO: For now, make sure that SEI is on A0 and AEI on A1
@@ -95,11 +99,13 @@ volatile int g_measuredLineTime;
 volatile long g_trackTimeStart;
 volatile long g_prevTrackTimeStart;
 volatile long g_trackTime;
-volatile int g_reason = 0;
+volatile long g_trackFaults;
+volatile int g_reason = REASON_IDLE;
 volatile int g_argument;
 
 
 
+#define MAX_TRACK_FAULTS 5
 #define MAX_ERRORS  100
 #define USB_TIMEOUT 100
 #define USB_MIN_WRITE_BUFFER_SIZE 60
@@ -207,7 +213,7 @@ void setup() {
   blinkBuiltInLED(2);  
   g_pCurrentRes = NULL;
   g_phase = PHASE_CHECK;
-  g_reason = 0;
+  g_reason = REASON_IDLE;
 
   setupInterrupts();
 }
@@ -323,6 +329,7 @@ void freeLineBuffers() {
 
 
 void sendFrameHeader() {
+  flipLED();
   SerialUSB.write(headerFrame, 16);                     // send FRAME header
   SerialUSB_write_uint16_t(g_pCurrentRes->numChannels); // number of channels                       
   SerialUSB_write_uint16_t(g_pCurrentRes->numPixels);   // width in pixels
@@ -503,7 +510,7 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, FALLING);  // catch rising edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch rising edge of hsync to start ADC
 }
 
 
@@ -520,8 +527,8 @@ void flipLED() {
 }
 
 void vsyncHandler() {
-  flipLED();
-//  if (digitalRead(VSYNC_PIN) == LOW) { 
+//  flipLED();
+  if (digitalRead(VSYNC_PIN) == LOW) { 
    
     switch (g_phase) {
       case PHASE_IDLE:
@@ -530,7 +537,7 @@ void vsyncHandler() {
         
       case PHASE_SCANNING:
         // time to end the frame and send the image
-        g_reason = 3; 
+        g_reason = REASON_VSYNC; 
         g_phase = PHASE_IDLE;
         break;
   
@@ -541,11 +548,11 @@ void vsyncHandler() {
         g_phase = PHASE_CHECK;
         break;
     }
-//  }
+  }
 }
 
 void hsyncHandler() {
-//  if (digitalRead(HSYNC_PIN) == LOW) {
+  if (digitalRead(HSYNC_PIN) == HIGH) {
     switch (g_phase) {
       case PHASE_IDLE:
         // not doing anything right now
@@ -561,19 +568,22 @@ void hsyncHandler() {
         // take scan time, get ready to start scanning (initiated by main program, need to set up ADC first)
         g_measuredLineTime = micros() - g_measuredLineTime;
         g_phase = PHASE_READY_FOR_SCAN;
+        g_trackTimeStart = 0;
         break;
         
       case PHASE_SCANNING:
         // keep track of hsync interval, if resolution changes, main routine will trigger vsync and end frame
-        g_prevTrackTimeStart = g_trackTime;
+        g_prevTrackTimeStart = g_trackTimeStart;
         g_trackTimeStart = micros();
-        g_trackTime - g_trackTimeStart - g_prevTrackTimeStart;
+        if (g_prevTrackTimeStart != 0) {
+          g_trackTime = g_trackTimeStart - g_prevTrackTimeStart;
+        }
         
         // start ADC (completion handled by ADC interrupt)
         startADC();
         break;
     }
-//  }
+  }
 }
 
 
@@ -680,14 +690,18 @@ void loop () {
         numLines = 0;
         timeFrame = millis();
         g_trackTime = g_measuredLineTime;
+        g_trackFaults = 0;
         dropCount = 0;
         g_phase = PHASE_SCANNING;
       } else {
         g_phase = PHASE_CHECK;
       }
-    } else
+    } else {// res not recognized
       //g_trackTime = g_measuredLineTime;
-      g_phase = PHASE_CHECK;
+      g_reason = REASON_NO_RES;
+      g_argument = g_measuredLineTime;
+      g_phase = PHASE_IDLE;
+    }    
   }
 
   //
@@ -719,10 +733,12 @@ void loop () {
            
     numLines++;
     // if resolution changed, end the frame by switching to next phase
-    if ((g_trackTime > (g_measuredLineTime + 20)) || (g_trackTime < (g_measuredLineTime - 20))) {
-      g_reason = 2;
-      g_argument = g_trackTime;
-      g_phase = PHASE_IDLE;
+    if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
+      if (++g_trackFaults >= MAX_TRACK_FAULTS){
+        g_reason = REASON_TRACK;
+        g_argument = g_trackTime;
+        g_phase = PHASE_IDLE;
+      }
     }
   }
 
@@ -737,6 +753,11 @@ void loop () {
       fFrameInProgress = false;
     } else {
       if (okToWrite()) {
+        // reasons
+        // 0 idle
+        // 1 no res
+        // 2 changed res
+        // 3 other vsync
         sendIdle(g_reason, g_argument);
       
       }
