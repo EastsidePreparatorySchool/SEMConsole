@@ -54,7 +54,7 @@ struct Resolution g_allRes[] = {
   {          5790,   3540,        1,        864,         2 }, // SLOW1
   {         10561,  10500,        1,       4500,         1 }, // H3V7 at 9000x
   {         11070,  10500,        1,       4500,         1 }, // H3V7 at 10x
-  {         33326,   4770,        2,       3000,         5 }  // H6V7
+  {         33326,   9440,        1,       3000,         5 }  // H6V7
 };
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))

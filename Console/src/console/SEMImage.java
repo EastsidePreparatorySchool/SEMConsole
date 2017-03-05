@@ -167,6 +167,10 @@ public class SEMImage {
         int capturedChannel;
         int writeChannel;
         int intensity;
+        
+        if (line >= height) { // since we adjusted downward for jitter, some lines might be too high in number now.
+            return;
+        }
 
         for (int channel = 0; channel < this.channels; channel++) {
             // copy one line of pixels for a specific channel out of data into rawBuffer
@@ -198,8 +202,9 @@ public class SEMImage {
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
                 rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
             } catch (Exception e) {
-                System.out.println("Write failed: " + line);
+                System.out.println("Write failed: " + line + ", " + height);
                 System.out.println(e.getStackTrace());
+                
             }
         }
     }
