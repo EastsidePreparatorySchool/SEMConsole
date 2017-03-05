@@ -18,13 +18,13 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Background;
@@ -166,13 +166,20 @@ public class Console extends Application {
         this.aViews = new ImageView[4];
         for (int i = 0; i < 4; i++) {
             this.aViews[i] = new ImageView();
-            this.aViews[i].setSmooth(true);
+            this.aViews[i].setSmooth(false);
             this.aViews[i].setCache(true);
-            //this.aViews[i].setFitHeight(360);
-            //this.aViews[i].setFitWidth(480);
             this.aPanes[i].getChildren().add(this.aViews[i]);
             final int lambdaParam = i;
             this.aViews[i].setOnMouseClicked((e) -> toggleImage(e, lambdaParam));
+
+            if (i != 0) {
+                ColorAdjust colorAdjust = new ColorAdjust();
+                colorAdjust.setHue(new double[]{0, -1, -0.2, 0.3}[i]);
+//                colorAdjust.setBrightness(0.1);
+//                colorAdjust.setSaturation(0.2);
+//                colorAdjust.setContrast(0.1);
+                this.aViews[i].setEffect(colorAdjust);
+            }
         }
 
         HBox hbUp = new HBox();
@@ -528,7 +535,9 @@ public class Console extends Application {
                 String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
                 File file = new File(fullName);
                 try {
-                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+//                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+                    ImageIO.write(si.grayImages[i], "png", file);
+                    Console.println();
                     Console.println("Image written to " + file.getName());
                 } catch (Exception ex) {
                     System.out.println(ex.getMessage());

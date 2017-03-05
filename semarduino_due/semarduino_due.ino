@@ -239,49 +239,8 @@ void computeCheckSum(int line, int bytes) {
 
 
 bool sendLine(int bytes) {
-  // send the line until it gets through
-  int errorCount;
-  char o,k;
-  
-  for (errorCount = 0; errorCount < 50; errorCount++) {
-    SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-//todo:
-return true;
-    // wait for response
-    long wait = micros();
-    long acceptable = wait + (USB_TIMEOUT);
-    while (SerialUSB.available() == 0 && wait<acceptable) {
-      wait = micros();
-    }
-    
-    if (wait >= acceptable)
-      continue;
-    
-    // process last two bytes of response, either "OK" or "NG"
-    o = 0;
-    k = 0;
-    while (SerialUSB.available()> 0) {
-      o = k;
-      k = SerialUSB.read();
-    }
-
-    if (o == 'O' && k == 'K') // ok, on to next lines
-      break;
-      
-    if (o == 'N' && k == 'G') // no good, retry sending the line
-      continue;
-
-    if (o == 'A' && k == 'B') // ABORT frame, things are messed up, reset
-      return false;
-      
-    // and if it was neither? send again by continuing loop.
-  }
-  
-  if (errorCount >= MAX_ERRORS) {
-    return false; // too many errors, reset
-  }
-    
- return true;
+  SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+  return true;
 }
 
 
@@ -445,11 +404,12 @@ void initializeADC() {
     break;
 
     case 1:
-//    ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
-//    ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
-    // set 2 channels  
-    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-    ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel1 << (channel1*4));
+    //todo: make sure this works
+    ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
+    ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
+    // set 2 channels (same channel) 
+//    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
+//    ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel1 << (channel1*4));
     break;
   }
 

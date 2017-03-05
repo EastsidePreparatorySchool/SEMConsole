@@ -5,10 +5,11 @@
  */
 package console;
 
+import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Random;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
@@ -32,11 +33,14 @@ public class SEMImage {
 
     private final boolean firstLine;
     private int[] rawBuffer;
+    private int[] grayRawBuffer;
     ArrayList<int[]> alineBuffers;
     public int rangeMin[];
     public int rangeMax[];
     public int rangeMaxLine[];
     public int maxLine = 0;
+    BufferedImage grayImages[];
+    WritableRaster[] rasters;
 
     private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
 
@@ -46,6 +50,7 @@ public class SEMImage {
         this.width = width;
         this.height = height;
         this.rawBuffer = new int[width];
+        this.grayRawBuffer = new int[width];
         this.alineBuffers = new ArrayList<>(3000);
         this.capturedChannels = new int[channels];
         this.rangeMin = new int[channels];
@@ -54,6 +59,8 @@ public class SEMImage {
 
         images = new WritableImage[channels];
         writers = new PixelWriter[channels];
+        grayImages = new BufferedImage[channels];
+        rasters = new WritableRaster[channels];
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
@@ -88,17 +95,21 @@ public class SEMImage {
                 writers[i] = images[i].getPixelWriter();
                 rangeMin[i] = 4095;
                 rangeMax[i] = 0;
+
+                grayImages[i] = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
+                rasters[i] = (WritableRaster) grayImages[i].getData();
+
             }
 
             // compute ranges from first 75% of image. ignore duplicates as best we can
             int prevLine = -1;
             for (int i = 0; i < (size * 3 / 4); i++) {
                 int[] data = alineBuffers.get(i);
-                
+
                 if (i == 0) {
-                    Console.print("{" + Integer.toHexString(data[0])+"}");
+                    Console.print("{" + Integer.toHexString(data[0]) + "}");
                 }
-                
+
                 int line = data[data.length - 1];
                 if (line != prevLine) {
                     rangeLine(line, data, data.length - 1); // don't range that last int, which is the line number
@@ -110,12 +121,17 @@ public class SEMImage {
             prevLine = -1;
             for (int i = 0; i < size; i++) {
                 int[] lineData = alineBuffers.get(i);
-                int line = (lineData[lineData.length - 1]) + (height-maxLine+1); // correct for vsync jitter by aligning at bottom
+                int line = (lineData[lineData.length - 1]) + (height - maxLine + 1); // correct for vsync jitter by aligning at bottom
                 while (++prevLine <= line) {
                     this.parseRawLine(prevLine, lineData, lineData.length - 1);
                 }
                 prevLine = line;
             }
+            
+            for (int i = 0; i < channels; i++) {
+                grayImages[i].setData(rasters[i]);
+            }
+
         }
     }
 
@@ -160,8 +176,13 @@ public class SEMImage {
                 intensity = getValue(data[i]);
                 intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
 
-                // make a gray-scale, full alpha pixel
-                rawBuffer[pixel++] = grayScale(capturedChannel, intensity);
+                // make a pseudo-gray-scale, full alpha pixel for display
+                rawBuffer[pixel] = grayScale(capturedChannel, intensity);
+
+                // and also a true grayscale image for saving to disk as PNG 16bit grayscale later
+                grayRawBuffer[pixel] = intensity << 4;
+                
+                pixel++;
             }
 
             // find the right image to write into
@@ -175,6 +196,7 @@ public class SEMImage {
             // write rawBuffer into images[writeChannel]
             try {
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
+                rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
             } catch (Exception e) {
                 System.out.println("Write failed: " + line);
                 System.out.println(e.getStackTrace());
@@ -213,39 +235,41 @@ public class SEMImage {
 
     int grayScale(int realChannel, int intensity) {
         // todo: real gain calibration
-        intensity = Math.min(intensity, 4095);
-
-        if (realChannel == 0) {
-            //special treatment
-            int highSix = ((intensity >> 6) & 0x3F) << 2;
-            int lowSix = intensity & 0x3F;
-            int r = lowSix & 0x3;
-            lowSix >>= 2;
-            int g = lowSix & 0x3;
-            lowSix >>= 2;
-            int b = lowSix & 0x3;
-
-            return 0xFF000000 // full alpha
-                    + ((highSix + r) << 16) // red
-                    + ((highSix + g) << 8) // green
-                    + (highSix + b);         // blue
-        } else {
-            intensity *= 4;
-            final int shiftFactor = 0;
-            return 0xFF000000 // full alpha
-                    + ((realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 16) // red
-                    + ((realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 8) // green
-                    + ((realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)));      // blue
+        if (intensity > 4095) {
+            intensity = 4095;
+        } else if (intensity < 0) {
+            intensity = 0;
         }
-        /*    return 0xFF000000
-                + ((realChannel == 0 || realChannel == 2 ? intensity : (intensity / 4)) << 16) // red
-                + ((realChannel == 0 || realChannel == 1 ? intensity : (intensity / 4)) << 8) // green
-                + ((realChannel == 0 || realChannel == 3 ? intensity : (intensity / 4)));      // blue
-         */
-    }
 
-    // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
-    int translateChannel(int word) {
+//        if (realChannel == 0) {
+        //special treatment
+        int highSix = ((intensity >> 6) & 0x3F) << 2;
+        int lowSix = intensity & 0x3F;
+        int r = lowSix & 0x3;
+        lowSix >>= 2;
+        int g = lowSix & 0x3;
+        lowSix >>= 2;
+        int b = lowSix & 0x3;
+
+        return 0xFF000000 // full alpha
+                + ((highSix + r) << 16) // red
+                + ((highSix + g) << 8) // green
+                + (highSix + b);         // blue
+//    }
+//
+//    
+//        else {
+//            intensity *= 4;
+//        final int shiftFactor = 0;
+//        return 0xFF000000 // full alpha
+//                + ((realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 16) // red
+//                + ((realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 8) // green
+//                + ((realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)));      // blue
+//    }
+}
+
+// maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
+int translateChannel(int word) {
         return 7 - word;
     }
 
@@ -258,6 +282,7 @@ public class SEMImage {
         pf = null;
 
         rawBuffer = null;
+        grayRawBuffer = null;
         alineBuffers = null;
 
     }
