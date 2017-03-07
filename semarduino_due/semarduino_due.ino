@@ -49,12 +49,13 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
 // scan line time, pixels, channels, spec lines, prescaler
-  {           160,    200,        1,        182,         0 }, // RAPID2 mag 100+
+  {           160,    200,        1,        182,         0 }, // RAPID2 mag 100
   {          1183,   1200,        1,        536,         0 }, // RAPID2 mag 10
-  {          5790,   3540,        1,        864,         2 }, // SLOW1
-  {         10561,  10500,        1,       4500,         1 }, // H3V7 at 9000x
-  {         11070,  10500,        1,       4500,         1 }, // H3V7 at 10x
-  {         33326,   9440,        1,       3000,         5 }  // H6V7
+  {          5320,  10000,        1,       9600,         0 }, // H1 mag 100
+  {          5790,   1200,        1,        864,         8 }, // SLOW1, also H1 mag 10
+  {         10561,  10500,        1,       4500,         1 }, // H3 at 9000x
+  {         11070,  10500,        1,       4500,         1 }, // H3 at 10x
+  {         33326,   9440,        1,       3000,         5 }  // H6
 };
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
@@ -106,8 +107,10 @@ volatile int g_reason = REASON_IDLE;
 volatile int g_argument;
 volatile int g_numLines;
 volatile int g_resFaults;
+volatile int g_drop;
 
 
+#define DROP_LINES 5;
 #define MAX_RES_FAULTS 10
 #define MAX_TRACK_FAULTS 10
 #define MAX_ERRORS  100
@@ -218,6 +221,7 @@ void setup() {
   g_pCurrentRes = NULL;
   g_phase = PHASE_CHECK;
   g_reason = REASON_IDLE;
+  g_drop = DROP_LINES;
 
   setupInterrupts();
 }
@@ -238,9 +242,8 @@ void computeCheckSum(int line, int bytes) {
 }
 
 
-bool sendLine(int bytes) {
+void sendLine(int bytes) {
   SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
-  return true;
 }
 
 
@@ -289,49 +292,65 @@ void freeLineBuffers() {
 }
 
 
-
-
+struct Frame {
+    uint8_t   headerFrame[16];
+    uint16_t  numChannels;
+    uint16_t  numPixels;
+    uint16_t  numLines;
+    uint16_t  scanTime;
+    uint16_t  channels[4];
+  };
 
 void sendFrameHeader() {
+  static struct Frame h = {{'E','P','S','_','S','E','M','_','F','R','A','M','E','.','.','.'},0,0,0,0,{0,0,0,0}};
+
   flipLED();
-  SerialUSB.write(headerFrame, 16);                     // send FRAME header
-  SerialUSB_write_uint16_t(g_pCurrentRes->numChannels); // number of channels                       
-  SerialUSB_write_uint16_t(g_pCurrentRes->numPixels);   // width in pixels
-  SerialUSB_write_uint16_t(g_pCurrentRes->numLines);    // height in lines
-  SerialUSB_write_uint16_t(g_measuredLineTime);         // measured line scan time that determined resolution
+  
+  h.numChannels = g_pCurrentRes->numChannels;
+  h.numPixels = g_pCurrentRes->numPixels;
+  h.numLines = g_pCurrentRes->numLines;
+  h.scanTime = g_measuredLineTime;
   
   switch (g_pCurrentRes->numChannels) {
     case 4:
-      SerialUSB_write_uint16_t(0);
-      SerialUSB_write_uint16_t(1);
-      SerialUSB_write_uint16_t(2);
-      SerialUSB_write_uint16_t(3);
+      h.channels[0] = 0;
+      h.channels[1] = 0;
+      h.channels[2] = 0;
+      h.channels[3] = 0;
       break;
 
     case 2:
       // list just the specific 2 channels we are capturing
-      SerialUSB_write_uint16_t(g_channelSelection1);
-      SerialUSB_write_uint16_t(g_channelSelection2);
-      SerialUSB_write_uint16_t(255);
-      SerialUSB_write_uint16_t(255);
+      h.channels[0] = g_channelSelection1;
+      h.channels[1] = g_channelSelection2;
+      h.channels[2] = 0;
+      h.channels[3] = 0;
       break;
 
     case 1:
       // list just the specific 1 channel we are capturing in FAST
-      SerialUSB_write_uint16_t(g_channelSelection1);
-      SerialUSB_write_uint16_t(255);
-      SerialUSB_write_uint16_t(255);
-      SerialUSB_write_uint16_t(255);
+      h.channels[0] = g_channelSelection1;
+      h.channels[1] = 0;
+      h.channels[2] = 0;
+      h.channels[3] = 0;
       break;
   }
+
+  SerialUSB.write((uint8_t *)&h, sizeof(h));
 }
 
+struct EndFrame {
+  uint8_t   header[16];
+  uint16_t  lineTime;
+  uint16_t  frameTime;
+};
+
 void sendEndFrame(int lineTime, int frameTime) {
-  delayMicroseconds(lineTime / 2);  
-  SerialUSB.write(headerEndFrame, 16);     // send EFRAME (end frame), line time, frame time
-  SerialUSB_write_uint16_t((uint16_t)lineTime);
-  SerialUSB_write_uint16_t((uint16_t)frameTime);
-  delayMicroseconds(lineTime / 2);  
+  static struct EndFrame h = {{'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'}, 0, 0};
+  
+  h.lineTime = lineTime;
+  h.frameTime = frameTime;
+  SerialUSB.write((uint8_t *)&h, sizeof(h));     // send EFRAME (end frame), line time, frame time
 }
 
   
@@ -474,7 +493,7 @@ void startADC() {
 void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
-  attachInterrupt(VSYNC_PIN, vsyncHandler, FALLING);  // catch falling edge of vsync to get ready for measuring
+  attachInterrupt(VSYNC_PIN, vsyncHandler, CHANGE);  // catch falling edge of vsync to get ready for measuring
   attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch rising edge of hsync to start ADC
 }
 
@@ -492,21 +511,30 @@ void flipLED() {
 }
 
 void vsyncHandler() {
-//  flipLED();
-  if (digitalRead(VSYNC_PIN) == LOW) { 
-   
+  if (digitalRead(VSYNC_PIN) == HIGH) { // rising edge
+
     switch (g_phase) {
-      case PHASE_IDLE:
+      case PHASE_CHECK:
+      //todo: ?
         g_phase = PHASE_READY_TO_MEASURE;
-        g_resFaults = 0;
         break;
         
+      case PHASE_SCANNING:
+      case PHASE_READY_TO_MEASURE:
+      case PHASE_MEASURING:
+      case PHASE_READY_FOR_SCAN:
+        // we should never get here, but hey
+        break;
+    }
+  } else { // falling edge
+    switch (g_phase) {
       case PHASE_SCANNING:
         // time to end the frame and send the image
         g_reason = REASON_VSYNC; 
         g_phase = PHASE_IDLE;
         break;
   
+      case PHASE_IDLE:
       case PHASE_READY_TO_MEASURE:
       case PHASE_MEASURING:
       case PHASE_READY_FOR_SCAN:
@@ -526,8 +554,13 @@ void hsyncHandler() {
       
       case PHASE_READY_TO_MEASURE:
         // start stopwatch, switch phase
-        g_measuredLineTime = micros();
-        g_phase = PHASE_MEASURING;
+        if (g_drop == 0) {
+          g_measuredLineTime = micros();
+          g_phase = PHASE_MEASURING;
+          g_drop = DROP_LINES;
+        } else {
+          g_drop--;
+        }
         break;
   
       case PHASE_MEASURING:
@@ -626,6 +659,7 @@ void loop () {
   static int dropCount = 0;
 
   int timeLineScan = 0;
+  int line;
   char o,k;
 
   // 
@@ -683,20 +717,17 @@ void loop () {
       break;
     }
     // wait for scan completion, get line out of the way of the DMA controller
-    scanAndCopyOneLine();
+    line = scanAndCopyOneLine();
 
     // keep track of maximum scan time (we report this so we can dial it in and get max possible pixel res)
     timeLineScan = max(timeLineScan, g_adcLineTime);
 
     // compute check sum and fill in line and bytes
-    computeCheckSum(g_numLines, g_lineBytes);
+    computeCheckSum(line, g_lineBytes);
 
-    // try to send the line, if things go wrong too often, reset.
+    // send the line
     if (okToWrite()) {
-      if (!sendLine(g_lineBytes)) {
-        reset();
-        return;
-      }
+      sendLine(g_lineBytes);
     }
            
     // if resolution changed, end the frame by switching to next phase
@@ -744,7 +775,9 @@ void loop () {
       } 
       o = k;
     }
-    g_phase = PHASE_READY_TO_MEASURE;
+    //g_phase = PHASE_READY_TO_MEASURE;
+    //VSYNC will get us out of this.
+      
   }
 
   
@@ -764,13 +797,16 @@ void adjustToNewRes() {
 
 
 
-void scanAndCopyOneLine() {
+int scanAndCopyOneLine() {
+  int line = g_numLines;
+  
   while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
   }
 
   // put the line somewhere safe from adc, just past the params header:
   memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
   currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
+  return line;
 }
 
 

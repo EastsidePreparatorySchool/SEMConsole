@@ -535,8 +535,11 @@ public class Console extends Application {
                 String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
                 File file = new File(fullName);
                 try {
-//                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
-                    ImageIO.write(si.grayImages[i], "png", file);
+                    if (si.grayImages[i] != null) {
+                        ImageIO.write(si.grayImages[i], "png", file);
+                    } else {
+                        ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+                    }
                     Console.println();
                     Console.println("Image written to " + file.getName());
                 } catch (Exception ex) {

@@ -96,8 +96,10 @@ public class SEMImage {
                 rangeMin[i] = 4095;
                 rangeMax[i] = 0;
 
-                grayImages[i] = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
-                rasters[i] = (WritableRaster) grayImages[i].getData();
+                if (height > 500) {
+                    grayImages[i] = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
+                    rasters[i] = (WritableRaster) grayImages[i].getData();
+                }
 
             }
 
@@ -127,9 +129,11 @@ public class SEMImage {
                 }
                 prevLine = line;
             }
-            
-            for (int i = 0; i < channels; i++) {
-                grayImages[i].setData(rasters[i]);
+
+            if (height > 500) {
+                for (int i = 0; i < channels; i++) {
+                    grayImages[i].setData(rasters[i]);
+                }
             }
 
         }
@@ -167,7 +171,7 @@ public class SEMImage {
         int capturedChannel;
         int writeChannel;
         int intensity;
-        
+
         if (line >= height) { // since we adjusted downward for jitter, some lines might be too high in number now.
             return;
         }
@@ -183,9 +187,11 @@ public class SEMImage {
                 // make a pseudo-gray-scale, full alpha pixel for display
                 rawBuffer[pixel] = grayScale(capturedChannel, intensity);
 
-                // and also a true grayscale image for saving to disk as PNG 16bit grayscale later
-                grayRawBuffer[pixel] = intensity << 4;
-                
+                if (height > 500) {
+                    // and also a true grayscale image for saving to disk as PNG 16bit grayscale later
+                    grayRawBuffer[pixel] = intensity << 4;
+                }
+
                 pixel++;
             }
 
@@ -200,11 +206,13 @@ public class SEMImage {
             // write rawBuffer into images[writeChannel]
             try {
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
-                rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
+                if (height > 500) {
+                    rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
+                }
             } catch (Exception e) {
                 System.out.println("Write failed: " + line + ", " + height);
                 System.out.println(e.getStackTrace());
-                
+
             }
         }
     }
@@ -271,10 +279,10 @@ public class SEMImage {
 //                + ((realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 8) // green
 //                + ((realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)));      // blue
 //    }
-}
+    }
 
 // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
-int translateChannel(int word) {
+    int translateChannel(int word) {
         return 7 - word;
     }
 

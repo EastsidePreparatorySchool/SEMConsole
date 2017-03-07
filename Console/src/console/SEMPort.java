@@ -291,10 +291,6 @@ public class SEMPort {
                             n = channel.read(buffer);
                             //System.out.print("[prefetch read " + n + "bytes]");
                             if (n != lastBytes) {
-//                                channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
-//                                channel.flush(false, true); // flush output buffers
-                                numErrors++;
-                                Console.print("-");
                                 dotCounter++;
                                 throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                             }
@@ -314,8 +310,6 @@ public class SEMPort {
                         if (bytes != this.proposedBytes) {
 //                            channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
 //                            channel.flush(false, true); // flush output buffers
-                            numErrors++;
-                            Console.print("-");
                             dotCounter++;
 
                             throw new SEMException(SEMError.ERROR_BYTE_COUNT);
@@ -378,7 +372,7 @@ public class SEMPort {
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors +", maxline: " + si.maxLine);
                         // process the raw data
-                        if (reasonEnd == 3 &&  si.maxLine > (si.height-10)) { // vsync normal
+                        if (reasonEnd == 3){ // &&  si.maxLine > (si.height-10)) { // vsync normal
                             this.si.parseAllLines();
 
                             Console.print("Ranges:");
@@ -415,37 +409,11 @@ public class SEMPort {
                 } else {
                     result = SEMThread.Phase.ABORTED;
                 }
-                //result = phase;
             }
         } catch (SEMException e) {
-            //todo:
             result = phase;
-
-//            String command = "NG";
-//            if (findSentinel()) {
-//                if (phase == SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
-//                    result = phase;
-//                } else {
-//                    command = "AB"; //abort frame
-//                    result = SEMThread.Phase.WAITING_FOR_FRAME;
-//                }
-//            } else {
-//                Console.println("Unable to recover, closing connection.");
-//                command = "AB"; //abort frame
-//                result = SEMThread.Phase.ABORTED;
-//            }
-//
-//            try {
-//                channel.write(ByteBuffer.wrap(command.getBytes(StandardCharsets.UTF_8)));
-//                numErrors++;
-//                if (command.equals("AB")) {
-//                    // drain the channel in a desparate attempt to reset the frame transport
-//                    channel.flush(true, true);
-//                }
-//            } catch (IOException ex) {
-//                Console.println("Unable to communicate, closing connection.");
-//                result = SEMThread.Phase.ABORTED;
-//            }
+            numErrors++;
+//            Console.print("-");
         } catch (Exception e) {
             System.out.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {
