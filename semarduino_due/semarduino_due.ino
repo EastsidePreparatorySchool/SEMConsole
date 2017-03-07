@@ -28,7 +28,7 @@ struct BytesParams {
   uint16_t  bytes;
 };
 
-struct BytesParams *g_pbp = NULL;
+struct BytesParams *g_pbp;
 
 
 //
@@ -97,17 +97,23 @@ volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
 volatile bool g_adcInProgress;
 int g_lineBytes;
-volatile int g_phase = PHASE_CHECK;
+volatile int g_phase;
 volatile int g_measuredLineTime;
 volatile long g_trackTimeStart;
 volatile long g_prevTrackTimeStart;
 volatile long g_trackTime;
 volatile long g_trackFaults;
-volatile int g_reason = REASON_IDLE;
+volatile int g_reason;
 volatile int g_argument;
 volatile int g_numLines;
 volatile int g_resFaults;
 volatile int g_drop;
+struct Resolution *g_lastRes;
+int g_timeFrame;
+bool g_fFrameInProgress;
+
+
+
 
 
 #define DROP_LINES 5;
@@ -126,15 +132,14 @@ volatile int g_drop;
 
 
 // code to blink the built-in LED n times 
-const int builtInLEDPin = 13; 
 
 void blinkBuiltInLED(int n) {
   
   for (int i= 0; i<n; i++) {
     // blink built-in LED
-    digitalWrite(builtInLEDPin, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH);
     delay(200);
-    digitalWrite(builtInLEDPin, LOW);
+    digitalWrite(LED_BUILTIN, LOW);
     if(i < n-1) {
       delay(200);
     }
@@ -173,15 +178,13 @@ void reset() {
   setup();
 }
 
-bool g_fIRQ = false;
-
 void setup() {
   // start USB
   SerialUSB.begin(0); 
   SerialUSB.write(headerReset, 16);
 
   // set up built-in blink LED, custom led, pushButton
-  pinMode (builtInLEDPin, OUTPUT);
+  pinMode (LED_BUILTIN, OUTPUT);
   // visual signal that we are alive
   blinkBuiltInLED(1);
   
@@ -220,9 +223,12 @@ void setup() {
   SerialUSB.flush();
   blinkBuiltInLED(2);  
   g_pCurrentRes = NULL;
+  g_lastRes = NULL;
   g_phase = PHASE_CHECK;
   g_reason = REASON_IDLE;
   g_drop = DROP_LINES;
+  g_timeFrame = 0;
+  g_fFrameInProgress = false;
 
   setupInterrupts();
 }
@@ -647,21 +653,19 @@ return NULL;
 }
 
 
+
+
 bool okToWrite() {
   return (g_measuredLineTime > 4500) || (SerialUSB.availableForWrite() > USB_MIN_WRITE_BUFFER_SIZE);
 }
 
 
 
-void loop () {
-  static int timeFrame = 0;
-  static bool fFrameInProgress = false;
-  static struct Resolution *lastRes = NULL;
-  static int dropCount = 0;
 
+
+void loop () {
   int timeLineScan = 0;
   int line;
-  char o,k;
 
   // 
   // let hsync measure the time
@@ -679,20 +683,19 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN) {
     g_pCurrentRes = getResolution(g_measuredLineTime);
     if (g_pCurrentRes != NULL) {
-      if (g_pCurrentRes != lastRes) {
+      if (g_pCurrentRes != g_lastRes) {
         adjustToNewRes();
-        lastRes = g_pCurrentRes;
+        g_lastRes = g_pCurrentRes;
       }
 
       // if lowres, make sure the queue has room. if hires, we have time to block on the write
       if (okToWrite()) {
-        fFrameInProgress = true;
+        g_fFrameInProgress = true;
         sendFrameHeader();
   
-        timeFrame = millis();
+        g_timeFrame = millis();
         g_trackTime = g_measuredLineTime;
         g_trackFaults = 0;
-        dropCount = 0;
         g_phase = PHASE_SCANNING;
       } else {
         g_phase = PHASE_CHECK;
@@ -712,11 +715,6 @@ void loop () {
   // vsync will get us out of this
   //
   while (g_phase == PHASE_SCANNING) {
-    // drop the first few lines
-    if (dropCount > 0) {
-      --dropCount;
-      break;
-    }
     // wait for scan completion, get line out of the way of the DMA controller
     line = scanAndCopyOneLine();
 
@@ -739,6 +737,12 @@ void loop () {
         g_phase = PHASE_IDLE;
       }
     }
+
+    // catch any abort message
+    if (checkAbort()) {
+      reset();
+      return;
+    }
   }
 
   //
@@ -746,10 +750,10 @@ void loop () {
   // send frame, check for abort
   //
   if (g_phase == PHASE_IDLE) {
-    if (fFrameInProgress) {
-      timeFrame = millis() - timeFrame;
+    if (g_fFrameInProgress) {
+      g_timeFrame = millis() - g_timeFrame;
       sendEndFrame (timeLineScan, g_reason);
-      fFrameInProgress = false;
+      g_fFrameInProgress = false;
     } else {
       if (okToWrite()) {
         // reasons
@@ -761,27 +765,32 @@ void loop () {
       
       }
     }
-    fFrameInProgress = false;
+    g_fFrameInProgress = false;
     g_phase = PHASE_CHECK;
   }
 
   if (g_phase == PHASE_CHECK) {
     // check for abort
-    o = 0;
-    while (SerialUSB.available()) {
-      k = SerialUSB.read();
-      if (o == 'A' && k == 'B') {
-        reset();
-        return;
-      } 
-      o = k;
+    if (checkAbort()) {
+      reset();
+      return;
     }
-    //g_phase = PHASE_READY_TO_MEASURE;
-    //VSYNC will get us out of this.
-      
   }
 
   
+}
+
+bool checkAbort() {
+  char o = 0;
+  char k;
+  
+  while (SerialUSB.available()) {
+    k = SerialUSB.read();
+    if (o == 'A' && k == 'B') {
+      return true;
+    } 
+    o = k;
+  }
 }
 
 void adjustToNewRes() {

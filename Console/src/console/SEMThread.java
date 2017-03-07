@@ -51,13 +51,15 @@ public class SEMThread extends Thread {
             while (!this.isInterrupted() && this.phase != Phase.FINISHED && this.phase != Phase.ABORTED) {
                 this.lastPhase = this.phase;
                 this.phase = semport.processMessage(this.ltq, this.update, this.phase);
-                Thread.yield();
+                if (this.phase == Phase.WAITING_FOR_FRAME || phase == Phase.WAITING_TO_CONNECT) {
+                    Thread.yield();
+                }
             }
         } catch (InterruptedException ie) {
         } catch (Exception e) {
             System.out.println(e.toString());
         }
-        
+
         if (semport != null) {
             semport.shutdown();
         }
