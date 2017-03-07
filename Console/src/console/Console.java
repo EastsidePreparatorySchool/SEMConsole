@@ -305,7 +305,10 @@ public class Console extends Application {
             this.txt.setText("Connected");
             btn.setOnAction((event) -> stopSEMThread());
             btn.setDisable(false);
+        } else {
+            this.txt.setText("Not connected");
         }
+
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {

@@ -121,22 +121,38 @@ public class SEMPort {
         throw new Exception("SEMPort: SEM port not found or no answer.");
     }
 
-    void drain() {
-        try {
-            // drain channel
-            int n = channel.read(buffer);
-        } catch (Exception ex) {
-        }
-    }
-
     void shutdown() {
         try {
             if (this.port != null) {
                 // send abort
                 channel.write(ByteBuffer.wrap("ABABABAB".getBytes(StandardCharsets.UTF_8)));
                 // drain all messages
-                channel.flush(true, true);
 
+                // wait for ack
+                for (int i = 0; i < 10; i++) {
+                    try {
+                        channel.flush(true, true);
+
+                        buffer.position(0);
+                        buffer.limit(16); // look for commands
+
+                        int n = channel.read(buffer);
+                        //System.out.println("[read " + n + "bytes]");
+                        if (n != 0) {
+                            buffer.position(0);
+                            byte[] ab = new byte[16];
+                            buffer.get(ab);
+                            String message = new String(ab);
+                            //System.out.println(result);
+
+                            if (message.equals("EPS_SEM_RESET...")) {
+                                break;
+                            }
+                        }
+                        Thread.sleep(200);
+                    } catch (Exception e) {
+                    }
+                }
                 port.close();
                 this.port = null;
             }
@@ -308,8 +324,6 @@ public class SEMPort {
                         // read line bytes
                         checkSum = bytes + line;
                         if (bytes != this.proposedBytes) {
-//                            channel.write(ByteBuffer.wrap("NG".getBytes(StandardCharsets.UTF_8)));
-//                            channel.flush(false, true); // flush output buffers
                             dotCounter++;
 
                             throw new SEMException(SEMError.ERROR_BYTE_COUNT);
@@ -332,9 +346,6 @@ public class SEMPort {
                                 Console.print(".");
                             }
                         }
-                        //todo:
-                        //channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
-                        //channel.flush(false, true);
                         numOKs++;
                         this.si.fileDataLine(line, this.rawMultiChannelBuffer, bytes / 2);
                         //this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
@@ -370,9 +381,9 @@ public class SEMPort {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
-                        Console.println(numOKs + ", errors: " + numErrors +", maxline: " + si.maxLine);
+                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + si.maxLine);
                         // process the raw data
-                        if (reasonEnd == 3){ // &&  si.maxLine > (si.height-10)) { // vsync normal
+                        if (reasonEnd == 3) { // &&  si.maxLine > (si.height-10)) { // vsync normal
                             this.si.parseAllLines();
 
                             Console.print("Ranges:");

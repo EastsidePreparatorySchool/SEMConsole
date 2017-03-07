@@ -159,6 +159,7 @@ void halt(int blinks) {
 
 void reset() {
 
+  blinkBuiltInLED(3);
   detachInterrupt(VSYNC_PIN); 
   detachInterrupt(HSYNC_PIN); 
 

@@ -35,11 +35,11 @@ public class SEMThread extends Thread {
     }
 
     SEMPort semport = null;
-    
+
     public void run() {
         try {
             System.out.println("Thread: starting.");
-            
+
             Console.println("SEM Port: trying to initialize ...");
             this.phase = Phase.WAITING_TO_CONNECT;
             semport = new SEMPort();
@@ -56,11 +56,12 @@ public class SEMThread extends Thread {
         } catch (InterruptedException ie) {
         } catch (Exception e) {
             System.out.println(e.toString());
-        } finally {
-            if (semport != null) {
-                semport.shutdown();
-            }
         }
+        
+        if (semport != null) {
+            semport.shutdown();
+        }
+
         if (this.phase == Phase.ABORTED) {
             System.out.println("Aborted phase: " + this.lastPhase);
             Platform.runLater(this.restart);
