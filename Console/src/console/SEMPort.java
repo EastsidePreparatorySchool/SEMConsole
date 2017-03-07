@@ -125,7 +125,7 @@ public class SEMPort {
         try {
             if (this.port != null) {
                 // send abort
-                channel.write(ByteBuffer.wrap("ABABABAB".getBytes(StandardCharsets.UTF_8)));
+                channel.write(ByteBuffer.wrap("AB".getBytes(StandardCharsets.UTF_8)));
                 // drain all messages
 
                 // wait for ack
@@ -376,6 +376,10 @@ public class SEMPort {
                             //System.out.print("[read " + n + "bytes]");
                         }
                         int reasonEnd = buffer.getShort(); //unused frame time from Arduino
+
+                        // acknowledge receipt
+                        channel.write(ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8)));
+
                         String reasonS = "unknown";
                         if (reasonEnd < 4) {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];

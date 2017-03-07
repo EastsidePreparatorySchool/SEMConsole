@@ -781,14 +781,24 @@ void loop () {
 }
 
 bool checkAbort() {
+  static long lastTime = 0;
   char o = 0;
   char k;
+
+  // if we have not heard back after a frame in over two seconds, reset
+  if ((!g_fFrameInProgress) && (millis() - lastTime) > 2000) {
+    return true;
+  }
   
   while (SerialUSB.available()) {
     k = SerialUSB.read();
     if (o == 'A' && k == 'B') {
       return true;
     } 
+    if (o == 'O' && k == 'K') {
+      lastTime = millis();
+      return false;
+    }
     o = k;
   }
 }
