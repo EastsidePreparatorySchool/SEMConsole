@@ -216,6 +216,198 @@ public class SEMImage {
             }
         }
     }
+    //
+    // extract separate image lines from one line of data
+    //
+
+    void parseRawLineToWriters(int line, int[] data, int count) {
+        int pixel;
+        int capturedChannel;
+        int writeChannel;
+        int intensity;
+
+        if (line >= height) { // since we adjusted downward for jitter, some lines might be too high in number now.
+            return;
+        }
+
+        for (int channel = 0; channel < this.channels; channel++) {
+            // copy one line of pixels for a specific channel out of data into rawBuffer
+            pixel = 0;
+            capturedChannel = translateChannel(getEncodedChannel(data[channel]));
+            for (int i = channel; i < count; i += this.channels) {
+                intensity = getValue(data[i]);
+                intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
+
+                // make a pseudo-gray-scale, full alpha pixel for display
+                rawBuffer[pixel++] = grayScale(capturedChannel, intensity);
+            }
+
+            // find the right image to write into
+            writeChannel = 0;
+            for (int i = 0; i < this.channels; i++) {
+                if (this.capturedChannels[i] == capturedChannel) {
+                    writeChannel = i;
+                    break;
+                }
+            }
+            // write rawBuffer into images[writeChannel]
+            try {
+                writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
+            } catch (Exception e) {
+                System.out.println("Write failed: " + line + ", " + height);
+                System.out.println(e.getStackTrace());
+
+            }
+        }
+    }
+    //
+    // extract separate image lines from one line of data
+    //
+
+    void parseRawLineToRasters(int line, int[] data, int count) {
+        int pixel;
+        int capturedChannel;
+        int writeChannel;
+        int intensity;
+
+        if (line >= height) { // since we adjusted downward for jitter, some lines might be too high in number now.
+            return;
+        }
+
+        for (int channel = 0; channel < this.channels; channel++) {
+            // copy one line of pixels for a specific channel out of data into rawBuffer
+            pixel = 0;
+            capturedChannel = translateChannel(getEncodedChannel(data[channel]));
+            for (int i = channel; i < count; i += this.channels) {
+                intensity = getValue(data[i]);
+                intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
+
+                // and also a true grayscale image for saving to disk as PNG 16bit grayscale later
+                grayRawBuffer[pixel] = intensity << 4;
+                pixel++;
+            }
+
+            // find the right image to write into
+            writeChannel = 0;
+            for (int i = 0; i < this.channels; i++) {
+                if (this.capturedChannels[i] == capturedChannel) {
+                    writeChannel = i;
+                    break;
+                }
+            }
+            // write rawBuffer into images[writeChannel]
+            try {
+                rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
+            } catch (Exception e) {
+                System.out.println("Write failed: " + line + ", " + height);
+                System.out.println(e.getStackTrace());
+
+            }
+        }
+    }
+
+    public void rangeImages() {
+        if (alineBuffers.isEmpty()) {
+            return;
+        }
+
+        int size = alineBuffers.size();
+
+        if (maxLine + 1 > height) {
+            this.height = maxLine + 1;
+        }
+
+        for (int i = 0; i < channels; i++) {
+            rangeMin[i] = 4095;
+            rangeMax[i] = 0;
+        }
+
+        // compute ranges from first 75% of image. ignore duplicates as best we can
+        int prevLine = -1;
+        for (int i = 0; i < (size * 3 / 4); i++) {
+            int[] data = alineBuffers.get(i);
+
+            int line = data[data.length - 1];
+            if (line != prevLine) {
+                rangeLine(line, data, data.length - 1); // don't range that last int, which is the line number
+            }
+            prevLine = line;
+        }
+    }
+
+    public void makeImagesForDisplay() {
+        if (alineBuffers.isEmpty()) {
+            return;
+        }
+        
+        // already done?
+        if (images[0] != null) {
+            return;
+        }
+
+        // compute min and max for contrast
+        rangeImages();
+
+        int size = alineBuffers.size();
+
+        // allocate images
+        for (int i = 0; i < channels; i++) {
+            images[i] = new WritableImage(width, height);
+            writers[i] = images[i].getPixelWriter();
+        }
+
+        // parse all lines, correcting data values for ranges
+        int prevLine = -1;
+        for (int i = 0; i < size; i++) {
+            int[] lineData = alineBuffers.get(i);
+            int line = (lineData[lineData.length - 1]) + (height - maxLine + 1); // correct for vsync jitter by aligning at bottom
+            while (++prevLine <= line) {
+                this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1);
+            }
+            prevLine = line;
+        }
+
+    }
+
+    public void makeImagesForSave() {
+        if (alineBuffers.isEmpty()) {
+            return;
+        }
+
+        // already done?
+        if (grayImages[0] != null) {
+            return;
+        }
+
+        // compute min and max for contrast
+        rangeImages();
+
+        int size = alineBuffers.size();
+
+        // allocate images
+        for (int i = 0; i < channels; i++) {
+            grayImages[i] = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
+            rasters[i] = (WritableRaster) grayImages[i].getData();
+        }
+
+        // compute ranges from first 75% of image. ignore duplicates as best we can
+        rangeImages();
+        // parse all lines, correcting data values for ranges
+        int prevLine = -1;
+        for (int i = 0; i < size; i++) {
+            int[] lineData = alineBuffers.get(i);
+            int line = (lineData[lineData.length - 1]) + (height - maxLine + 1); // correct for vsync jitter by aligning at bottom
+            while (++prevLine <= line) {
+                this.parseRawLineToRasters(prevLine, lineData, lineData.length - 1);
+            }
+            prevLine = line;
+        }
+
+        for (int i = 0; i < channels; i++) {
+            grayImages[i].setData(rasters[i]);
+        }
+
+    }
 
     // get the encoded channel number from a word in the data stream
     int getEncodedChannel(int word) {
@@ -268,17 +460,6 @@ public class SEMImage {
                 + ((highSix + r) << 16) // red
                 + ((highSix + g) << 8) // green
                 + (highSix + b);         // blue
-//    }
-//
-//    
-//        else {
-//            intensity *= 4;
-//        final int shiftFactor = 0;
-//        return 0xFF000000 // full alpha
-//                + ((realChannel == 2 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 16) // red
-//                + ((realChannel == 1 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)) << 8) // green
-//                + ((realChannel == 3 ? (intensity >> 4) : ((intensity & 0xF) << shiftFactor)));      // blue
-//    }
     }
 
 // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)

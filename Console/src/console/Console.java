@@ -223,6 +223,9 @@ public class Console extends Application {
             channels = si.channels;
         }
 
+        // parse and create images if we have not done this before
+        si.makeImagesForDisplay();
+        
         // set absent channel images to empty
         if (channels < 4) {
             for (int i = channels; i < 4; i++) {
@@ -526,8 +529,6 @@ public class Console extends Application {
     }
 
     public void saveImageSet(SEMImage si) {
-        //todo: re-enable this
-
         final boolean upload = this.autoUpload.isSelected();
         String folder = getImageDir();
         String name = createFolderName(folder);
@@ -538,11 +539,8 @@ public class Console extends Application {
                 String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
                 File file = new File(fullName);
                 try {
-                    if (si.grayImages[i] != null) {
-                        ImageIO.write(si.grayImages[i], "png", file);
-                    } else {
-                        ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
-                    }
+                    si.makeImagesForSave();
+                    ImageIO.write(si.grayImages[i], "png", file);
                     Console.println();
                     Console.println("Image written to " + file.getName());
                 } catch (Exception ex) {

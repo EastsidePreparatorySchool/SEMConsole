@@ -388,17 +388,11 @@ public class SEMPort {
                         Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + si.maxLine);
                         // process the raw data
                         if (reasonEnd == 3) { // &&  si.maxLine > (si.height-10)) { // vsync normal
-                            this.si.parseAllLines();
-
-                            Console.print("Ranges:");
-                            for (int i = 0; i < si.channels; i++) {
-                                Console.print("[" + si.rangeMin[i] + ":" + si.rangeMax[i] + ",Line " + si.rangeMaxLine[i] + "] ");
-                            }
-                            Console.println();
+                            //this.si.parseAllLines();
+                            //this.si.cleanUp();
 
                             // transfer image to ui thread
                             synchronized (ltq) {
-                                this.si.cleanUp();
                                 ltq.add(this.si);
                                 this.si = null;
                             }
