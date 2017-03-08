@@ -225,7 +225,7 @@ public class Console extends Application {
 
         // parse and create images if we have not done this before
         si.makeImagesForDisplay();
-        
+
         // set absent channel images to empty
         if (channels < 4) {
             for (int i = channels; i < 4; i++) {
@@ -280,10 +280,10 @@ public class Console extends Application {
     }
 
     private void startSEMThread() {
-        btn.setDisable(true);
         // stop any existing SEM thread
-
         stopSEMThread();
+
+        btn.setDisable(true);
         this.txt.setText("Trying to connect, please be patient ...");
         Console.println();
         Console.println("[Console: connecting ...]");
@@ -291,7 +291,7 @@ public class Console extends Application {
         // and create a new one
         try {
             System.out.println("starting thread ...");
-            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> restartSEMThread());
+            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> SEMThreadStopped());
             semThread.start();
         } catch (Exception e) {
             System.out.println("exception starting thread.");
@@ -303,15 +303,13 @@ public class Console extends Application {
 
     private void startThreadLambda() {
         if (semThread != null && semThread.isAlive()) {
-//            Console.println("[Console: connected]");
             this.btn.setText("Disconnect");
             this.txt.setText("Connected");
             btn.setOnAction((event) -> stopSEMThread());
-            btn.setDisable(false);
         } else {
             this.txt.setText("Not connected");
         }
-
+        btn.setDisable(false);
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
@@ -322,12 +320,12 @@ public class Console extends Application {
 
     private void stopSEMThread() {
         btn.setDisable(true);
-        this.txt.setText("Stopping worker thread ...");
-
-        Console.println();
-        Console.println("[Console: disconnecting ...]");
-        // stop any existing SEM thread
         if (semThread != null) {
+            Console.println();
+
+            // stop any existing SEM thread
+            this.txt.setText("Stopping worker thread ...");
+            Console.println("[Console: disconnecting ...]");
             semThread.interrupt();
             try {
                 semThread.join();
@@ -335,24 +333,20 @@ public class Console extends Application {
             } catch (InterruptedException ie) {
             }
             semThread = null;
+            Console.println("[Console: disconnected]");
+            this.btn.setText("Connect");
+            this.txt.setText("Not connected");
         }
-        Console.println("[Console: disconnected]");
-        this.btn.setText("Connect");
-        this.txt.setText("Not connected");
-
         btn.setOnAction((event) -> startSEMThread());
         btn.setDisable(false);
     }
 
-    private void restartSEMThread() {
+    private void SEMThreadStopped() {
         Console.printOn();
         Console.println("[Console: disconnected]");
         this.btn.setText("Connect");
         this.txt.setText("Not connected");
-
-//        Console.println();
-//        Console.println("[Console: restarting SEM thread]");
-//        startSEMThread();
+        btn.setOnAction((event) -> startSEMThread());
     }
 
     private void setSizeNormal(ImageView iv, int channel) {

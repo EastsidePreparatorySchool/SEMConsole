@@ -250,7 +250,9 @@ void computeCheckSum(int line, int bytes) {
 
 
 void sendLine(int bytes) {
-  SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+  if (okToWrite()) {
+    SerialUSB.write((uint8_t *)g_pbp, sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer));
+  }
 }
 
 
@@ -342,8 +344,9 @@ void sendFrameHeader() {
       h.channels[3] = 0;
       break;
   }
-
-  SerialUSB.write((uint8_t *)&h, sizeof(h));
+  if (okToWrite()) {
+    SerialUSB.write((uint8_t *)&h, sizeof(h));
+  }
 }
 
 struct EndFrame {
@@ -357,7 +360,9 @@ void sendEndFrame(int lineTime, int frameTime) {
   
   h.lineTime = lineTime;
   h.frameTime = frameTime;
-  SerialUSB.write((uint8_t *)&h, sizeof(h));     // send EFRAME (end frame), line time, frame time
+  if (okToWrite()) {
+    SerialUSB.write((uint8_t *)&h, sizeof(h));     // send EFRAME (end frame), line time, frame time
+  }
 }
 
   
@@ -656,7 +661,7 @@ return NULL;
 
 
 bool okToWrite() {
-  return (g_measuredLineTime > 4500) || (SerialUSB.availableForWrite() > USB_MIN_WRITE_BUFFER_SIZE);
+  return (SerialUSB.availableForWrite() > USB_MIN_WRITE_BUFFER_SIZE);
 }
 
 
@@ -725,9 +730,7 @@ void loop () {
     computeCheckSum(line, g_lineBytes);
 
     // send the line
-    if (okToWrite()) {
-      sendLine(g_lineBytes);
-    }
+    sendLine(g_lineBytes);
            
     // if resolution changed, end the frame by switching to next phase
     if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
@@ -755,15 +758,12 @@ void loop () {
       sendEndFrame (timeLineScan, g_reason);
       g_fFrameInProgress = false;
     } else {
-      if (okToWrite()) {
         // reasons
         // 0 idle
         // 1 no res
         // 2 changed res
         // 3 other vsync
         sendIdle(g_reason, g_argument);
-      
-      }
     }
     g_fFrameInProgress = false;
     g_phase = PHASE_CHECK;
@@ -774,7 +774,7 @@ void loop () {
     if (checkAbort()) {
       reset();
       return;
-    }
+    } 
   }
 
   
@@ -785,10 +785,10 @@ bool checkAbort() {
   char o = 0;
   char k;
 
-  // if we have not heard back after a frame in over two seconds, reset
-  if ((!g_fFrameInProgress) && (millis() - lastTime) > 2000) {
-    return true;
-  }
+//  // if we have not heard back after a frame in over two seconds, reset
+//  if ((!g_fFrameInProgress) && (lastTime != 0) && (millis() - lastTime) > 2000) {
+//    return true;
+//  }
   
   while (SerialUSB.available()) {
     k = SerialUSB.read();
@@ -801,6 +801,8 @@ bool checkAbort() {
     }
     o = k;
   }
+
+  return false;
 }
 
 void adjustToNewRes() {
@@ -831,9 +833,11 @@ int scanAndCopyOneLine() {
 
 
 void sendIdle(int reason, int argument) {
+  if (okToWrite()){
     SerialUSB.write(headerIdle, 16);
     SerialUSB_write_uint32_t(reason);
     SerialUSB_write_uint32_t(argument);
+  }
 }
 
 
