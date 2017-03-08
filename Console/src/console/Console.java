@@ -223,15 +223,19 @@ public class Console extends Application {
             channels = si.channels;
         }
 
-        // parse and create images if we have not done this before
-        si.makeImagesForDisplay();
-
         // set absent channel images to empty
         if (channels < 4) {
             for (int i = channels; i < 4; i++) {
                 this.aViews[i].setImage(null);
             }
         }
+
+        if (si == null) {
+            return;
+        }
+
+        // parse and create images if we have not done this before
+        si.makeImagesForDisplay();
 
         // put the images in place
         for (int i = 0; i < channels; i++) {
