@@ -530,23 +530,35 @@ public class Console extends Application {
         final boolean upload = this.autoUpload.isSelected();
         String folder = getImageDir();
         String name = createFolderName(folder);
+
         createFolder(name);
 
         Thread t = new Thread(() -> {
             for (int i = 0; i < si.channels; i++) {
-                String fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
-                File file = new File(fullName);
+                File file;
+                String fullName;
                 try {
-                    si.makeImagesForSave();
-                    ImageIO.write(si.grayImages[i], "png", file);
+                    si.makeImagesForDisplay();
+
+                    fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
+                    file = new File(fullName);
+                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
+
+                    fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".jpg";
+                    file = new File(fullName);
+                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "jpg", file);
+
+//                    si.makeImagesForSave();
+//                    ImageIO.write(si.grayImages[i], "png", file);
                     Console.println();
                     Console.println("Image written to " + file.getName());
+                    if (i == 0 && upload) {
+                        FileUpload.uploadFileToServer(fullName); // this is the jpg
+                    }
                 } catch (Exception ex) {
                     System.out.println(ex.getMessage());
                 }
-                if (i == 0 && upload) {
-                    FileUpload.uploadFileToServer(fullName);
-                }
+
             }
         });
         t.start();
