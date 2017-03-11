@@ -22,6 +22,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.ColorAdjust;
@@ -41,6 +42,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Screen;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
@@ -384,6 +387,7 @@ public class Console extends Application {
         ImageView view = this.aViews[image];
         List smallPane = this.aPanes[image].getChildren();
         List bigPane = this.masterPane.getChildren();
+        Stage stage;
 
         if (this.bigStage == null) {
             //Console.println("Going large " + ev.toString());
@@ -391,7 +395,33 @@ public class Console extends Application {
             //bigView.setOnMouseClicked((e) -> toggleImage(e, image));
             StackPane sp = new StackPane();
             sp.getChildren().addAll(bigView);
-            this.bigStage = new Stage(StageStyle.UNDECORATED);
+            
+            List<Screen> allScreens = Screen.getScreens();
+
+            if (allScreens.size() > 1) {
+                Screen secondaryScreen = allScreens.get(1);
+                Rectangle2D bounds = secondaryScreen.getVisualBounds();
+
+                stage = new Stage();
+                stage.setX(bounds.getMinX());
+                stage.setY(bounds.getMinY());
+                stage.setWidth(bounds.getWidth());
+                stage.setHeight(bounds.getHeight());
+
+                stage.initStyle(StageStyle.UNDECORATED);
+                stage.initModality(Modality.APPLICATION_MODAL);
+                stage.show();
+
+            } else {
+                stage = new Stage();
+                stage.setFullScreen(true);
+
+                stage.initStyle(StageStyle.UNDECORATED);
+                stage.initModality(Modality.APPLICATION_MODAL);
+                stage.show();
+
+            }
+            this.bigStage = stage;
             this.bigStage.setFullScreenExitHint("");
             Scene sc = new Scene(sp);
 //            sc.setFill(Color.YELLOW);
@@ -404,7 +434,7 @@ public class Console extends Application {
                 e.consume();
             });
             this.bigStage.setScene(sc);
-            this.bigStage.setFullScreen(true);
+            //this.bigStage.setFullScreen(true);
             bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
             bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
             this.bigStage.show();
