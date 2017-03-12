@@ -476,6 +476,7 @@ public class Console extends Application {
     }
 
     private void addThumbnail(SEMImage si) {
+        si.makeImagesForDisplay();
         StackPane sp = new StackPane();
         for (int i = si.channels - 1; i >= 0; i--) {
             ImageView iv = new ImageView(si.images[i]);
