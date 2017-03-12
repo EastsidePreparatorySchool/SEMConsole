@@ -395,7 +395,7 @@ public class Console extends Application {
             //bigView.setOnMouseClicked((e) -> toggleImage(e, image));
             StackPane sp = new StackPane();
             sp.getChildren().addAll(bigView);
-            
+
             List<Screen> allScreens = Screen.getScreens();
 
             if (allScreens.size() > 1) {
@@ -575,16 +575,12 @@ public class Console extends Application {
                     file = new File(fullName);
                     ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
 
-                    fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".jpg";
-                    file = new File(fullName);
-                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "jpg", file);
-
 //                    si.makeImagesForSave();
 //                    ImageIO.write(si.grayImages[i], "png", file);
                     Console.println();
                     Console.println("Image written to " + file.getName());
                     if (i == 0 && upload) {
-                        FileUpload.uploadFileToServer(fullName); // this is the jpg
+                        FileUpload.uploadFileToServer(fullName);
                     }
                 } catch (Exception ex) {
                     System.out.println(ex.getMessage());
