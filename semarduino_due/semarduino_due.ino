@@ -111,6 +111,8 @@ volatile int g_drop;
 struct Resolution *g_lastRes;
 int g_timeFrame;
 bool g_fFrameInProgress;
+bool g_fSlow;
+volatile bool g_fScanNow;
 
 
 
@@ -229,6 +231,7 @@ void setup() {
   g_drop = DROP_LINES;
   g_timeFrame = 0;
   g_fFrameInProgress = false;
+  g_fSlow = false;
 
   setupInterrupts();
 }
@@ -415,50 +418,51 @@ void initializeADC() {
   analogReadResolution(12);
   adcConfigureGain();
 
-  ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out. 
-  ADC->ADC_MR |= 0x80000000;     // high bit indicates to use sequence numbers
-  ADC->ADC_MR |= g_pCurrentRes->preScaler << 8;     
-  ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
-  ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
-
-  switch (g_pCurrentRes->numChannels) {
-    case 4:
-    // set 4 channels 
-    ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
-    ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
-    break;
+  if (!g_fSlow) {
+    ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out. 
+    ADC->ADC_MR |= 0x80000000;     // high bit indicates to use sequence numbers
+    ADC->ADC_MR |= g_pCurrentRes->preScaler << 8;     
+    ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
+    ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
     
-    case 2:
-    // set 2 channels  
-    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-    ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel2 << (channel1*4));
-    break;
-
-    case 1:
-    //todo: make sure this works
-    ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
-    ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
-    // set 2 channels (same channel) 
-//    ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-//    ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel1 << (channel1*4));
-    break;
+    switch (g_pCurrentRes->numChannels) {
+      case 4:
+      // set 4 channels 
+      ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
+      ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
+      break;
+      
+      case 2:
+      // set 2 channels  
+      ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
+      ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel2 << (channel1*4));
+      break;
+  
+      case 1:
+      //todo: make sure this works
+      ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
+      ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
+      break;
+    }
+    NVIC_EnableIRQ(ADC_IRQn);
+  
+    //ADC->ADC_IDR = ~(1 << 27);              // disable other interrupts
+    ADC->ADC_IER = 1 << 27;                 // enable the DMA one
+    ADC->ADC_RPR = (uint32_t)padcBuffer[0]; // set up DMA buffer
+    ADC->ADC_RCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;           // and number of words
+    ADC->ADC_RNPR = (uint32_t)padcBuffer[1]; // next DMA buffer
+    ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;  
+  
+    currentBuffer = 0;
+    nextBuffer = 1; 
+  
+    ADC->ADC_PTCR = 1;
+    ADC->ADC_CR = 2;
+  } else {
+    // slow mode
+    ADC->ADC_MR |= 0x80;  //set free running mode on ADC
+    ADC->ADC_CHER = 0x80; //enable ADC on pin A0
   }
-
-  NVIC_EnableIRQ(ADC_IRQn);
-
-  //ADC->ADC_IDR = ~(1 << 27);              // disable other interrupts
-  ADC->ADC_IER = 1 << 27;                 // enable the DMA one
-  ADC->ADC_RPR = (uint32_t)padcBuffer[0]; // set up DMA buffer
-  ADC->ADC_RCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;           // and number of words
-  ADC->ADC_RNPR = (uint32_t)padcBuffer[1]; // next DMA buffer
-  ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;  
-
-  currentBuffer = 0;
-  nextBuffer = 1; 
-
-  ADC->ADC_PTCR = 1;
-  ADC->ADC_CR = 2;
-
   g_adcInProgress = false;
 }
 
@@ -590,9 +594,14 @@ void hsyncHandler() {
         if (g_prevTrackTimeStart != 0) {
           g_trackTime = g_trackTimeStart - g_prevTrackTimeStart;
         }
+
+        if (!g_fSlow) {
+          // start ADC (completion handled by ADC interrupt)
+          startADC();
+        } else {
+          g_fScanNow = true;
+        }
         
-        // start ADC (completion handled by ADC interrupt)
-        startADC();
         ++g_numLines;
         break;
     }
@@ -701,6 +710,7 @@ void loop () {
         g_timeFrame = millis();
         g_trackTime = g_measuredLineTime;
         g_trackFaults = 0;
+        g_fScanNow = false;
         g_phase = PHASE_SCANNING;
       } else {
         g_phase = PHASE_CHECK;
@@ -731,13 +741,15 @@ void loop () {
 
     // send the line
     sendLine(g_lineBytes);
-           
-    // if resolution changed, end the frame by switching to next phase
-    if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
-      if (++g_trackFaults >= MAX_TRACK_FAULTS){
-        g_reason = REASON_TRACK;
-        g_argument = g_trackTime;
-        g_phase = PHASE_IDLE;
+
+    if (!g_fSlow) { // can't do this when we switch of interrupts all the time
+      // if resolution changed, end the frame by switching to next phase
+      if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
+        if (++g_trackFaults >= MAX_TRACK_FAULTS){
+          g_reason = REASON_TRACK;
+          g_argument = g_trackTime;
+          g_phase = PHASE_IDLE;
+        }
       }
     }
 
@@ -806,28 +818,52 @@ bool checkAbort() {
 }
 
 void adjustToNewRes() {
-    // free previous buffers (safe to do)
-    freeLineBuffers();
+  // free previous buffers (safe to do)
+  freeLineBuffers();
 
-    //
-    // calculate some basic frame parameters and allocate buffer, init adc
-    //
-    g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
-    setupLineBuffers();
-    initializeADC();
+  //
+  // calculate some basic frame parameters and allocate buffer, init adc
+  //
+  g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
+  setupLineBuffers();
+  g_fSlow = (g_pCurrentRes->preScaler == 6);
+  initializeADC();
 }
 
 
 
 int scanAndCopyOneLine() {
   int line = g_numLines;
-  
-  while (NEXT_BUFFER(currentBuffer) == nextBuffer) {                  // while current and next are one apart
-  }
 
-  // put the line somewhere safe from adc, just past the params header:
-  memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
-  currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
+  if (g_fSlow) {
+    // in slow mode, take a lot of samples manually
+    uint16_t * pDest = (uint16_t *)&g_pbp[1];
+    int count = g_pCurrentRes->preScaler + 1;
+    int i;
+    long value;
+    int pixels = g_pCurrentRes->numPixels;
+
+    while (!g_fScanNow); // wait for hsync
+    noInterrupts();
+    while (pixels--) {
+      value = 0;
+      for (i=0; i< count; i++) {
+        while((ADC->ADC_ISR & 0x80)==0);      // wait for conversion
+        value += (ADC->ADC_CDR[7]) & 0x0FFF;  // get values, no tag
+      }
+      *pDest++ = ((uint16_t)(value / count)) | 0x7000; // mark as A0
+    }
+    g_fScanNow = false;
+    interrupts();
+  } else {
+    // in fast mode, wait for ADC DMA to finish
+    
+    while (NEXT_BUFFER(currentBuffer) == nextBuffer);                  // while current and next are one apart
+      
+    // put the line somewhere safe from adc, just past the params header:
+    memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
+    currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
+  }
   return line;
 }
 
@@ -839,6 +875,23 @@ void sendIdle(int reason, int argument) {
     SerialUSB_write_uint32_t(argument);
   }
 }
+
+
+/*
+ setup:      
+  ADC->ADC_MR |= 0x80;  //set free running mode on ADC
+  ADC->ADC_CHER = 0x80; //enable ADC on pin A0
+}
+
+sample:
+    while((ADC->ADC_ISR & 0x80)==0); // wait for conversion
+    values[i]=ADC->ADC_CDR[7]; //get values
+  
+*/
+
+
+
+
 
 
 
