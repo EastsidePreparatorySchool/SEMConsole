@@ -179,7 +179,7 @@ public class Console extends Application {
             this.aViews[i].setCache(true);
             this.aPanes[i].getChildren().add(this.aViews[i]);
             final int lambdaParam = i;
-            this.aViews[i].setOnMouseClicked((e) -> displayPhoto(lambdaParam));
+            this.aViews[i].setOnMouseClicked((e) -> displayPhoto(this.aViews[lambdaParam].getImage()));
 
             if (i != 0) {
                 ColorAdjust colorAdjust = new ColorAdjust();
@@ -404,13 +404,12 @@ public class Console extends Application {
         }
     }
 
-    private void displayPhoto(int image) {
-        ImageView view = this.aViews[image];
+    private void displayPhoto(Image image) {
         List<Screen> allScreens = Screen.getScreens();
 
         if (this.bigStage == null) {
             // create large display window
-            this.bigView = new ImageView(view.getImage());
+            this.bigView = new ImageView(image);
             StackPane sp = new StackPane();
             sp.getChildren().addAll(this.bigView);
 
@@ -471,7 +470,7 @@ public class Console extends Application {
                 this.bigStage = null;
             } else {
                 // second screen: update image
-                this.bigView.setImage(view.getImage());
+                this.bigView.setImage(image);
             }
         }
     }
@@ -507,6 +506,7 @@ public class Console extends Application {
 
     private void addThumbnail(SEMImage si) {
         si.makeImagesForDisplay();
+        displayPhoto(si.images[0]);
         StackPane sp = new StackPane();
         for (int i = si.channels - 1; i >= 0; i--) {
             ImageView iv = new ImageView(si.images[i]);
