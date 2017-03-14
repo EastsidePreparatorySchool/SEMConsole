@@ -70,7 +70,7 @@ public class Console extends Application {
     private LinkedTransferQueue<SEMImage> ltq;
     private SEMImage currentImageSet = null;
     private SEMImage nextImageSet = null;
-    private Button Console1;
+    private Button btn;
     private Text txt;
     private Scene scene;
     private Stage stage;
@@ -100,11 +100,11 @@ public class Console extends Application {
         //top.setMinHeight(30);
 
         Button newSession = new Button("New Session");
-        Console1.setOnAction((e) -> startNewSession());
+        newSession.setOnAction((e) -> startNewSession());
 
         // button for connection
-        this.Console1 = new Button("Connect");
-        Console1.setOnAction((event) -> startSEMThread());
+        this.btn = new Button("Connect");
+        btn.setOnAction((event) -> startSEMThread());
 
         Button btn4 = new Button("Save image set");
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
@@ -127,7 +127,7 @@ public class Console extends Application {
         h2.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(newSession, Console1, h, h2, btn4);
+        top.getChildren().addAll(newSession, btn, h, h2, btn4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -311,7 +311,7 @@ public class Console extends Application {
         // stop any existing SEM thread
         stopSEMThread();
 
-        Console1.setDisable(true);
+        btn.setDisable(true);
         this.txt.setText("Trying to connect, please be patient ...");
         Console.println();
         Console.println("[Console: connecting ...]");
@@ -331,13 +331,13 @@ public class Console extends Application {
 
     private void startThreadLambda() {
         if (semThread != null && semThread.isAlive()) {
-            this.Console1.setText("Disconnect");
+            this.btn.setText("Disconnect");
             this.txt.setText("Connected");
-            Console1.setOnAction((event) -> stopSEMThread());
+            btn.setOnAction((event) -> stopSEMThread());
         } else {
             this.txt.setText("Not connected");
         }
-        Console1.setDisable(false);
+        btn.setDisable(false);
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
@@ -347,7 +347,7 @@ public class Console extends Application {
     }
 
     private void stopSEMThread() {
-        Console1.setDisable(true);
+        btn.setDisable(true);
         if (semThread != null) {
             Console.println();
 
@@ -362,19 +362,19 @@ public class Console extends Application {
             }
             semThread = null;
             Console.println("[Console: disconnected]");
-            this.Console1.setText("Connect");
+            this.btn.setText("Connect");
             this.txt.setText("Not connected");
         }
-        Console1.setOnAction((event) -> startSEMThread());
-        Console1.setDisable(false);
+        btn.setOnAction((event) -> startSEMThread());
+        btn.setDisable(false);
     }
 
     private void SEMThreadStopped() {
         Console.printOn();
         Console.println("[Console: disconnected]");
-        this.Console1.setText("Connect");
+        this.btn.setText("Connect");
         this.txt.setText("Not connected");
-        Console1.setOnAction((event) -> startSEMThread());
+        btn.setOnAction((event) -> startSEMThread());
     }
 
     private void setSizeNormal(ImageView iv, int channel) {
