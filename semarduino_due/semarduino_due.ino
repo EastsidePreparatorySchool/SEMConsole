@@ -460,8 +460,9 @@ void initializeADC() {
     ADC->ADC_CR = 2;
   } else {
     // slow mode
-    ADC->ADC_MR |= 0x80;  //set free running mode on ADC
-    ADC->ADC_CHER = 0x80; //enable ADC on pin A0
+    ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed 
+    ADC->ADC_MR |= 0x80;            //set free running mode on ADC
+    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
   }
   g_adcInProgress = false;
 }
@@ -826,7 +827,7 @@ void adjustToNewRes() {
   //
   g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
   setupLineBuffers();
-  g_fSlow = (g_pCurrentRes->preScaler == 6);
+  g_fSlow = (g_pCurrentRes->preScaler == 5);
   initializeADC();
 }
 

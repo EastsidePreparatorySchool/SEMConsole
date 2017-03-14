@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.LinkedTransferQueue;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -25,6 +26,7 @@ import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -59,6 +61,7 @@ public class Console extends Application {
     private HBox top;
     private int channels;
     private ImageView[] aViews;
+    private ImageView bigView;
     private StackPane[] aPanes;
     private StackPane masterPane;
     private VBox left;
@@ -67,7 +70,7 @@ public class Console extends Application {
     private LinkedTransferQueue<SEMImage> ltq;
     private SEMImage currentImageSet = null;
     private SEMImage nextImageSet = null;
-    private Button btn;
+    private Button Console1;
     private Text txt;
     private Scene scene;
     private Stage stage;
@@ -96,9 +99,12 @@ public class Console extends Application {
         top = new HBox();
         //top.setMinHeight(30);
 
+        Button newSession = new Button("New Session");
+        Console1.setOnAction((e) -> startNewSession());
+
         // button for connection
-        this.btn = new Button("Connect");
-        btn.setOnAction((event) -> startSEMThread());
+        this.Console1 = new Button("Connect");
+        Console1.setOnAction((event) -> startSEMThread());
 
         Button btn4 = new Button("Save image set");
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
@@ -121,7 +127,7 @@ public class Console extends Application {
         h2.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(btn, h, h2, btn4);
+        top.getChildren().addAll(newSession, Console1, h, h2, btn4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -173,7 +179,7 @@ public class Console extends Application {
             this.aViews[i].setCache(true);
             this.aPanes[i].getChildren().add(this.aViews[i]);
             final int lambdaParam = i;
-            this.aViews[i].setOnMouseClicked((e) -> toggleImage(e, lambdaParam));
+            this.aViews[i].setOnMouseClicked((e) -> displayPhoto(lambdaParam));
 
             if (i != 0) {
                 ColorAdjust colorAdjust = new ColorAdjust();
@@ -218,6 +224,21 @@ public class Console extends Application {
 
         cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
         left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
+    }
+
+    private void startNewSession() {
+        Date date = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+        String session = dateFormat.format(date);
+
+        TextInputDialog tid = new TextInputDialog(session);
+        tid.setTitle("New session");
+        tid.setHeaderText("Enter a name for the new session:");
+        Optional<String> result = tid.showAndWait();
+
+        if (result.isPresent()) {
+            session = result.get();
+        }
     }
 
     private void displayImageSet(SEMImage si) {
@@ -290,7 +311,7 @@ public class Console extends Application {
         // stop any existing SEM thread
         stopSEMThread();
 
-        btn.setDisable(true);
+        Console1.setDisable(true);
         this.txt.setText("Trying to connect, please be patient ...");
         Console.println();
         Console.println("[Console: connecting ...]");
@@ -310,13 +331,13 @@ public class Console extends Application {
 
     private void startThreadLambda() {
         if (semThread != null && semThread.isAlive()) {
-            this.btn.setText("Disconnect");
+            this.Console1.setText("Disconnect");
             this.txt.setText("Connected");
-            btn.setOnAction((event) -> stopSEMThread());
+            Console1.setOnAction((event) -> stopSEMThread());
         } else {
             this.txt.setText("Not connected");
         }
-        btn.setDisable(false);
+        Console1.setDisable(false);
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
@@ -326,7 +347,7 @@ public class Console extends Application {
     }
 
     private void stopSEMThread() {
-        btn.setDisable(true);
+        Console1.setDisable(true);
         if (semThread != null) {
             Console.println();
 
@@ -341,19 +362,19 @@ public class Console extends Application {
             }
             semThread = null;
             Console.println("[Console: disconnected]");
-            this.btn.setText("Connect");
+            this.Console1.setText("Connect");
             this.txt.setText("Not connected");
         }
-        btn.setOnAction((event) -> startSEMThread());
-        btn.setDisable(false);
+        Console1.setOnAction((event) -> startSEMThread());
+        Console1.setDisable(false);
     }
 
     private void SEMThreadStopped() {
         Console.printOn();
         Console.println("[Console: disconnected]");
-        this.btn.setText("Connect");
+        this.Console1.setText("Connect");
         this.txt.setText("Not connected");
-        btn.setOnAction((event) -> startSEMThread());
+        Console1.setOnAction((event) -> startSEMThread());
     }
 
     private void setSizeNormal(ImageView iv, int channel) {
@@ -383,66 +404,73 @@ public class Console extends Application {
         }
     }
 
-    private void toggleImage(Event ev, int image) {
+    private void displayPhoto(int image) {
         ImageView view = this.aViews[image];
-        List smallPane = this.aPanes[image].getChildren();
-        List bigPane = this.masterPane.getChildren();
-        Stage stage;
+        List<Screen> allScreens = Screen.getScreens();
 
         if (this.bigStage == null) {
-            //Console.println("Going large " + ev.toString());
-            ImageView bigView = new ImageView(view.getImage());
-            //bigView.setOnMouseClicked((e) -> toggleImage(e, image));
+            // create large display window
+            this.bigView = new ImageView(view.getImage());
             StackPane sp = new StackPane();
-            sp.getChildren().addAll(bigView);
-
-            List<Screen> allScreens = Screen.getScreens();
+            sp.getChildren().addAll(this.bigView);
 
             if (allScreens.size() > 1) {
+                // two screens or more
                 Screen secondaryScreen = allScreens.get(1);
                 Rectangle2D bounds = secondaryScreen.getVisualBounds();
 
-                stage = new Stage();
-                stage.setX(bounds.getMinX());
-                stage.setY(bounds.getMinY());
-                stage.setWidth(bounds.getWidth());
-                stage.setHeight(bounds.getHeight());
+                this.bigStage = new Stage();
+                this.bigStage.setX(bounds.getMinX());
+                this.bigStage.setY(bounds.getMinY());
+                this.bigStage.setWidth(bounds.getWidth());
+                this.bigStage.setHeight(bounds.getHeight());
 
-                stage.initStyle(StageStyle.UNDECORATED);
-                stage.initModality(Modality.APPLICATION_MODAL);
-                stage.show();
+                this.bigStage.initStyle(StageStyle.UNDECORATED);
+                this.bigStage.initModality(Modality.NONE);
+                this.bigStage.show();
 
             } else {
-                stage = new Stage();
-                stage.setFullScreen(true);
+                // One screen only
+                this.bigStage = new Stage();
+                this.bigStage.setFullScreen(true);
 
-                stage.initStyle(StageStyle.UNDECORATED);
-                stage.initModality(Modality.APPLICATION_MODAL);
-                stage.show();
+                this.bigStage.initStyle(StageStyle.UNDECORATED);
+                this.bigStage.initModality(Modality.APPLICATION_MODAL);
+                this.bigStage.setFullScreenExitHint("");
 
+                // create a scene with events that will close the stage
+                Scene sc = new Scene(sp);
+                sc.setOnMouseClicked((e) -> {
+                    // one screen : close it
+                    this.bigStage.close();
+                    this.bigStage = null;
+                    e.consume();
+                });
+                sc.setOnKeyTyped((e) -> {
+                    // one screen : close it
+                    this.bigStage.close();
+                    this.bigStage = null;
+                    e.consume();
+                });
+                this.bigStage.setScene(sc);
+                this.bigStage.setFullScreen(true);
+                this.bigStage.show();
             }
+            this.bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
+            this.bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
             this.bigStage = stage;
-            this.bigStage.setFullScreenExitHint("");
-            Scene sc = new Scene(sp);
-//            sc.setFill(Color.YELLOW);
-            sc.setOnMouseClicked((e) -> {
-                toggleImage(e, image);
-                e.consume();
-            });
-            sc.setOnKeyTyped((e) -> {
-                toggleImage(e, image);
-                e.consume();
-            });
-            this.bigStage.setScene(sc);
-            //this.bigStage.setFullScreen(true);
-            bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
-            bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
             this.bigStage.show();
-        } else {
-            //Console.println("Going small " + ev.toString());
 
-            this.bigStage.close();
-            this.bigStage = null;
+        } else {
+            // big display is already there
+            if (allScreens.size() == 1) {
+                // one screen : close it
+                this.bigStage.close();
+                this.bigStage = null;
+            } else {
+                // second screen: update image
+                this.bigView.setImage(view.getImage());
+            }
         }
     }
 
