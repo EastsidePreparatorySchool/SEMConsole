@@ -427,6 +427,8 @@ public class Console extends Application {
 
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
+                Scene sc = new Scene(sp);
+                this.bigStage.setScene(sc);
                 this.bigStage.show();
 
             } else {

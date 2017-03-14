@@ -734,6 +734,11 @@ void loop () {
     // wait for scan completion, get line out of the way of the DMA controller
     line = scanAndCopyOneLine();
 
+    // did we miss vsync during a non-dma, no-interrupt scan line?
+    if (g_phase == PHASE_SCANNING && digitalRead(VSYNC_PIN) == LOW) { // missed vsync
+      vsyncHandler();
+    }
+
     // keep track of maximum scan time (we report this so we can dial it in and get max possible pixel res)
     timeLineScan = max(timeLineScan, g_adcLineTime);
 
@@ -839,7 +844,7 @@ int scanAndCopyOneLine() {
   if (g_fSlow) {
     // in slow mode, take a lot of samples manually
     uint16_t * pDest = (uint16_t *)&g_pbp[1];
-    int count = g_pCurrentRes->preScaler + 1;
+    int count = (g_pCurrentRes->preScaler + 1)/2;
     int i;
     long value;
     int pixels = g_pCurrentRes->numPixels;
