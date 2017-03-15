@@ -110,7 +110,7 @@ public class Console extends Application {
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
 
         Button btn5 = new Button("Clear image list");
-        btn5.setOnAction((event) -> clearImageList());
+        btn5.setOnAction((event) -> {clearImageList();/*if (bigStage != null) {bigStage.close();}*/});
 
         txt = new Text("Not connected");
         HBox h = new HBox();
