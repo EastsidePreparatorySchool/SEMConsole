@@ -109,6 +109,9 @@ public class Console extends Application {
         Button btn4 = new Button("Save image set");
         btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
 
+        Button btn5 = new Button("Clear image list");
+        btn5.setOnAction((event) -> clearImageList());
+
         txt = new Text("Not connected");
         HBox h = new HBox();
         h.getChildren().add(txt);
@@ -127,7 +130,7 @@ public class Console extends Application {
         h2.setPadding(new Insets(6, 12, 6, 12));
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(newSession, btn, h, h2, btn4);
+        top.getChildren().addAll(newSession, btn, h, h2, btn4, btn5);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -224,6 +227,8 @@ public class Console extends Application {
 
         cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
         left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
+        
+        primaryStage.setOnCloseRequest((e) -> {if (bigStage != null) {bigStage.close();}});
     }
 
     private void startNewSession() {
@@ -503,6 +508,10 @@ public class Console extends Application {
             this.selectedPane = sp;
         }
     }
+    private void clearImageList() {
+        thumbnails.getChildren().clear();
+    }
+            
 
     private void addThumbnail(SEMImage si) {
         si.makeImagesForDisplay();
