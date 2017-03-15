@@ -55,8 +55,10 @@ struct Resolution g_allRes[] = {
   {          5790,   1200,        1,        864,         8 }, // SLOW1, also H1 mag 10
   {         10561,  10500,        1,       4500,         1 }, // H3 at 9000x
   {         11070,  10500,        1,       4500,         1 }, // H3 at 10x
-  {         33326,  /* 4540*/2000,        1,       3000,        10 }  // H6
+  {         33326,   4400,        1,       3000,        11 }  // H6
 };
+
+#define MANUAL_PRESCALER 1
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
 
@@ -613,7 +615,7 @@ void hsyncHandler() {
           while (g_pixels--) {
             value = 0;
             for (i=0; i< g_count; i++) {
-              timer = 9;
+              timer = MANUAL_PRESCALER;
               while (timer--);
               //while((ADC->ADC_ISR & 0x80)==0);      // wait for conversion
               value += (ADC->ADC_CDR[7]) & 0x0FFF;  // get values, no tag
