@@ -596,14 +596,14 @@ void hsyncHandler() {
         break;
         
       case PHASE_SCANNING:
-        // keep track of hsync interval, if resolution changes, main routine will trigger vsync and end frame
-        g_prevTrackTimeStart = g_trackTimeStart;
-        g_trackTimeStart = micros();
-        if (g_prevTrackTimeStart != 0) {
-          g_trackTime = g_trackTimeStart - g_prevTrackTimeStart;
-        }
-
         if (!g_fSlow) {
+          // keep track of hsync interval, if resolution changes, main routine will trigger vsync and end frame
+          g_prevTrackTimeStart = g_trackTimeStart;
+          g_trackTimeStart = micros();
+          if (g_prevTrackTimeStart != 0) {
+            g_trackTime = g_trackTimeStart - g_prevTrackTimeStart;
+          }
+
           // start ADC (completion handled by ADC interrupt)
           startADC();
         } else {
