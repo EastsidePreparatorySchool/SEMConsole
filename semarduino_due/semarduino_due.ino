@@ -55,7 +55,7 @@ struct Resolution g_allRes[] = {
   {          5790,   1200,        1,        864,         8 }, // SLOW1, also H1 mag 10
   {         10561,  10500,        1,       4500,         1 }, // H3 at 9000x
   {         11070,  10500,        1,       4500,         1 }, // H3 at 10x
-  {         33326,   4770,        1,       3000,        13 }  // H6
+  {         33326,  /* 4540*/2000,        1,       3000,        10 }  // H6
 };
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
@@ -112,7 +112,10 @@ struct Resolution *g_lastRes;
 int g_timeFrame;
 volatile bool g_fFrameInProgress;
 volatile bool g_fSlow;
-volatile bool g_fScanNow;
+volatile bool g_fLineReady;
+volatile int g_pixels;
+volatile int g_count;
+uint16_t * g_pDest;
 
 
 
@@ -512,7 +515,7 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, CHANGE);  // catch edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, CHANGE);  // catch edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch edge of hsync to start ADC
 }
 
 
@@ -602,16 +605,31 @@ void hsyncHandler() {
           // start ADC (completion handled by ADC interrupt)
           startADC();
         } else {
-          g_fScanNow = true;
+          long value;
+          int i;
+          volatile int timer;
+
+          noInterrupts();
+          while (g_pixels--) {
+            value = 0;
+            for (i=0; i< g_count; i++) {
+              timer = 9;
+              while (timer--);
+              //while((ADC->ADC_ISR & 0x80)==0);      // wait for conversion
+              value += (ADC->ADC_CDR[7]) & 0x0FFF;  // get values, no tag
+            }
+            *g_pDest++ = ((uint16_t)(value / g_count)) | 0x7000; // mark as A0
+          }
+          g_fLineReady = true;
+          g_pDest = (uint16_t *)&g_pbp[1];
+          g_count = (g_pCurrentRes->preScaler + 1);
+          g_pixels = g_pCurrentRes->numPixels;
+          interrupts();
         }
         
         ++g_numLines;
         break;
-      } 
-    }else { // falling edge
-      if (g_fSlow) {
-        g_fScanNow = true;
-    }
+    } 
   }
 }
 
@@ -717,7 +735,10 @@ void loop () {
         g_timeFrame = millis();
         g_trackTime = g_measuredLineTime;
         g_trackFaults = 0;
-        g_fScanNow = false;
+        g_fLineReady = false;
+        g_pDest = (uint16_t *)&g_pbp[1];
+        g_count = (g_pCurrentRes->preScaler + 1);
+        g_pixels = g_pCurrentRes->numPixels;
         g_phase = PHASE_SCANNING;
       } else {
         g_phase = PHASE_CHECK;
@@ -837,59 +858,23 @@ void adjustToNewRes() {
   //
   g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
   setupLineBuffers();
-  g_fSlow = (g_pCurrentRes->preScaler > 4);
+  g_fSlow = (g_pCurrentRes->preScaler > 8);
   initializeADC();
 }
 
-uint16_t * g_pDest;
-int g_count; 
-int g_pixels; 
+
 
 int scanAndCopyOneLine() {
   int line = g_numLines;
 
   if (g_fSlow) {
-    int i;
-    long value; 
-    
-    while (!g_fScanNow) { // wait for falling hsync
-      if (g_phase != PHASE_SCANNING) return 0;
-    }
-
-    // in slow mode, let the rising interrupt take a lot of samples manually
-    g_pDest = (uint16_t *)&g_pbp[1];
-    g_count = (g_pCurrentRes->preScaler + 1);
-    g_pixels = g_pCurrentRes->numPixels-400;
-    
-    while (digitalRead(HSYNC_PIN) == HIGH) { // wait for falling hsync
+    while (!g_fLineReady) { // wait for scanned line
       if (g_phase != PHASE_SCANNING) {
         memset ((uint8_t *) g_pDest, 0, g_lineBytes);
         return line;
       }
     }
-    
-    noInterrupts();
-    
-    while (digitalRead(HSYNC_PIN) == LOW) { // wait for rising hsync
-      if (g_phase != PHASE_SCANNING) {
-        interrupts();
-        memset ((uint8_t *) g_pDest, 0, g_lineBytes);
-        return line;
-      }
-    }
-    
-    while (g_pixels--) {
-      value = 0;
-      for (i=0; i< g_count; i++) {
-        while((ADC->ADC_ISR & 0x80)==0);      // wait for conversion
-        value += (ADC->ADC_CDR[7]) & 0x0FFF;  // get values, no tag
-      }
-      *g_pDest++ = ((uint16_t)(value / g_count)) | 0x7000; // mark as A0
-      
-    }
-    g_fScanNow = false;
-    interrupts();
-
+    g_fLineReady = false;
   } else {
     // in fast mode, wait for ADC DMA to finish
     
