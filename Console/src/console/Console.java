@@ -331,7 +331,7 @@ public class Console extends Application {
             System.out.println(e.getMessage());
         }
 
-        runLaterAfterDelay(500, () -> startThreadLambda());
+        runLaterAfterDelay(1000, () -> startThreadLambda());
     }
 
     private void startThreadLambda() {
@@ -464,7 +464,6 @@ public class Console extends Application {
             }
             this.bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
             this.bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
-            this.bigStage = stage;
             this.bigStage.show();
 
         } else {
@@ -508,11 +507,13 @@ public class Console extends Application {
             this.selectedPane = sp;
         }
     }
+    
+    
     private void clearImageList() {
         thumbnails.getChildren().clear();
-        if (bigStage != null) {
-            bigStage.close();
-            bigStage = null;
+        if (this.bigStage != null) {
+            this.bigStage.close();
+            this.bigStage = null;
         }
     }
             

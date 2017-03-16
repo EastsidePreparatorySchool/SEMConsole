@@ -75,6 +75,8 @@ struct Resolution g_allRes[] = {
 #define PHASE_SCANNING            4
 #define PHASE_CHECK               5
 
+#define NOP __asm__ __volatile__ ("nop\n\t")
+
 #define REASON_IDLE   0
 #define REASON_NO_RES 1
 #define REASON_TRACK  2
