@@ -19,6 +19,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.stage.Stage;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.Event;
 import javafx.geometry.Insets;
@@ -80,6 +81,8 @@ public class Console extends Application {
     private StackPane selectedPane = null;
     private CheckBox autoSave = null;
     private CheckBox autoUpload = null;
+    private String session = null;
+    private int imgCounter = 1;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -229,6 +232,7 @@ public class Console extends Application {
         left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
         
         primaryStage.setOnCloseRequest((e) -> {if (bigStage != null) {bigStage.close();}});
+        Platform.runLater(()->startNewSession());
     }
 
     private void startNewSession() {
@@ -244,6 +248,10 @@ public class Console extends Application {
         if (result.isPresent()) {
             session = result.get();
         }
+        
+        createFolder(getImageDir(), session);
+        this.session = getImageDir() + session;
+        this.imgCounter = 1;
     }
 
     private void displayImageSet(SEMImage si) {
@@ -577,22 +585,21 @@ public class Console extends Application {
         }
     }
 
-    private String createFolderName(String path) {
+    private String createFolderName() {
         Date date = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
 
         String fileName = "";
         try {
-            fileName = path + "imageset_" + dateFormat.format(date);
+            fileName = "imageset_" + dateFormat.format(date);
         } catch (Exception e) {
-            System.err.println("visgrid: Cannot create log file " + fileName);
         }
 
         return fileName;
     }
 
-    public static void createFolder(String folder) {
-        File file = new File(folder);
+    public static void createFolder(String parent, String folder) {
+        File file = new File(parent + folder);
         if (!file.exists()) {
             if (!file.mkdirs()) {
                 System.err.println("Folder " + folder + "does not exist and cannot be created");
@@ -603,10 +610,8 @@ public class Console extends Application {
 
     public void saveImageSet(SEMImage si) {
         final boolean upload = this.autoUpload.isSelected();
-        String folder = getImageDir();
-        String name = createFolderName(folder);
+        //String name = createFolderName();
 
-        createFolder(name);
 
         Thread t = new Thread(() -> {
             for (int i = 0; i < si.channels; i++) {
@@ -615,7 +620,7 @@ public class Console extends Application {
                 try {
                     si.makeImagesForDisplay();
 
-                    fullName = name + System.getProperty("file.separator") + "channel_" + si.capturedChannels[i] + ".png";
+                    fullName = this.session + System.getProperty("file.separator") + "img_" + this.imgCounter + "_channel_" + si.capturedChannels[i] + ".png";
                     file = new File(fullName);
                     ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
 
@@ -631,6 +636,7 @@ public class Console extends Application {
                 }
 
             }
+            this.imgCounter++;
         });
         t.start();
 
@@ -644,7 +650,7 @@ public class Console extends Application {
         path += "Documents";
         path += System.getProperty("file.separator");
         path += "SEM Images";
-        createFolder(path);
+        //createFolder(path);
 
         path += System.getProperty("file.separator");
         return path;
