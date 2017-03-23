@@ -423,6 +423,7 @@ public class Console extends Application {
         if (this.bigStage == null) {
             // create large display window
             this.bigView = new ImageView(image);
+            bigView.setSmooth(true);
             StackPane sp = new StackPane();
             sp.getChildren().addAll(this.bigView);
 
@@ -535,7 +536,7 @@ public class Console extends Application {
             iv.setFitHeight(150);
             iv.setFitWidth(200);
             iv.setPreserveRatio(false);
-            iv.setSmooth(true);
+            iv.setSmooth(false);
             iv.setTranslateX((si.channels - i) * 8);
             iv.setTranslateY((si.channels - i) * 8);
             Pane p = new Pane(iv);
