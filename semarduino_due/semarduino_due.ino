@@ -51,11 +51,9 @@ struct Resolution g_allRes[] = {
 // scan line time, pixels, channels, spec lines, prescaler
   {           160,    200,        1,        182,         0 }, // RAPID2 mag 100
   {          1183,   1200,        1,        536,         0 }, // RAPID2 mag 10
-  {          5320,  10000,        1,       9600,         0 }, // H1 mag 100
-  {          5790,   1200,        1,        864,         8 }, // SLOW1, also H1 mag 10
-  {         10561,  10500,        1,       4500,         1 }, // H3 at 9000x
-  {         11070,  10500,        1,       4500,         1 }, // H3 at 10x
-  {         33326,   4400,        1,       3000,        11 }  // H6
+  {          5790,   1120,        1,        840,        13 }, // SLOW1, also H1 mag 10
+  {         10800,   2800,        1,       2276,         9 }, // H3
+  {         33326,   4300,        1,       3000,        11 }  // H6 (lines from V7)
 };
 
 #define MANUAL_PRESCALER 1
@@ -609,20 +607,19 @@ void hsyncHandler() {
           // start ADC (completion handled by ADC interrupt)
           startADC();
         } else {
-          long value;
+          uint16_t value;
           int i;
           volatile int timer;
+          int pixels = g_pixels;
+          uint16_t *pDest = g_pDest;
 
           noInterrupts();
-          while (g_pixels--) {
+          while (pixels--) {
             value = 0;
             for (i=0; i< g_count; i++) {
-              timer = MANUAL_PRESCALER;
-              while (timer--);
-              //while((ADC->ADC_ISR & 0x80)==0);      // wait for conversion
               value += (ADC->ADC_CDR[7]) & 0x0FFF;  // get values, no tag
             }
-            *g_pDest++ = ((uint16_t)(value / g_count)) | 0x7000; // mark as A0
+            *pDest++ = value;
           }
           g_fLineReady = true;
           g_pDest = (uint16_t *)&g_pbp[1];
@@ -655,7 +652,7 @@ struct Resolution *getResolution(int lineTime) {
   // go through known resolutions
   
   for (i=0; i<NUM_MODES; i++) {
-    if (lineTime > (g_allRes[i].scanLineTime - 100) && lineTime < (g_allRes[i].scanLineTime + 100)) {
+    if (lineTime > (g_allRes[i].scanLineTime - 500) && lineTime < (g_allRes[i].scanLineTime + 500)) {
       return &g_allRes[i];
     }
   }
@@ -862,7 +859,7 @@ void adjustToNewRes() {
   //
   g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
   setupLineBuffers();
-  g_fSlow = (g_pCurrentRes->preScaler > 8);
+  g_fSlow = (g_pCurrentRes->preScaler >= 5);
   initializeADC();
 }
 
@@ -878,6 +875,15 @@ int scanAndCopyOneLine() {
         return line;
       }
     }
+
+
+    int pixels = g_lineBytes/2;
+    uint16_t *pDest = (uint16_t *)&g_pbp[1];
+    int factor = g_pCurrentRes->preScaler + 1;
+    while (pixels--) {
+      *pDest++ = (*pDest/factor)|0x7000; // divide by number of samples, add channel A0 marker
+    }
+   
     g_fLineReady = false;
   } else {
     // in fast mode, wait for ADC DMA to finish
