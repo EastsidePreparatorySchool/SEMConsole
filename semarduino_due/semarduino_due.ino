@@ -40,7 +40,7 @@ struct Resolution {
   int numPixels;    // number of pixels we will set up to scan for line
   int numChannels;  // number of channels for every pixel
   int numLines;     // documented number of lines (in actuality, we will obey vsync)
-  int preScaler;    // prescale factor for Arduino Due ADC; ADC clock is slowed by factor (prescale+1)*2 
+  int numSamples;   // manual scan: samples per pixel, ignored for DMA
 };
 
 struct Resolution *g_pCurrentRes;
@@ -48,15 +48,14 @@ struct Resolution *g_pCurrentRes;
 
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
-// scan line time, pixels, channels, spec lines, prescaler
-  {           160,    200,        1,        182,         0 }, // RAPID2 mag 100
-  {          1183,   1200,        1,        536,         0 }, // RAPID2 mag 10
-  {          5790,   1120,        1,        840,        13 }, // SLOW1, also H1 mag 10
-  {         10800,   2800,        1,       2276,         9 }, // H3
-  {         33326,   4300,        1,       3000,        11 }  // H6 (lines from V7)
+// scan line time, pixels, channels, spec lines, samples
+  {           160,    180,        1,        182,     1 }, // RAPID2 mag 100
+  {          1183,   1200,        1,        536,     1 }, // RAPID2 mag 10
+  {          5790,   1040,        1,        840,    16 }, // SLOW1
+  {         10800,   2920,        1,       2276,    10 }, // H3V5
+  {         33326,   4000,        1,       3000,    16 }  // H6V7
 };
 
-#define MANUAL_PRESCALER 1
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
 
@@ -278,7 +277,7 @@ int setupLineBuffers() {
   
   // compute buffer size for whole USB command, allocate, and fill with known info
   int bufferSize = sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer);
-  g_pbp = (struct BytesParams *) malloc (bufferSize); 
+  g_pbp = (struct BytesParams *) malloc (bufferSize * (g_pCurrentRes->numSamples > 1 ? 2:1)); // if resolution indicates, allocate twice the words
   if (g_pbp == NULL) {
     halt(4);
   }
@@ -427,7 +426,6 @@ void initializeADC() {
   if (!g_fSlow) {
     ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out. 
     ADC->ADC_MR |= 0x80000000;     // high bit indicates to use sequence numbers
-    ADC->ADC_MR |= g_pCurrentRes->preScaler << 8;     
     ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
     ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
     
@@ -517,7 +515,7 @@ void setupInterrupts() {
   pinMode(VSYNC_PIN, INPUT);
   pinMode(HSYNC_PIN, INPUT);
   attachInterrupt(VSYNC_PIN, vsyncHandler, CHANGE);  // catch edge of vsync to get ready for measuring
-  attachInterrupt(HSYNC_PIN, hsyncHandler, RISING);  // catch edge of hsync to start ADC
+  attachInterrupt(HSYNC_PIN, hsyncHandler, CHANGE);  // catch edge of hsync to start ADC
 }
 
 
@@ -607,23 +605,24 @@ void hsyncHandler() {
           // start ADC (completion handled by ADC interrupt)
           startADC();
         } else {
-          uint16_t value;
+          uint32_t value;
           int i;
-          volatile int timer;
           int pixels = g_pixels;
-          uint16_t *pDest = g_pDest;
-
+          int count = g_count;
+          uint32_t *pDest = (uint32_t *)g_pDest;
+ 
           noInterrupts();
           while (pixels--) {
             value = 0;
-            for (i=0; i< g_count; i++) {
-              value += (ADC->ADC_CDR[7]) & 0x0FFF;  // get values, no tag
+            i = count;
+            while (i--) {
+              value += ((ADC->ADC_CDR[7]) & 0x0FFF);  // get values, no tag
             }
-            *pDest++ = value;
+            *pDest++ = value; // tag as channel 0 and store
           }
           g_fLineReady = true;
           g_pDest = (uint16_t *)&g_pbp[1];
-          g_count = (g_pCurrentRes->preScaler + 1);
+          g_count = g_pCurrentRes->numSamples;
           g_pixels = g_pCurrentRes->numPixels;
           interrupts();
         }
@@ -640,14 +639,7 @@ void hsyncHandler() {
 //
 
 struct Resolution *getResolution(int lineTime) {
-  static struct Resolution customRes;
   int i;
-
-  // if currently in autosync custom res, try to stay in it
-  if (g_pCurrentRes == &customRes) {
-    if ((lineTime < (customRes.scanLineTime + 20)) && (lineTime  > (customRes.scanLineTime - 20)))
-      return &customRes;
-  }
 
   // go through known resolutions
   
@@ -656,39 +648,7 @@ struct Resolution *getResolution(int lineTime) {
       return &g_allRes[i];
     }
   }
-
-  // autosync
-// todo: not working yet
-return NULL;
-
-  if (lineTime > 150 && lineTime < 50000) {
-    /*
-     scan line time, pixels, channels, spec lines, prescaler
-    {           160,    260,        1,        266,         0 }, // RAPID2 1.77 samples/us
-    {          5790,   1920,        2,        864,         2 }, // SLOW1  0.67 samples/us
-    {         33326,   2760,        4,       3000,         5 }  // H6V7   0.33 samples/us
-    */
-    // suppose we had around 12kb to play with
-    long maxWords = 6000;
-    long maxLineSamples = (long) ((double)lineTime * (double) 1.77); 
-
-    customRes.scanLineTime = lineTime;        // that one was easy
-    customRes.numChannels  = 1;               // also easy
-    customRes.numLines     = 200;             // complete guess
-    customRes.preScaler    = 1;               // this is where we start
-    customRes.numPixels    = maxLineSamples;  // what we wish for
-    
-    while (customRes.numPixels > maxWords) {
-      customRes.preScaler++;
-      customRes.numPixels /= 2;
-    }
-
-    customRes.numPixels &= (~7); // round down to nearest 8
-    customRes.preScaler--; // encoded: - 1
-    return &customRes;
-  }
-
-  // nothing to be done
+  
   return NULL;
 }
 
@@ -738,7 +698,7 @@ void loop () {
         g_trackFaults = 0;
         g_fLineReady = false;
         g_pDest = (uint16_t *)&g_pbp[1];
-        g_count = (g_pCurrentRes->preScaler + 1);
+        g_count = g_pCurrentRes->numSamples;
         g_pixels = g_pCurrentRes->numPixels;
         g_phase = PHASE_SCANNING;
       } else {
@@ -859,7 +819,7 @@ void adjustToNewRes() {
   //
   g_lineBytes = (g_pCurrentRes->numPixels * g_pCurrentRes->numChannels * sizeof(uint16_t));
   setupLineBuffers();
-  g_fSlow = (g_pCurrentRes->preScaler >= 5);
+  g_fSlow = (g_pCurrentRes->numSamples > 1);
   initializeADC();
 }
 
@@ -878,12 +838,13 @@ int scanAndCopyOneLine() {
 
 
     int pixels = g_lineBytes/2;
-    uint16_t *pDest = (uint16_t *)&g_pbp[1];
-    int factor = g_pCurrentRes->preScaler + 1;
+    uint32_t *pSource = (uint32_t *)&g_pbp[1];
+    uint16_t *pDest = (uint16_t *) pSource;
+    int factor = (g_pCurrentRes->numSamples); 
     while (pixels--) {
-      *pDest++ = (*pDest/factor)|0x7000; // divide by number of samples, add channel A0 marker
+      *pDest++ = (*pSource++/factor)|0x7000; // divide by number of samples, add channel A0 marker
     }
-   
+    memcpy(((byte *)&g_pbp[1]) + g_lineBytes, sentinelTrailer, sizeof (sentinelTrailer)); 
     g_fLineReady = false;
   } else {
     // in fast mode, wait for ADC DMA to finish
