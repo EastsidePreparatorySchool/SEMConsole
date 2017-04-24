@@ -24,11 +24,13 @@ public class Session {
     private String folder;
     private ArrayList<SessionImage> asi;
     private int imgCounter;
+    private Console consoleInstance;
 
-    Session(String folderPath) {
+    Session(String folderPath, Console instance) {
         this.folder = folderPath;
         this.imgCounter = 1;
         asi = new ArrayList<>();
+        consoleInstance = instance;
     }
 
     private void addFolderThumbnail(String imageFileName) {
@@ -66,7 +68,7 @@ public class Session {
                 } catch (Exception ex) {
                     System.out.println(ex.getMessage());
                 }
-                this.addFolderThumbnail(fullName);
+                this.consoleInstance.addThumbnail(si);
             }
         });
         t.start();

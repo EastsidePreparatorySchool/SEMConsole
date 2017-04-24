@@ -275,6 +275,7 @@ public class SEMPort {
                         }
 
                         if (height > 1500) {
+                            SEMThread.progress = -1;
                             Platform.runLater(updateScanning);
                         }
 

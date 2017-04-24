@@ -288,7 +288,7 @@ public class Console extends Application {
 
         createFolder(getImageDir(), session);
         this.session = getImageDir() + session;
-        currentSession = new Session(this.session);
+        currentSession = new Session(this.session, this);
     }
 
     private void displayImageSet(SEMImage si) {
@@ -680,7 +680,7 @@ public class Console extends Application {
         }
     }
 
-    private void addThumbnail(SEMImage si) {
+    public void addThumbnail(SEMImage si) {
         StackPane sp = new StackPane();
         for (int i = si.channels - 1; i >= 0; i--) {
             ImageView iv;
