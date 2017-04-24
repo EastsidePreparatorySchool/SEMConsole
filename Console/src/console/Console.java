@@ -376,8 +376,8 @@ public class Console extends Application {
     }
 
     private void updateScanning() {
-//        this.showProgressIndicator();
-//        this.pin.setProgress(this.semThread.progress);
+        this.showProgressIndicator();
+        this.pin.setProgress(this.semThread.progress);
     }
 
     private enum StereoState {

@@ -167,7 +167,7 @@ public class SEMPort {
         byte[] ab;
         int checkSum = 0;
         int checkSumRead = 0;
-        int lines = 10;
+        int lines = 20;
 
         try {
             buffer.position(0);
@@ -211,11 +211,15 @@ public class SEMPort {
                                 if (System.currentTimeMillis() > lastTime + 1000) {
                                     lastTime = System.currentTimeMillis();
                                     Console.println("[SEM idle]");
+                                    SEMThread.progress = -1;
+                                    Platform.runLater(updateScanning);
                                 }
                                 break;
                             case 1: // unrecognized scan time
                                 if (System.currentTimeMillis() > lastTime + 500) {
                                     lastTime = System.currentTimeMillis();
+                                    SEMThread.progress = -1;
+                                    Platform.runLater(updateScanning);
                                     Console.print("[SEM resolution not recognized]");
                                     Console.println("[" + argument + "]");
                                 }
