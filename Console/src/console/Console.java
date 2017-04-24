@@ -376,8 +376,8 @@ public class Console extends Application {
     }
 
     private void updateScanning() {
-        this.showProgressIndicator();
-        this.pin.setProgress(this.semThread.progress);
+//        this.showProgressIndicator();
+//        this.pin.setProgress(this.semThread.progress);
     }
 
     private enum StereoState {
@@ -706,17 +706,17 @@ public class Console extends Application {
         StackPane sp2 = new StackPane(iv);
 
         // kill the references to all the big images
-        si.dehydrate();
+        //si.dehydrate();
 
         sp2.setPadding(new Insets(4, 4, 4, 4));
         sp2.setAlignment(Pos.CENTER);
         sp2.setOnMouseClicked((e) -> {
             displayPhoto(si);
-            selectPane(sp);
+            selectPane(sp2);
         });
 
         List t = thumbnails.getChildren();
-        t.add(0, sp);
+        t.add(0, sp2);
 //        if (t.size() > 10) {
 //            t.remove(t.size() - 1);
 //        }
