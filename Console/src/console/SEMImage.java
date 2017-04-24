@@ -72,21 +72,22 @@ public class SEMImage {
         this.left = left;
         this.right = right;
         this.format = WritablePixelFormat.getIntArgbInstance();
-        this.channels = left.channels;
-        // compare with right
-        this.width = left.width;
-        // compare with right
-
-        this.height = left.height;
-        // compare with right
+        this.channels = Math.min(left.channels, right.channels);
+        this.width = Math.min(left.width, right.width);
+        this.height = Math.min(left.height, right.height);
 
         this.capturedChannels = new int[channels];
         System.arraycopy(left.capturedChannels, 0, this.capturedChannels, 0, channels);
-        // compare with right
 
         images = new WritableImage[channels];
         writers = new PixelWriter[channels];
         imageNames = new String[channels];
+
+        // allocate images
+        for (int i = 0; i < channels; i++) {
+            images[i] = new WritableImage(width, height);
+            writers[i] = images[i].getPixelWriter();
+        }
 
         firstLine = true;
     }
@@ -217,10 +218,9 @@ public class SEMImage {
 
         int size = alineBuffers.size();
 
-        if (maxLine + 1 > height) {
-            this.height = maxLine + 1;
-        }
-
+//        if (maxLine + 1 > height) {
+//            this.height = maxLine + 1;
+//        }
         for (int i = 0; i < channels; i++) {
             rangeMin[i] = 4095;
             rangeMax[i] = 0;
@@ -240,7 +240,7 @@ public class SEMImage {
     }
 
     public void makeImagesForDisplay() {
-        if (alineBuffers.isEmpty()) {
+        if (alineBuffers == null || alineBuffers.isEmpty()) {
             return;
         }
 
@@ -264,7 +264,10 @@ public class SEMImage {
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
             int[] lineData = alineBuffers.get(i);
-            int line = (lineData[lineData.length - 1]) + (height - maxLine + 1); // correct for vsync jitter by aligning at bottom
+            int line = (lineData[lineData.length - 1]) + (height - (maxLine + 1)); // correct for vsync jitter by aligning at bottom
+            if (line < 0) {
+                line = 0;
+            }
             while (++prevLine <= line) {
                 this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1);
             }
@@ -325,17 +328,20 @@ public class SEMImage {
                 + ((highSix + g) << 8) // green
                 + (highSix + b);         // blue
     }
+    
+    
 
     // makes a red/blu stereo pixel out of two source pixels
     // decodes intensities, put 8bit + 8bit back together again
     // presumes that source pixels were computed by grayScale() (see above)
+    
     int combinePixels(int left, int right, int realChannel) {
         int intensityLeft = left & 0xFF; // blue contained the high 8 bits of intensity
         int intensityRight = right & 0xFF;
 
         return (0xFF000000 // full alpha
-                + (intensityRight << 16) // right becomes red
-                + (intensityLeft)); // left becomes blue
+                + (intensityLeft << 16) // left becomes red
+                + (intensityRight)); // right becomes blue
     }
 
 // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)

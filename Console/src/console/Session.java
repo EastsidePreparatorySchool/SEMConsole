@@ -83,6 +83,7 @@ public class Session {
     public void addStereoImage(SEMImage siLeft, SEMImage siRight, String name, boolean upload) {
         SEMImage siStereo = new SEMImage(siLeft, siRight);
         siStereo.knitStereoImage();
+        this.consoleInstance.displayPhoto(siStereo);
         this.saveImageSetAndAdd(siStereo, name, null, upload);
     }
 

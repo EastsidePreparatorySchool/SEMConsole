@@ -414,19 +414,21 @@ public class Console extends Application {
         });
      */
     private void checkForStereo(SEMImage si) {
-        if (this.fStereoLeft.getAsBoolean()) {
-            this.siLeft = si;
-            if (this.siRight != null) {
-                switchStereoState(StereoState.FINALIZE);
+        if (this.stereoName != null) {
+            if (this.fStereoLeft.getAsBoolean()) {
+                this.siLeft = si;
+                if (this.siRight != null) {
+                    switchStereoState(StereoState.FINALIZE);
+                } else {
+                    switchStereoState(StereoState.ONRIGHT);
+                }
             } else {
-                switchStereoState(StereoState.ONRIGHT);
-            }
-        } else {
-            this.siRight = si;
-            if (this.siLeft != null) {
-                switchStereoState(StereoState.FINALIZE);
-            } else {
-                switchStereoState(StereoState.ONLEFT);
+                this.siRight = si;
+                if (this.siLeft != null) {
+                    switchStereoState(StereoState.FINALIZE);
+                } else {
+                    switchStereoState(StereoState.ONLEFT);
+                }
             }
         }
     }
@@ -568,7 +570,7 @@ public class Console extends Application {
         }
     }
 
-    private void displayPhoto(SEMImage si) {
+    public void displayPhoto(SEMImage si) {
         List<Screen> allScreens = Screen.getScreens();
 
         si.makeImagesForDisplay();
