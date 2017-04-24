@@ -2,6 +2,7 @@ package console;
 
 import java.io.File;
 import java.util.ArrayList;
+import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
 import javax.imageio.ImageIO;
@@ -68,7 +69,8 @@ public class Session {
                 } catch (Exception ex) {
                     System.out.println(ex.getMessage());
                 }
-                this.consoleInstance.addThumbnail(si);
+                
+                Platform.runLater(()->{this.consoleInstance.addThumbnail(si);});
             }
         });
         t.start();

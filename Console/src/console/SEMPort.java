@@ -348,6 +348,7 @@ public class SEMPort {
                                 Console.print(".");
                                 if (this.si.height > 1500) {
                                     SEMThread.progress = ((double) line) / (double) si.height;
+                                    Platform.runLater(updateScanning);
                                 }
                             }
                         }
