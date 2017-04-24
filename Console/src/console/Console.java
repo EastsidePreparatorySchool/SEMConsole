@@ -118,6 +118,7 @@ public class Console extends Application {
         // button for connection
         this.btn = new Button("Connect");
         btn.setOnAction((event) -> startSEMThread());
+        btn.setPrefWidth(100);
 
         txt = new Text("Not connected");
         HBox h = new HBox();
@@ -360,59 +361,24 @@ public class Console extends Application {
     }
 
     private void showProgressIndicator() {
-        if (this.masterPane.getChildren().size() < 2) {
-            this.pin.setProgress(-1);
-            this.masterPane.getChildren().add(this.pin);
-        }
+        this.masterPane.getChildren().remove(this.pin);
+        this.masterPane.getChildren().add(this.pin);
     }
 
     private void hideProgressIndicator() {
-        if (this.masterPane.getChildren().size() > 1) {
-            if (this.masterPane.getChildren().get(1) instanceof ProgressIndicator) {
-                this.masterPane.getChildren().remove(1);
-            }
-        }
+        this.masterPane.getChildren().remove(this.pin);
         this.pin.setProgress(0);
     }
 
     private void updateScanning() {
-        this.showProgressIndicator();
         this.pin.setProgress(this.semThread.progress);
+        this.showProgressIndicator();
     }
 
     private enum StereoState {
         CANCEL, ONLEFT, ONRIGHT, FINALIZE
     }
 
-    /*  
-            stereoLeft.setDisable(true);
-        stereoRight.setDisable(true);
-
- 
-
-        this.fStereo = () -> !stereoLeft.isDisabled();
-        this.fStereoLeft = () -> stereoLeft.isSelected();
-
-        Button b6 = new Button("Stereo pair");
-        b6.setPrefWidth(100);
-        b6.setOnAction((e) -> {
-            if (b6.getText().equalsIgnoreCase("Stereo Pair")) {
-                stereoLeft.setDisable(false);
-                stereoRight.setDisable(false);
-                stereoLeft.setSelected(true);
-                stereoRight.setSelected(false);
-                b6.setText("Cancel");
-                this.stereoName = this.currentSession.generatePartialImageName();
-            } else {
-                stereoLeft.setDisable(true);
-                stereoRight.setDisable(true);
-                stereoLeft.setSelected(false);
-                stereoRight.setSelected(false);
-                b6.setText("Stereo Pair");
-                this.stereoName = null;
-            }
-        });
-     */
     private void checkForStereo(SEMImage si) {
         if (this.stereoName != null) {
             if (this.fStereoLeft.getAsBoolean()) {
@@ -514,6 +480,7 @@ public class Console extends Application {
 
     private void stopSEMThread() {
         btn.setDisable(true);
+        this.hideProgressIndicator();
         if (semThread != null) {
             Console.println();
 
@@ -707,7 +674,6 @@ public class Console extends Application {
 
         // kill the references to all the big images
         //si.dehydrate();
-
         sp2.setPadding(new Insets(4, 4, 4, 4));
         sp2.setAlignment(Pos.CENTER);
         sp2.setOnMouseClicked((e) -> {
