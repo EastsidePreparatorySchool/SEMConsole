@@ -161,9 +161,7 @@ public class SEMPort {
         }
     }
 
-    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda,
-            SEMThread.Phase phase
-    ) {
+    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda, Runnable updateScanning, SEMThread.Phase phase) {
         SEMThread.Phase result = phase;
         String message;
         byte[] ab;
@@ -255,7 +253,6 @@ public class SEMPort {
                         }
                         buffer.flip();
 
-                        // read line number (unsigned short)
                         int channelCount = Short.toUnsignedInt(buffer.getShort());
                         int width = Short.toUnsignedInt(buffer.getShort());
                         int height = Short.toUnsignedInt(buffer.getShort());
@@ -275,6 +272,10 @@ public class SEMPort {
                             Console.print(", channels: ");
                         } else {
                             Console.printOff();
+                        }
+
+                        if (height > 1500) {
+                            Platform.runLater(updateScanning);
                         }
 
                         int[] capturedChannels = new int[4];
@@ -344,6 +345,9 @@ public class SEMPort {
                         if (++dotCounter % lines == 0) {
                             if (this.si.height > 600) {
                                 Console.print(".");
+                                if (this.si.height > 1500) {
+                                    SEMThread.progress = ((double) line) / (double) si.height;
+                                }
                             }
                         }
                         numOKs++;

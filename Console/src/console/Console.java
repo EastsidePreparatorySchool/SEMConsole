@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.LinkedTransferQueue;
+import java.util.function.BooleanSupplier;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -21,11 +22,12 @@ import javafx.stage.Stage;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.event.Event;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.effect.ColorAdjust;
@@ -37,6 +39,7 @@ import javafx.scene.layout.Border;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.BorderStroke;
 import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -70,19 +73,26 @@ public class Console extends Application {
     private StackPane right;
     private LinkedTransferQueue<SEMImage> ltq;
     private SEMImage currentImageSet = null;
-    private SEMImage nextImageSet = null;
+    private SEMImage siLeft = null;
+    private SEMImage siRight = null;
     private Button btn;
     private Text txt;
     private Scene scene;
     private Stage stage;
     private BorderPane bp;
     private Stage bigStage = null;
-    private boolean isLive = true;
     private StackPane selectedPane = null;
-    private CheckBox autoSave = null;
     private CheckBox autoUpload = null;
     private String session = null;
-    private int imgCounter = 1;
+    private BooleanSupplier fStereo;
+    private BooleanSupplier fStereoLeft;
+    private String stereoName = null;
+    private String stereoSuffix = null;
+    private Session currentSession = null;
+    private RadioButton stereoLeft;
+    private RadioButton stereoRight;
+    private Button stereoButton;
+    private ProgressIndicator pin = null;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -109,31 +119,50 @@ public class Console extends Application {
         this.btn = new Button("Connect");
         btn.setOnAction((event) -> startSEMThread());
 
-        Button btn4 = new Button("Save image set");
-        btn4.setOnAction((event) -> saveImageSet(this.currentImageSet));
-
-        Button btn5 = new Button("Clear image list");
-        btn5.setOnAction((event) -> {clearImageList();});
-
         txt = new Text("Not connected");
         HBox h = new HBox();
         h.getChildren().add(txt);
+        h.setPrefWidth(500);
         h.setPadding(new Insets(6, 12, 6, 12));
 
-        autoSave = new CheckBox("Auto save photos   ");
-        autoSave.setOnAction((e) -> {
-            if (!autoSave.isSelected()) {
-                autoUpload.setSelected(false);
-            }
-        });
-        autoSave.setSelected(true);
         autoUpload = new CheckBox("Auto upload");
         HBox h2 = new HBox();
-        h2.getChildren().addAll(autoSave, autoUpload);
+        h2.getChildren().addAll(autoUpload);
         h2.setPadding(new Insets(6, 12, 6, 12));
 
+        // hbox for stereo controls
+        HBox h3 = new HBox();
+        stereoLeft = new RadioButton("Left    ");
+        stereoRight = new RadioButton("Right");
+        stereoLeft.setDisable(true);
+        stereoRight.setDisable(true);
+
+        stereoLeft.setOnAction((e) -> {
+            switchStereoState(StereoState.ONLEFT);
+        });
+
+        stereoRight.setOnAction((e) -> {
+            switchStereoState(StereoState.ONRIGHT);
+        });
+
+        this.fStereo = () -> !stereoLeft.isDisabled();
+        this.fStereoLeft = () -> stereoLeft.isSelected();
+
+        stereoButton = new Button("Stereo pair");
+        stereoButton.setPrefWidth(100);
+        stereoButton.setOnAction((e) -> {
+            switchStereoState(this.fStereo.getAsBoolean() ? StereoState.CANCEL : StereoState.ONLEFT);
+        });
+
+        h3.getChildren().addAll(stereoLeft, stereoRight);
+        h3.setPadding(new Insets(6, 12, 6, 12));
+
+        HBox h4 = new HBox();
+        h4.getChildren().addAll(stereoButton, h3);
+        h4.setBorder(new Border(new BorderStroke(Color.DARKBLUE, BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
+
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(newSession, btn, h, h2, btn4, btn5);
+        top.getChildren().addAll(newSession, new Text("    "), btn, h, h2, new Text("    "), h4);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -150,6 +179,10 @@ public class Console extends Application {
         this.left = new VBox();
         this.left.setPadding(new Insets(4, 4, 4, 4));
         this.thumbnails = new VBox();
+
+        this.pin = new ProgressIndicator();
+
+        /*
         ImageView lv = new ImageView(new Image("live.png"));
         lv.setFitHeight(150);
         lv.setFitWidth(200);
@@ -162,17 +195,15 @@ public class Console extends Application {
         sp1.setAlignment(Pos.CENTER);
         sp1.getChildren().add(lv);
         sp1.setOnMouseClicked((e) -> {
-            this.isLive = true;
-            //System.out.println("Console: switched to live view");
             displayImageSet(this.nextImageSet);
             selectPane(sp1);
             e.consume();
         });
-
+         */
         ScrollPane scp = new ScrollPane(thumbnails);
         scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        this.left.getChildren().addAll(sp1, scp);
+        this.left.getChildren().addAll(/*sp1,*/scp);
 
         this.right = new StackPane();
         this.right.setPadding(new Insets(4, 4, 4, 4));
@@ -230,9 +261,13 @@ public class Console extends Application {
 
         cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
         left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
-        
-        primaryStage.setOnCloseRequest((e) -> {if (bigStage != null) {bigStage.close();}});
-        Platform.runLater(()->startNewSession());
+
+        primaryStage.setOnCloseRequest((e) -> {
+            if (bigStage != null) {
+                bigStage.close();
+            }
+        });
+        Platform.runLater(() -> startNewSession());
     }
 
     private void startNewSession() {
@@ -248,10 +283,10 @@ public class Console extends Application {
         if (result.isPresent()) {
             session = result.get();
         }
-        
+
         createFolder(getImageDir(), session);
         this.session = getImageDir() + session;
-        this.imgCounter = 1;
+        currentSession = new Session(this.session);
     }
 
     private void displayImageSet(SEMImage si) {
@@ -289,6 +324,7 @@ public class Console extends Application {
         this.currentImageSet = si;
     }
 
+    // called by SEMThread, passed as lambda
     private void updateDisplay() {
         ArrayList<SEMImage> newImages = new ArrayList<>();
         synchronized (this.ltq) {
@@ -301,45 +337,151 @@ public class Console extends Application {
             return;
         }
 
-//        Console.println("[Console: Received " + newImages.size() + " image set"
-//                + (newImages.size() == 1 ? "" : "s") + "]");
         for (SEMImage si : newImages) {
             if (si.height < 1500) {
-                if (this.isLive) {
-                    // for live view, show  images
-                    this.currentImageSet = si;
-                    displayImageSet(this.currentImageSet);
-                } else {
-                    // for when we return to live view
-                    this.nextImageSet = si;
-                }
+                this.currentImageSet = si;
+                displayImageSet(this.currentImageSet);
             } else {
-                // for large (photo button) images, add to thumbnails
-                addThumbnail(si);
+                // for large (photo button) images, add to session
+                this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+
+                // check if we are in the process of taking a stereo pair, and do the right thing
+                // this will also save images to the session
+                this.checkForStereo(si);
             }
         }
     }
 
-    private void startSEMThread() {
-        // stop any existing SEM thread
-        stopSEMThread();
+    private void showProgressIndicator() {
+        if (this.masterPane.getChildren().size() < 2) {
+            this.masterPane.getChildren().add(this.pin);
+        }
+    }
 
+    private void hideProgressIndicator() {
+        if (this.masterPane.getChildren().size() > 1) {
+            if (this.masterPane.getChildren().get(1) instanceof ProgressIndicator) {
+                this.masterPane.getChildren().remove(1);
+            }
+        }
+        this.pin.setProgress(0);
+    }
+
+    private void updateScanning() {
+        this.pin.setProgress(this.semThread.progress);
+    }
+
+    private enum StereoState {
+        CANCEL, ONLEFT, ONRIGHT, FINALIZE
+    }
+
+    /*  
+            stereoLeft.setDisable(true);
+        stereoRight.setDisable(true);
+
+ 
+
+        this.fStereo = () -> !stereoLeft.isDisabled();
+        this.fStereoLeft = () -> stereoLeft.isSelected();
+
+        Button b6 = new Button("Stereo pair");
+        b6.setPrefWidth(100);
+        b6.setOnAction((e) -> {
+            if (b6.getText().equalsIgnoreCase("Stereo Pair")) {
+                stereoLeft.setDisable(false);
+                stereoRight.setDisable(false);
+                stereoLeft.setSelected(true);
+                stereoRight.setSelected(false);
+                b6.setText("Cancel");
+                this.stereoName = this.currentSession.generatePartialImageName();
+            } else {
+                stereoLeft.setDisable(true);
+                stereoRight.setDisable(true);
+                stereoLeft.setSelected(false);
+                stereoRight.setSelected(false);
+                b6.setText("Stereo Pair");
+                this.stereoName = null;
+            }
+        });
+     */
+    private void checkForStereo(SEMImage si) {
+        if (this.fStereoLeft.getAsBoolean()) {
+            this.siLeft = si;
+            if (this.siRight != null) {
+                switchStereoState(StereoState.FINALIZE);
+            } else {
+                switchStereoState(StereoState.ONRIGHT);
+            }
+        } else {
+            this.siRight = si;
+            if (this.siLeft != null) {
+                switchStereoState(StereoState.FINALIZE);
+            } else {
+                switchStereoState(StereoState.ONLEFT);
+            }
+        }
+    }
+
+    private void switchStereoState(StereoState n) {
+        switch (n) {
+            case CANCEL: // switch stereo mode off, cancel
+                stereoLeft.setDisable(true);
+                stereoRight.setDisable(true);
+                stereoLeft.setSelected(false);
+                stereoRight.setSelected(false);
+                stereoButton.setText("Stereo Pair");
+                this.stereoName = null;
+                this.stereoSuffix = null;
+                this.siLeft = null;
+                this.siRight = null;
+                break;
+            case ONLEFT: // switch stereo mode on, left
+                stereoLeft.setDisable(false);
+                stereoRight.setDisable(false);
+                stereoLeft.setSelected(true);
+                stereoRight.setSelected(false);
+                stereoButton.setText("Cancel");
+                this.stereoName = this.currentSession.generatePartialImageName();
+                this.stereoSuffix = "L";
+                break;
+            case ONRIGHT: // switch stereo mode on, right
+                stereoLeft.setDisable(false);
+                stereoRight.setDisable(false);
+                stereoLeft.setSelected(false);
+                stereoRight.setSelected(true);
+                stereoButton.setText("Cancel");
+                this.stereoSuffix = "R";
+                break;
+            case FINALIZE:
+                this.currentSession.addStereoImage(this.siLeft, this.siRight, this.stereoName, this.autoUpload.isSelected());
+                switchStereoState(StereoState.CANCEL);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void startSEMThread() {
         btn.setDisable(true);
+        // stop any existing SEM thread
+
         this.txt.setText("Trying to connect, please be patient ...");
         Console.println();
         Console.println("[Console: connecting ...]");
+        stopSEMThread();
 
         // and create a new one
         try {
             System.out.println("starting thread ...");
-            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> SEMThreadStopped());
+            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> SEMThreadStopped(), () -> updateScanning());
             semThread.start();
+            semThread.setPriority(Thread.MAX_PRIORITY);
         } catch (Exception e) {
             System.out.println("exception starting thread.");
             System.out.println(e.getMessage());
         }
 
-        runLaterAfterDelay(1000, () -> startThreadLambda());
+        runLaterAfterDelay(2000, () -> startThreadLambda());
     }
 
     private void startThreadLambda() {
@@ -516,8 +658,7 @@ public class Console extends Application {
             this.selectedPane = sp;
         }
     }
-    
-    
+
     private void clearImageList() {
         thumbnails.getChildren().clear();
         if (this.bigStage != null) {
@@ -525,7 +666,6 @@ public class Console extends Application {
             this.bigStage = null;
         }
     }
-            
 
     private void addThumbnail(SEMImage si) {
         si.makeImagesForDisplay();
@@ -548,8 +688,7 @@ public class Console extends Application {
         sp.setPadding(new Insets(4, 4, 4, 4));
         sp.setAlignment(Pos.CENTER);
         sp.setOnMouseClicked((e) -> {
-            this.isLive = false;
-            displayImageSet(si);
+            displayPhoto(si.images[0]);
             selectPane(sp);
         });
 
@@ -559,11 +698,6 @@ public class Console extends Application {
             t.remove(t.size() - 1);
         }
         //    animateListItem(sp,  si.channels * 8 + 158);
-
-        if (autoSave.isSelected()) {
-            saveImageSet(si);
-        }
-
     }
 
     public void saveFile(SEMImage si) {
@@ -606,40 +740,6 @@ public class Console extends Application {
                 System.err.println("Folder " + folder + "does not exist and cannot be created");
             }
         }
-
-    }
-
-    public void saveImageSet(SEMImage si) {
-        final boolean upload = this.autoUpload.isSelected();
-        //String name = createFolderName();
-
-
-        Thread t = new Thread(() -> {
-            for (int i = 0; i < si.channels; i++) {
-                File file;
-                String fullName;
-                try {
-                    si.makeImagesForDisplay();
-
-                    fullName = this.session + System.getProperty("file.separator") + "img_" + this.imgCounter + "_channel_" + si.capturedChannels[i] + ".png";
-                    file = new File(fullName);
-                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
-
-//                    si.makeImagesForSave();
-//                    ImageIO.write(si.grayImages[i], "png", file);
-                    Console.println();
-                    Console.println("Image written to " + file.getName());
-                    if (i == 0 && upload) {
-                        FileUpload.uploadFileToServer(fullName);
-                    }
-                } catch (Exception ex) {
-                    System.out.println(ex.getMessage());
-                }
-
-            }
-            this.imgCounter++;
-        });
-        t.start();
 
     }
 

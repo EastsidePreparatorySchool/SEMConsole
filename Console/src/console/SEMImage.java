@@ -5,12 +5,12 @@
  */
 package console;
 
-import java.awt.image.BufferedImage;
-import java.awt.image.WritableRaster;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import javafx.scene.image.Image;
 import javafx.scene.image.PixelFormat;
+import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.WritablePixelFormat;
@@ -33,16 +33,18 @@ public class SEMImage {
 
     private final boolean firstLine;
     private int[] rawBuffer;
-    private int[] grayRawBuffer;
     ArrayList<int[]> alineBuffers;
     public int rangeMin[];
     public int rangeMax[];
     public int rangeMaxLine[];
     public int maxLine = 0;
-    BufferedImage grayImages[];
-    WritableRaster[] rasters;
 
-    private static final int floorValue = 8; // TODO: ADC has to be properly calibrated
+    // for construction from stereo pairs only
+    SEMImage left = null;
+    SEMImage right = null;
+    String fileName = null;
+    
+    Image thumbnail = null;
 
     SEMImage(int channels, int[] capturedChannels, int width, int height) {
         this.format = WritablePixelFormat.getIntArgbInstance();
@@ -50,7 +52,6 @@ public class SEMImage {
         this.width = width;
         this.height = height;
         this.rawBuffer = new int[width];
-        this.grayRawBuffer = new int[width];
         this.alineBuffers = new ArrayList<>(3000);
         this.capturedChannels = new int[channels];
         this.rangeMin = new int[channels];
@@ -59,12 +60,51 @@ public class SEMImage {
 
         images = new WritableImage[channels];
         writers = new PixelWriter[channels];
-        grayImages = new BufferedImage[channels];
-        rasters = new WritableRaster[channels];
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
         firstLine = true;
+    }
+
+    SEMImage(SEMImage left, SEMImage right) {
+        this.left = left;
+        this.right = right;
+        this.format = WritablePixelFormat.getIntArgbInstance();
+        this.channels = left.channels;
+        // compare with right
+        this.width = left.width;
+        // compare with right
+
+        this.height = left.height;
+        // compare with right
+
+        this.capturedChannels = new int[channels];
+        System.arraycopy(left.capturedChannels, 0, this.capturedChannels, 0, channels);
+        // compare with right
+
+        images = new WritableImage[channels];
+        writers = new PixelWriter[channels];
+
+        firstLine = true;
+    }
+
+    void knitStereoImage() {
+        for (int i = 0; i < this.channels; i++) {
+            PixelReader prLeft = left.images[i].getPixelReader();
+            PixelReader prRight = right.images[i].getPixelReader();
+            PixelWriter pw = this.images[i].getPixelWriter();
+
+            for (int line = 0; line < this.height; line++) {
+                prLeft.getPixels(0, line, this.width, 1, this.format, left.rawBuffer, 0, 0);
+                prRight.getPixels(0, line, this.width, 1, this.format, right.rawBuffer, 0, 0);
+
+                for (int pixel = 0; pixel < this.width; pixel++) {
+                    left.rawBuffer[pixel] = combinePixels(left.rawBuffer[pixel], right.rawBuffer[pixel], this.capturedChannels[i]);
+                }
+
+                pw.setPixels(0, line, this.width, 1, this.format, left.rawBuffer, 0, 0);
+            }
+        }
     }
 
     void fileDataLine(int line, int[] data, int count) {
@@ -81,66 +121,9 @@ public class SEMImage {
 
     }
 
-    void parseAllLines() {
-        int size = alineBuffers.size();
-        if (size > 0) {
-            int[] lastLine = alineBuffers.get(size - 1);
-
-            if (maxLine + 1 > height) {
-                this.height = maxLine + 1;
-            }
-            // allocate images
-            for (int i = 0; i < channels; i++) {
-                images[i] = new WritableImage(width, height);
-                writers[i] = images[i].getPixelWriter();
-                rangeMin[i] = 4095;
-                rangeMax[i] = 0;
-
-                if (height > 500) {
-                    grayImages[i] = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
-                    rasters[i] = (WritableRaster) grayImages[i].getData();
-                }
-
-            }
-
-            // compute ranges from first 75% of image. ignore duplicates as best we can
-            int prevLine = -1;
-            for (int i = 0; i < (size * 3 / 4); i++) {
-                int[] data = alineBuffers.get(i);
-
-                if (i == 0) {
-                    Console.print("{" + Integer.toHexString(data[0]) + "}");
-                }
-
-                int line = data[data.length - 1];
-                if (line != prevLine) {
-                    rangeLine(line, data, data.length - 1); // don't range that last int, which is the line number
-                }
-                prevLine = line;
-            }
-
-            // parse all lines, correcting data values for ranges
-            prevLine = -1;
-            for (int i = 0; i < size; i++) {
-                int[] lineData = alineBuffers.get(i);
-                int line = (lineData[lineData.length - 1]) + (height - maxLine + 1); // correct for vsync jitter by aligning at bottom
-                while (++prevLine <= line) {
-                    this.parseRawLine(prevLine, lineData, lineData.length - 1);
-                }
-                prevLine = line;
-            }
-
-            if (height > 500) {
-                for (int i = 0; i < channels; i++) {
-                    grayImages[i].setData(rasters[i]);
-                }
-            }
-
-        }
-    }
-
     // keep track of min and max for a line, for all channels
-    void rangeLine(int line, int[] data, int count) {
+    void rangeLine(int line, int[] data, int count
+    ) {
         int intensity;
 
         for (int channel = 0; channel < this.channels; channel++) {
@@ -152,7 +135,8 @@ public class SEMImage {
     }
 
     //todo: is this what we want?
-    int autoContrast(int value, int min, int max) {
+    int autoContrast(int value, int min, int max
+    ) {
         //return value;
         int newValue = (int) (((double) value - (double) min) * (double) 4095 / ((double) max - (double) min));
         if (newValue > 4095) {
@@ -166,7 +150,8 @@ public class SEMImage {
     //
     // extract separate image lines from one line of data
     //
-    void parseRawLine(int line, int[] data, int count) {
+    void parseRawLineToWriters(int line, int[] data, int count
+    ) {
         int pixel;
         int capturedChannel;
         int writeChannel;
@@ -184,61 +169,6 @@ public class SEMImage {
                 intensity = getValue(data[i]);
                 intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
 
-                // make a pseudo-gray-scale, full alpha pixel for display
-                rawBuffer[pixel] = grayScale(capturedChannel, intensity);
-
-                if (height > 500) {
-                    // and also a true grayscale image for saving to disk as PNG 16bit grayscale later
-                    grayRawBuffer[pixel] = intensity << 4;
-                }
-
-                pixel++;
-            }
-
-            // find the right image to write into
-            writeChannel = 0;
-            for (int i = 0; i < this.channels; i++) {
-                if (this.capturedChannels[i] == capturedChannel) {
-                    writeChannel = i;
-                    break;
-                }
-            }
-            // write rawBuffer into images[writeChannel]
-            try {
-                writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
-                if (height > 500) {
-                    rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
-                }
-            } catch (Exception e) {
-                System.out.println("Write failed: " + line + ", " + height);
-                System.out.println(e.getStackTrace());
-
-            }
-        }
-    }
-    //
-    // extract separate image lines from one line of data
-    //
-
-    void parseRawLineToWriters(int line, int[] data, int count) {
-        int pixel;
-        int capturedChannel;
-        int writeChannel;
-        int intensity;
-
-        if (line >= height) { // since we adjusted downward for jitter, some lines might be too high in number now.
-            return;
-        }
-
-        for (int channel = 0; channel < this.channels; channel++) {
-            // copy one line of pixels for a specific channel out of data into rawBuffer
-            pixel = 0;
-            capturedChannel = translateChannel(getEncodedChannel(data[channel]));
-            for (int i = channel; i < count; i += this.channels) {
-                intensity = getValue(data[i]);
-                intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
-
-                // make a pseudo-gray-scale, full alpha pixel for display
                 rawBuffer[pixel++] = grayScale(capturedChannel, intensity);
             }
 
@@ -253,51 +183,6 @@ public class SEMImage {
             // write rawBuffer into images[writeChannel]
             try {
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
-            } catch (Exception e) {
-                System.out.println("Write failed: " + line + ", " + height);
-                System.out.println(e.getStackTrace());
-
-            }
-        }
-    }
-    //
-    // extract separate image lines from one line of data
-    //
-
-    void parseRawLineToRasters(int line, int[] data, int count) {
-        int pixel;
-        int capturedChannel;
-        int writeChannel;
-        int intensity;
-
-        if (line >= height) { // since we adjusted downward for jitter, some lines might be too high in number now.
-            return;
-        }
-
-        for (int channel = 0; channel < this.channels; channel++) {
-            // copy one line of pixels for a specific channel out of data into rawBuffer
-            pixel = 0;
-            capturedChannel = translateChannel(getEncodedChannel(data[channel]));
-            for (int i = channel; i < count; i += this.channels) {
-                intensity = getValue(data[i]);
-                intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
-
-                // and also a true grayscale image for saving to disk as PNG 16bit grayscale later
-                grayRawBuffer[pixel] = intensity << 4;
-                pixel++;
-            }
-
-            // find the right image to write into
-            writeChannel = 0;
-            for (int i = 0; i < this.channels; i++) {
-                if (this.capturedChannels[i] == capturedChannel) {
-                    writeChannel = i;
-                    break;
-                }
-            }
-            // write rawBuffer into images[writeChannel]
-            try {
-                rasters[writeChannel].setPixels(0, line, width, 1, grayRawBuffer);
             } catch (Exception e) {
                 System.out.println("Write failed: " + line + ", " + height);
                 System.out.println(e.getStackTrace());
@@ -339,7 +224,7 @@ public class SEMImage {
         if (alineBuffers.isEmpty()) {
             return;
         }
-        
+
         // already done?
         if (images[0] != null) {
             return;
@@ -369,46 +254,6 @@ public class SEMImage {
 
     }
 
-    public void makeImagesForSave() {
-        if (alineBuffers.isEmpty()) {
-            return;
-        }
-
-        // already done?
-        if (grayImages[0] != null) {
-            return;
-        }
-
-        // compute min and max for contrast
-        rangeImages();
-
-        int size = alineBuffers.size();
-
-        // allocate images
-        for (int i = 0; i < channels; i++) {
-            grayImages[i] = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
-            rasters[i] = (WritableRaster) grayImages[i].getData();
-        }
-
-        // compute ranges from first 75% of image. ignore duplicates as best we can
-        rangeImages();
-        // parse all lines, correcting data values for ranges
-        int prevLine = -1;
-        for (int i = 0; i < size; i++) {
-            int[] lineData = alineBuffers.get(i);
-            int line = (lineData[lineData.length - 1]) + (height - maxLine + 1); // correct for vsync jitter by aligning at bottom
-            while (++prevLine <= line) {
-                this.parseRawLineToRasters(prevLine, lineData, lineData.length - 1);
-            }
-            prevLine = line;
-        }
-
-        for (int i = 0; i < channels; i++) {
-            grayImages[i].setData(rasters[i]);
-        }
-
-    }
-
     // get the encoded channel number from a word in the data stream
     int getEncodedChannel(int word) {
         return (word >> 12);
@@ -417,7 +262,7 @@ public class SEMImage {
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
     int getValue(int word) {
-        word = ((word & 0xFFF)); // - SEMImage.floorValue;
+        word = ((word & 0xFFF));
         if (word > 4095) {
             word = 4095;
         }
@@ -438,6 +283,9 @@ public class SEMImage {
         }
     }
 
+    // converts intensity into a kind of gray scale, 6 bits are distributed evenly, 2+2+2 divided up between the colors
+    // that way, we can save and later parse all the data with no losses
+    
     int grayScale(int realChannel, int intensity) {
         // todo: real gain calibration
         if (intensity > 4095) {
@@ -446,8 +294,6 @@ public class SEMImage {
             intensity = 0;
         }
 
-//        if (realChannel == 0) {
-        //special treatment
         int highSix = ((intensity >> 6) & 0x3F) << 2;
         int lowSix = intensity & 0x3F;
         int r = lowSix & 0x3;
@@ -460,6 +306,19 @@ public class SEMImage {
                 + ((highSix + r) << 16) // red
                 + ((highSix + g) << 8) // green
                 + (highSix + b);         // blue
+    }
+
+    // makes a red/blu stereo pixel out of two source pixels
+    // decodes intensities, put 8bit + 8bit back together again
+    // presumes that source pixels were computed by grayScale() (see above)
+    
+    int combinePixels(int left, int right, int realChannel) {
+        int intensityLeft = left & 0xFF; // blue contained the high 8 bits of intensity
+        int intensityRight = right & 0xFF;
+
+        return (0xFF000000 // full alpha
+                + (intensityRight << 16) // right becomes red
+                + (intensityLeft)); // left becomes blue
     }
 
 // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
@@ -476,7 +335,6 @@ public class SEMImage {
         pf = null;
 
         rawBuffer = null;
-        grayRawBuffer = null;
         alineBuffers = null;
 
     }

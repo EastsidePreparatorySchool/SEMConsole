@@ -27,11 +27,15 @@ public class SEMThread extends Thread {
     private LinkedTransferQueue<SEMImage> ltq;
     private Runnable update;
     private Runnable restart;
+    private Runnable updateScanning;
+    
+    static public double progress;
 
-    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart) {
+    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning) {
         this.ltq = q;
         this.update = update;
         this.restart = restart;
+        this.updateScanning = updateScanning;
     }
 
     SEMPort semport = null;
@@ -50,7 +54,7 @@ public class SEMThread extends Thread {
             this.phase = Phase.WAITING_FOR_FRAME;
             while (!this.isInterrupted() && this.phase != Phase.FINISHED && this.phase != Phase.ABORTED) {
                 this.lastPhase = this.phase;
-                this.phase = semport.processMessage(this.ltq, this.update, this.phase);
+                this.phase = semport.processMessage(this.ltq, this.update, this.updateScanning, this.phase);
                 if (this.phase == Phase.WAITING_FOR_FRAME || phase == Phase.WAITING_TO_CONNECT) {
                     Thread.yield();
                 }
