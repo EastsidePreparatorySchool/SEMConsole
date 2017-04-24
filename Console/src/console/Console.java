@@ -181,6 +181,7 @@ public class Console extends Application {
         this.thumbnails = new VBox();
 
         this.pin = new ProgressIndicator();
+        this.pin.setMaxHeight(400);
 
         /*
         ImageView lv = new ImageView(new Image("live.png"));
@@ -267,7 +268,7 @@ public class Console extends Application {
                 bigStage.close();
             }
         });
-        Platform.runLater(() -> startNewSession());
+        Platform.runLater(() -> {startNewSession();});
     }
 
     private void startNewSession() {
@@ -290,6 +291,8 @@ public class Console extends Application {
     }
 
     private void displayImageSet(SEMImage si) {
+        this.hideProgressIndicator();
+        
         int channels = 0;
         if (si != null) {
             channels = si.channels;
@@ -354,6 +357,7 @@ public class Console extends Application {
 
     private void showProgressIndicator() {
         if (this.masterPane.getChildren().size() < 2) {
+            this.pin.setProgress(-1);
             this.masterPane.getChildren().add(this.pin);
         }
     }
@@ -368,6 +372,7 @@ public class Console extends Application {
     }
 
     private void updateScanning() {
+        this.showProgressIndicator();
         this.pin.setProgress(this.semThread.progress);
     }
 
