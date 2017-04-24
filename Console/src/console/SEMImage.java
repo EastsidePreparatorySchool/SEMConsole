@@ -39,6 +39,7 @@ public class SEMImage {
     public int rangeMaxLine[];
     public int maxLine = 0;
     public String imageNames[];
+    public int aLineData[][];
 
     // for construction from stereo pairs only
     SEMImage left = null;
@@ -66,6 +67,13 @@ public class SEMImage {
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
         firstLine = true;
+        
+        //
+        // allocate lines
+        //
+        
+    //    this.aLineData = new int[height][width+1];
+        
     }
 
     SEMImage(SEMImage left, SEMImage right) {

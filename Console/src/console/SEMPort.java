@@ -167,7 +167,7 @@ public class SEMPort {
         byte[] ab;
         int checkSum = 0;
         int checkSumRead = 0;
-        int lines = 20;
+        int lines = 10;
 
         try {
             buffer.position(0);
@@ -394,6 +394,7 @@ public class SEMPort {
                         if (reasonEnd < 4) {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
+                        Console.printOn();
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + si.maxLine);
                         // process the raw data
