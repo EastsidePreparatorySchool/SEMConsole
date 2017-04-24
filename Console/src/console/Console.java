@@ -217,7 +217,6 @@ public class Console extends Application {
             this.aViews[i].setCache(true);
             this.aPanes[i].getChildren().add(this.aViews[i]);
             final int lambdaParam = i;
-            this.aViews[i].setOnMouseClicked((e) -> displayPhoto(this.aViews[lambdaParam].getImage()));
 
             if (i != 0) {
                 ColorAdjust colorAdjust = new ColorAdjust();
@@ -268,7 +267,9 @@ public class Console extends Application {
                 bigStage.close();
             }
         });
-        Platform.runLater(() -> {startNewSession();});
+        Platform.runLater(() -> {
+            startNewSession();
+        });
     }
 
     private void startNewSession() {
@@ -292,7 +293,7 @@ public class Console extends Application {
 
     private void displayImageSet(SEMImage si) {
         this.hideProgressIndicator();
-        
+
         int channels = 0;
         if (si != null) {
             channels = si.channels;
@@ -345,7 +346,10 @@ public class Console extends Application {
                 this.currentImageSet = si;
                 displayImageSet(this.currentImageSet);
             } else {
-                // for large (photo button) images, add to session
+                // for large (photo button) images, displau photo on large screen
+                displayPhoto(si);
+
+                /// and add to session
                 this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
 
                 // check if we are in the process of taking a stereo pair, and do the right thing
@@ -564,8 +568,12 @@ public class Console extends Application {
         }
     }
 
-    private void displayPhoto(Image image) {
+    private void displayPhoto(SEMImage si) {
         List<Screen> allScreens = Screen.getScreens();
+
+        si.makeImagesForDisplay();
+
+        Image image = si.images[0];
 
         if (this.bigStage == null) {
             // create large display window
@@ -673,11 +681,11 @@ public class Console extends Application {
     }
 
     private void addThumbnail(SEMImage si) {
-        si.makeImagesForDisplay();
-        displayPhoto(si.images[0]);
         StackPane sp = new StackPane();
         for (int i = si.channels - 1; i >= 0; i--) {
-            ImageView iv = new ImageView(si.images[i]);
+            ImageView iv;
+            iv = new ImageView(si.images[i]);
+
             iv.setFitHeight(150);
             iv.setFitWidth(200);
             iv.setPreserveRatio(false);
@@ -690,19 +698,27 @@ public class Console extends Application {
         }
         sp.setPrefSize(si.channels * 8 + 208, si.channels * 8 + 158);
 
-        sp.setPadding(new Insets(4, 4, 4, 4));
-        sp.setAlignment(Pos.CENTER);
-        sp.setOnMouseClicked((e) -> {
-            displayPhoto(si.images[0]);
+        // now take a snapshot of the whole stack, and put that into a new stackpane, saving lots of memory.
+        Image img = sp.snapshot(null, null);
+        ImageView iv = new ImageView(img);
+        StackPane sp2 = new StackPane(iv);
+
+        // kill the references to all the big images
+        si.dehydrate();
+
+        sp2.setPadding(new Insets(4, 4, 4, 4));
+        sp2.setAlignment(Pos.CENTER);
+        sp2.setOnMouseClicked((e) -> {
+            displayPhoto(si);
             selectPane(sp);
         });
 
         List t = thumbnails.getChildren();
         t.add(0, sp);
-        if (t.size() > 10) {
-            t.remove(t.size() - 1);
-        }
-        //    animateListItem(sp,  si.channels * 8 + 158);
+//        if (t.size() > 10) {
+//            t.remove(t.size() - 1);
+//        }
+//        animateListItem(sp2,  si.channels * 8 + 158);
     }
 
     public void saveFile(SEMImage si) {

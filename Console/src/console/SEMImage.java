@@ -38,12 +38,13 @@ public class SEMImage {
     public int rangeMax[];
     public int rangeMaxLine[];
     public int maxLine = 0;
+    public String imageNames[];
 
     // for construction from stereo pairs only
     SEMImage left = null;
     SEMImage right = null;
     String fileName = null;
-    
+
     Image thumbnail = null;
 
     SEMImage(int channels, int[] capturedChannels, int width, int height) {
@@ -60,6 +61,7 @@ public class SEMImage {
 
         images = new WritableImage[channels];
         writers = new PixelWriter[channels];
+        imageNames = new String[channels];
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
@@ -84,8 +86,25 @@ public class SEMImage {
 
         images = new WritableImage[channels];
         writers = new PixelWriter[channels];
+        imageNames = new String[channels];
 
         firstLine = true;
+    }
+
+    void dehydrate() {
+        for (int i = 0; i < channels; i++) {
+            if (imageNames[i] != null) {
+                images[i] = null;
+            }
+        }
+    }
+
+    void rehydrate() {
+        for (int i = 0; i < channels; i++) {
+            if (imageNames[i] != null) {
+                // todo: reload image from file;
+            }
+        }
     }
 
     void knitStereoImage() {
@@ -285,7 +304,6 @@ public class SEMImage {
 
     // converts intensity into a kind of gray scale, 6 bits are distributed evenly, 2+2+2 divided up between the colors
     // that way, we can save and later parse all the data with no losses
-    
     int grayScale(int realChannel, int intensity) {
         // todo: real gain calibration
         if (intensity > 4095) {
@@ -311,7 +329,6 @@ public class SEMImage {
     // makes a red/blu stereo pixel out of two source pixels
     // decodes intensities, put 8bit + 8bit back together again
     // presumes that source pixels were computed by grayScale() (see above)
-    
     int combinePixels(int left, int right, int realChannel) {
         int intensityLeft = left & 0xFF; // blue contained the high 8 bits of intensity
         int intensityRight = right & 0xFF;
