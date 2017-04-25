@@ -107,6 +107,7 @@ public class Console extends Application {
         primaryStage.setTitle("SEM Console");
         this.bp = new BorderPane();
         this.root = this.bp;
+        this.bp.setStyle("-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #4d3399, #661a33)");
 
         // top line - controls
         top = new HBox();
@@ -205,6 +206,10 @@ public class Console extends Application {
         ScrollPane scp = new ScrollPane(thumbnails);
         scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scp.setMinWidth(240);
+        scp.setPrefHeight(1000);
+        scp.setStyle("-fx-background: rgb(75,00,25);");
+
         this.left.getChildren().addAll(/*sp1,*/scp);
 
         this.right = new StackPane();
@@ -243,6 +248,8 @@ public class Console extends Application {
         vb.setAlignment(Pos.CENTER);
 
         VBox vb2 = new VBox();
+
+        this.top.setStyle("-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #996699, #661a33)");
 
         bp.setBottom(this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
