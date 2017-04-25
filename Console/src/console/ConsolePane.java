@@ -102,7 +102,7 @@ public class ConsolePane extends VBox {
     }
 
     public void println(final String text) {
-        if (++msgCounter > 1000) {
+        if (++msgCounter > 100) {
             msgCounter = 0;
             clear();
         }

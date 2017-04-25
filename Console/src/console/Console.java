@@ -185,30 +185,13 @@ public class Console extends Application {
         this.pin = new ProgressIndicator();
         this.pin.setMaxHeight(400);
 
-        /*
-        ImageView lv = new ImageView(new Image("live.png"));
-        lv.setFitHeight(150);
-        lv.setFitWidth(200);
-        lv.setPreserveRatio(false);
-        lv.setSmooth(true);
-
-        StackPane sp1 = new StackPane();
-        sp1.setPrefSize(200, 150);
-        sp1.setPadding(new Insets(4, 4, 4, 4));
-        sp1.setAlignment(Pos.CENTER);
-        sp1.getChildren().add(lv);
-        sp1.setOnMouseClicked((e) -> {
-            displayImageSet(this.nextImageSet);
-            selectPane(sp1);
-            e.consume();
-        });
-         */
         ScrollPane scp = new ScrollPane(thumbnails);
         scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scp.setMinWidth(240);
         scp.setPrefHeight(1000);
-        scp.setStyle("-fx-background: rgb(75,00,25);");
+        scp.setStyle("-fx-background: rgb(75,00,25);-fx-border-color: rgb(75,00,25);");
+        scp.getStyleClass().add("edge-to-edge");
 
         this.left.getChildren().addAll(/*sp1,*/scp);
 
@@ -310,11 +293,15 @@ public class Console extends Application {
         // set absent channel images to empty
         if (channels < 4) {
             for (int i = channels; i < 4; i++) {
-                this.aViews[i].setImage(null);
+                this.aViews[i].setImage(new Image("live.png"));
             }
         }
 
         if (si == null) {
+            for (int i = 0; i < 4; i++) {
+                this.aViews[i].setImage(null);
+            }
+
             return;
         }
 
@@ -368,6 +355,7 @@ public class Console extends Application {
     }
 
     private void showProgressIndicator() {
+        displayImageSet(null);
         this.masterPane.getChildren().remove(this.pin);
         this.masterPane.getChildren().add(this.pin);
     }
