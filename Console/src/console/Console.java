@@ -97,6 +97,11 @@ public class Console extends Application {
     static private ConsolePane cp;
     static private boolean printOff = false;
 
+//    final static private String [] colorScheme = {"#accbe1","#7c98b3","#536b78","#cee5f2", "#e2c044"};
+//    final static private String [] colorScheme = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
+//    final static private String [] colorScheme = {"#2e6266","#6e8898", "#9fb1bc", "#d3d0cb", "#e2c044"};
+    final static private String[] colorScheme = {"#d3d0cb", "#9fb1bc", "#6e8898", "#2e6266", "#e2c044"};
+
     @Override
     public void start(Stage primaryStage) {
 
@@ -107,7 +112,6 @@ public class Console extends Application {
         primaryStage.setTitle("SEM Console");
         this.bp = new BorderPane();
         this.root = this.bp;
-        this.bp.setStyle("-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #4d3399, #661a33)");
 
         // top line - controls
         top = new HBox();
@@ -161,7 +165,6 @@ public class Console extends Application {
 
         HBox h4 = new HBox();
         h4.getChildren().addAll(stereoButton, h3);
-        h4.setBorder(new Border(new BorderStroke(Color.DARKBLUE, BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
 
         top.setPadding(new Insets(15, 12, 15, 12));
         top.getChildren().addAll(newSession, new Text("    "), btn, h, h2, new Text("    "), h4);
@@ -190,7 +193,6 @@ public class Console extends Application {
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scp.setMinWidth(240);
         scp.setPrefHeight(1000);
-        scp.setStyle("-fx-background: rgb(75,00,25);-fx-border-color: rgb(75,00,25);");
         scp.getStyleClass().add("edge-to-edge");
 
         this.left.getChildren().addAll(/*sp1,*/scp);
@@ -232,7 +234,10 @@ public class Console extends Application {
 
         VBox vb2 = new VBox();
 
-        this.top.setStyle("-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #996699, #661a33)");
+        this.bp.setStyle("-fx-background-color: " + colorScheme[0] + ";");
+        scp.setStyle("-fx-background: " + colorScheme[1] + ";");
+        this.top.setStyle("-fx-background-color: " + colorScheme[2] + ";");
+        h4.setBorder(new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
 
         bp.setBottom(this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
