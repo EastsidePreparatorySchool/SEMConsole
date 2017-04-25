@@ -37,6 +37,7 @@ struct BytesParams *g_pbp;
 
 struct Resolution {
   int scanLineTime; // scan length (in microseconds) for recognizing this resolution
+  int tolerance;    // +- microseconds
   int numPixels;    // number of pixels we will set up to scan for line
   int numChannels;  // number of channels for every pixel
   int numLines;     // documented number of lines (in actuality, we will obey vsync)
@@ -48,12 +49,13 @@ struct Resolution *g_pCurrentRes;
 
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
-// scan line time, pixels, channels, spec lines, samples
-//  {           160,    180,        1,        182,     1 }, // RAPID2 mag 100
-  {          1183,   1200,        1,        536,     1 }, // RAPID2 mag 10
-  {          5790,   1040,        1,        840,    16 }, // SLOW1
-  {         10800,   2920,        1,       2276,    10 }, // H3V5
-  {         33326,   4000,        1,       3000,    22 }  // H6V7
+// scan line time, tolerance, pixels, channels, spec lines, samples
+  {           160,    40,    180,        1,        182,     1 }, // RAPID2 mag 100
+  {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
+  {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
+  {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
+  {         33326,   500,   4000,        1,       3000,    22 }, // H6V7
+  {        240000, 11000,   4000,        1,       3000,    40 }  // H8V9
 };
 
 
@@ -644,7 +646,7 @@ struct Resolution *getResolution(int lineTime) {
   // go through known resolutions
   
   for (i=0; i<NUM_MODES; i++) {
-    if (lineTime > (g_allRes[i].scanLineTime - 500) && lineTime < (g_allRes[i].scanLineTime + 500)) {
+    if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance)) {
       return &g_allRes[i];
     }
   }
@@ -666,6 +668,7 @@ bool okToWrite() {
 void loop () {
   int timeLineScan = 0;
   int line;
+  int dropCount = 0;
 
   // 
   // let hsync measure the time
@@ -681,37 +684,48 @@ void loop () {
   // time has been measured by hsync, let's do our calculations, set up the scan buffers and start scanning!
   //
   if (g_phase == PHASE_READY_FOR_SCAN) {
-    g_pCurrentRes = getResolution(g_measuredLineTime);
-    if (g_pCurrentRes != NULL) {
-      if (g_pCurrentRes != g_lastRes) {
-        adjustToNewRes();
-        g_lastRes = g_pCurrentRes;
-      }
-
-      // if lowres, make sure the queue has room. if hires, we have time to block on the write
-      if (okToWrite()) {
-        g_fFrameInProgress = true;
-        sendFrameHeader();
-  
-        g_timeFrame = millis();
-        g_trackTime = g_measuredLineTime;
-        g_trackFaults = 0;
-        g_fLineReady = false;
-        g_pDest = (uint16_t *)&g_pbp[1];
-        g_count = g_pCurrentRes->numSamples;
-        g_pixels = g_pCurrentRes->numPixels;
-        g_phase = PHASE_SCANNING;
-      } else {
+    if (g_measuredLineTime < 300) {
+      if (dropCount > 0) {
         g_phase = PHASE_CHECK;
+        dropCount--;
+      } else {
+        dropCount = 2;
       }
-    } else {// res not recognized
-      if (g_resFaults++ > MAX_RES_FAULTS) {
-        g_reason = REASON_NO_RES;
-        g_argument = g_measuredLineTime;
-        g_phase = PHASE_IDLE;
-      } else
-        g_phase = PHASE_READY_TO_MEASURE;
-    }    
+    } 
+    
+  if (g_phase == PHASE_READY_FOR_SCAN)  {
+      g_pCurrentRes = getResolution(g_measuredLineTime);
+      if (g_pCurrentRes != NULL) {
+        if (g_pCurrentRes != g_lastRes) {
+          adjustToNewRes();
+          g_lastRes = g_pCurrentRes;
+        }
+  
+        // if lowres, make sure the queue has room. if hires, we have time to block on the write
+        if (okToWrite()) {
+          g_fFrameInProgress = true;
+          sendFrameHeader();
+    
+          g_timeFrame = millis();
+          g_trackTime = g_measuredLineTime;
+          g_trackFaults = 0;
+          g_fLineReady = false;
+          g_pDest = (uint16_t *)&g_pbp[1];
+          g_count = g_pCurrentRes->numSamples;
+          g_pixels = g_pCurrentRes->numPixels;
+          g_phase = PHASE_SCANNING;
+        } else {
+          g_phase = PHASE_CHECK;
+        }
+      } else {// res not recognized
+        if (g_resFaults++ > MAX_RES_FAULTS) {
+          g_reason = REASON_NO_RES;
+          g_argument = g_measuredLineTime;
+          g_phase = PHASE_IDLE;
+        } else
+          g_phase = PHASE_READY_TO_MEASURE;
+      }    
+    }
   }
 
   //
@@ -731,7 +745,7 @@ void loop () {
     // send the line
     sendLine(g_lineBytes);
 
-    if (!g_fSlow) { // can't do this when we switch of interrupts all the time
+    if (!g_fSlow) { // can't do this when we switch off interrupts all the time
       // if resolution changed, end the frame by switching to next phase
       if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
         if (++g_trackFaults >= MAX_TRACK_FAULTS){
