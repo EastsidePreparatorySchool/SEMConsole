@@ -447,25 +447,28 @@ public class Console extends Application {
 
     private void startSEMThread() {
         btn.setDisable(true);
-        // stop any existing SEM thread
+        btn.setTextFill(Color.GRAY);
+        new Thread(() -> {
+            // stop any existing SEM thread
+            stopSEMThread();
 
-        this.txt.setText("Trying to connect, please be patient ...");
-        Console.println();
-        Console.println("[Console: connecting ...]");
-        stopSEMThread();
+            this.txt.setText("Trying to connect, please be patient ...");
+            Console.println();
+            Console.println("[Console: connecting ...]");
 
-        // and create a new one
-        try {
-            System.out.println("starting thread ...");
-            semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> SEMThreadStopped(), () -> updateScanning());
-            semThread.start();
-            semThread.setPriority(Thread.MAX_PRIORITY);
-        } catch (Exception e) {
-            System.out.println("exception starting thread.");
-            System.out.println(e.getMessage());
-        }
+            // and create a new one
+            try {
+                System.out.println("starting thread ...");
+                semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> SEMThreadStopped(), () -> updateScanning());
+                semThread.start();
+                semThread.setPriority(Thread.MAX_PRIORITY);
+            } catch (Exception e) {
+                System.out.println("exception starting thread.");
+                System.out.println(e.getMessage());
+            }
 
-        runLaterAfterDelay(2000, () -> startThreadLambda());
+            runLaterAfterDelay(3000, () -> startThreadLambda());
+        }).start();
     }
 
     private void startThreadLambda() {
@@ -474,9 +477,11 @@ public class Console extends Application {
             this.txt.setText("Connected");
             btn.setOnAction((event) -> stopSEMThread());
         } else {
+            semThread = null;
             this.txt.setText("Not connected");
         }
         btn.setDisable(false);
+        btn.setTextFill(Color.BLACK);
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
@@ -486,7 +491,7 @@ public class Console extends Application {
     }
 
     private void stopSEMThread() {
-        btn.setDisable(true);
+
         this.hideProgressIndicator();
         if (semThread != null) {
             Console.println();
@@ -505,8 +510,16 @@ public class Console extends Application {
             this.btn.setText("Connect");
             this.txt.setText("Not connected");
         }
+    }
+
+    private void disconnect() {
+        btn.setDisable(true);
+        btn.setTextFill(Color.GRAY);
+        stopSEMThread();
         btn.setOnAction((event) -> startSEMThread());
         btn.setDisable(false);
+        btn.setTextFill(Color.BLACK);
+
     }
 
     private void SEMThreadStopped() {
