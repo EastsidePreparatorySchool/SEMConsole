@@ -39,7 +39,8 @@ public class SEMImage {
     public int rangeMaxLine[];
     public int maxLine = 0;
     public String imageNames[];
-    public int aLineData[][];
+//    public int aLineData[][];
+    public LineBuffer lb;
     public int lineCounter;
 
     // for construction from stereo pairs only
@@ -72,7 +73,8 @@ public class SEMImage {
         //
         // allocate lines
         //
-        this.aLineData = new int[height][width + 1];
+//        this.aLineData = new int[height][width + 1];
+        this.lb = LineBuffer.grabLineBuffer(width, height);
         this.lineCounter = 0;
 
     }
@@ -140,7 +142,7 @@ public class SEMImage {
         if (lineCounter >= height) {
             return null;
         }
-        return this.aLineData[lineCounter++];
+        return this.lb.data[lineCounter++];
 
     }
 
@@ -373,6 +375,7 @@ public class SEMImage {
 
         rawBuffer = null;
         alineBuffers = null;
+        LineBuffer.returnLineBuffer(this.lb);
 
     }
 }
