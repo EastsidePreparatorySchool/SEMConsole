@@ -50,7 +50,7 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
 // scan line time, tolerance, pixels, channels, spec lines, samples
-  {           160,    40,    180,        1,        182,     1 }, // RAPID2 mag 100
+//  {           160,    40,    180,        1,        182,     1 }, // RAPID2 mag 100
   {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
   {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
@@ -58,6 +58,7 @@ struct Resolution g_allRes[] = {
   {        240000, 11000,   4000,        1,       3000,    40 }  // H8V9
 };
 
+#define FAST_DROP_COUNT 3
 
 #define NUM_MODES (sizeof(g_allRes)/sizeof(struct Resolution))
 
@@ -668,7 +669,7 @@ bool okToWrite() {
 void loop () {
   int timeLineScan = 0;
   int line;
-  static int dropCount = 0;
+  static int dropCount = FAST_DROP_COUNT;
 
   // 
   // let hsync measure the time
@@ -691,7 +692,7 @@ void loop () {
         g_phase = PHASE_CHECK;
         dropCount--;
       } else {
-        dropCount = 12;
+        dropCount = FAST_DROP_COUNT;
       }
     }
   }
