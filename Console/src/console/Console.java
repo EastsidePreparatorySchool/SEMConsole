@@ -240,6 +240,7 @@ public class Console extends Application {
         scp.setStyle("-fx-background: " + colorScheme[1] + ";");
         this.top.setStyle("-fx-background-color: " + colorScheme[2] + ";");
         h4.setBorder(new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
+        this.pin.setStyle(/*"-fx-background-color: " + colorScheme[0] +*/ ";-fx-progress-color: " + colorScheme[4] + ";");
 
         bp.setBottom(this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
@@ -300,7 +301,7 @@ public class Console extends Application {
         // set absent channel images to empty
         if (channels < 4) {
             for (int i = channels; i < 4; i++) {
-                this.aViews[i].setImage(new Image("live.png"));
+                this.aViews[i].setImage(null);
             }
         }
 
@@ -362,19 +363,30 @@ public class Console extends Application {
     }
 
     private void showProgressIndicator() {
-        displayImageSet(null);
-        this.masterPane.getChildren().remove(this.pin);
-        this.masterPane.getChildren().add(this.pin);
+        //displayImageSet(null);
+        int index = this.masterPane.getChildren().indexOf(this.pin);
+        int size = this.masterPane.getChildren().size();
+
+        if (index != size-1) {
+            if (index != -1) {
+                this.masterPane.getChildren().remove(index);
+            }
+            this.masterPane.getChildren().add(this.pin);
+        }
     }
 
     private void hideProgressIndicator() {
-        this.masterPane.getChildren().remove(this.pin);
+        int index = this.masterPane.getChildren().indexOf(this.pin);
+        if (index != -1) {
+            this.masterPane.getChildren().remove(index);
+        }
         this.pin.setProgress(0);
     }
 
     private void updateScanning() {
-        this.pin.setProgress(this.semThread.progress);
+        System.out.println("Progress: " + this.semThread.progress);
         this.showProgressIndicator();
+        this.pin.setProgress(this.semThread.progress);
     }
 
     private enum StereoState {

@@ -29,7 +29,7 @@ public class SEMThread extends Thread {
     private Runnable restart;
     private Runnable updateScanning;
     
-    static public double progress;
+    static public volatile double progress;
 
     SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning) {
         this.ltq = q;
