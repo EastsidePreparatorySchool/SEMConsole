@@ -668,7 +668,7 @@ bool okToWrite() {
 void loop () {
   int timeLineScan = 0;
   int line;
-  int dropCount = 0;
+  static int dropCount = 0;
 
   // 
   // let hsync measure the time
@@ -686,47 +686,50 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN) {
     if (g_measuredLineTime < 300) {
       if (dropCount > 0) {
+        g_reason = REASON_NO_RES;         // this is a lie
+        g_argument = g_measuredLineTime;
         g_phase = PHASE_CHECK;
         dropCount--;
       } else {
-        dropCount = 2;
+        dropCount = 12;
       }
-    } 
-    
-  if (g_phase == PHASE_READY_FOR_SCAN)  {
-      g_pCurrentRes = getResolution(g_measuredLineTime);
-      if (g_pCurrentRes != NULL) {
-        if (g_pCurrentRes != g_lastRes) {
-          adjustToNewRes();
-          g_lastRes = g_pCurrentRes;
-        }
-  
-        // if lowres, make sure the queue has room. if hires, we have time to block on the write
-        if (okToWrite()) {
-          g_fFrameInProgress = true;
-          sendFrameHeader();
-    
-          g_timeFrame = millis();
-          g_trackTime = g_measuredLineTime;
-          g_trackFaults = 0;
-          g_fLineReady = false;
-          g_pDest = (uint16_t *)&g_pbp[1];
-          g_count = g_pCurrentRes->numSamples;
-          g_pixels = g_pCurrentRes->numPixels;
-          g_phase = PHASE_SCANNING;
-        } else {
-          g_phase = PHASE_CHECK;
-        }
-      } else {// res not recognized
-        if (g_resFaults++ > MAX_RES_FAULTS) {
-          g_reason = REASON_NO_RES;
-          g_argument = g_measuredLineTime;
-          g_phase = PHASE_IDLE;
-        } else
-          g_phase = PHASE_READY_TO_MEASURE;
-      }    
     }
   }
+    
+  if (g_phase == PHASE_READY_FOR_SCAN)  {
+    g_pCurrentRes = getResolution(g_measuredLineTime);
+    if (g_pCurrentRes != NULL) {
+      if (g_pCurrentRes != g_lastRes) {
+        adjustToNewRes();
+        g_lastRes = g_pCurrentRes;
+      }
+
+      // if lowres, make sure the queue has room. if hires, we have time to block on the write
+      if (okToWrite()) {
+        g_fFrameInProgress = true;
+        sendFrameHeader();
+  
+        g_timeFrame = millis();
+        g_trackTime = g_measuredLineTime;
+        g_trackFaults = 0;
+        g_fLineReady = false;
+        g_pDest = (uint16_t *)&g_pbp[1];
+        g_count = g_pCurrentRes->numSamples;
+        g_pixels = g_pCurrentRes->numPixels;
+        g_phase = PHASE_SCANNING;
+      } else {
+        g_phase = PHASE_CHECK;
+      }
+    } else {// res not recognized
+      if (g_resFaults++ > MAX_RES_FAULTS) {
+        g_reason = REASON_NO_RES;
+        g_argument = g_measuredLineTime;
+        g_phase = PHASE_IDLE;
+      } else
+        g_phase = PHASE_READY_TO_MEASURE;
+    }    
+  }
+
 
   //
   // main line scanning

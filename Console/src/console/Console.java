@@ -97,10 +97,12 @@ public class Console extends Application {
     static private ConsolePane cp;
     static private boolean printOff = false;
 
-//    final static private String [] colorScheme = {"#accbe1","#7c98b3","#536b78","#cee5f2", "#e2c044"};
-//    final static private String [] colorScheme = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
-//    final static private String [] colorScheme = {"#2e6266","#6e8898", "#9fb1bc", "#d3d0cb", "#e2c044"};
-    final static private String[] colorScheme = {"#d3d0cb", "#9fb1bc", "#6e8898", "#2e6266", "#e2c044"};
+    final static private String[] colorScheme1 = {"#accbe1", "#7c98b3", "#536b78", "#cee5f2", "#e2c044"};
+    final static private String[] colorScheme2 = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
+    final static private String[] colorScheme3 = {"#2e6266", "#6e8898", "#9fb1bc", "#d3d0cb", "#e2c044"};
+    final static private String[] colorScheme4 = {"#d3d0cb", "#9fb1bc", "#6e8898", "#2e6266", "#e2c044"};
+
+    final static private String[] colorScheme = colorScheme4;
 
     @Override
     public void start(Stage primaryStage) {
