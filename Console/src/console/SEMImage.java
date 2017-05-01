@@ -293,6 +293,7 @@ public class SEMImage {
             prevLine = line;
         }
 
+        cleanUp();
     }
 
     // get the encoded channel number from a word in the data stream

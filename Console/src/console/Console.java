@@ -291,8 +291,6 @@ public class Console extends Application {
     }
 
     private void displayImageSet(SEMImage si) {
-        this.hideProgressIndicator();
-
         int channels = 0;
         if (si != null) {
             channels = si.channels;
@@ -347,6 +345,7 @@ public class Console extends Application {
         for (SEMImage si : newImages) {
             if (si.height < 1500) {
                 this.currentImageSet = si;
+                this.hideProgressIndicator();
                 displayImageSet(this.currentImageSet);
             } else {
                 // for large (photo button) images, displau photo on large screen
