@@ -40,6 +40,7 @@ public class SEMImage {
     public int maxLine = 0;
     public String imageNames[];
     public int aLineData[][];
+    public int lineCounter;
 
     // for construction from stereo pairs only
     SEMImage left = null;
@@ -67,13 +68,13 @@ public class SEMImage {
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
         firstLine = true;
-        
+
         //
         // allocate lines
         //
-        
-    //    this.aLineData = new int[height][width+1];
-        
+        this.aLineData = new int[height][width + 1];
+        this.lineCounter = 0;
+
     }
 
     SEMImage(SEMImage left, SEMImage right) {
@@ -135,14 +136,22 @@ public class SEMImage {
         }
     }
 
+    int[] getNextDataLine() {
+        if (lineCounter >= height) {
+            return null;
+        }
+        return this.aLineData[lineCounter++];
+
+    }
+
     void fileDataLine(int line, int[] data, int count) {
         if (line < 0) {
             return;
         }
 
-        int[] copy = Arrays.copyOf(data, count + 1);
-        copy[count] = line;
-        this.alineBuffers.add(copy);
+        data[count] = line;
+
+        this.alineBuffers.add(data);
         if (line > maxLine) {
             maxLine = line;
         }
@@ -336,13 +345,10 @@ public class SEMImage {
                 + ((highSix + g) << 8) // green
                 + (highSix + b);         // blue
     }
-    
-    
 
     // makes a red/blu stereo pixel out of two source pixels
     // decodes intensities, put 8bit + 8bit back together again
     // presumes that source pixels were computed by grayScale() (see above)
-    
     int combinePixels(int left, int right, int realChannel) {
         int intensityLeft = left & 0xFF; // blue contained the high 8 bits of intensity
         int intensityRight = right & 0xFF;

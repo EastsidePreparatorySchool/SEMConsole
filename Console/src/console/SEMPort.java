@@ -336,16 +336,20 @@ public class SEMPort {
                         }
 
                         int word;
-                        for (int i = 0; i < bytes / 2; i++) {
-                            word = Short.toUnsignedInt(buffer.getShort());
-                            rawMultiChannelBuffer[i] = word;
-                            checkSum += word;
-                        }
+                        int[] nextLineBuffer = this.si.getNextDataLine();
+                        if (nextLineBuffer != null) {
+                            for (int i = 0; i < bytes / 2; i++) {
+                                word = Short.toUnsignedInt(buffer.getShort());
+                                nextLineBuffer[i] = word;
+                                checkSum += word;
+                            }
 
-                        if (checkSum != checkSumRead) {
-                            throw new SEMException(SEMError.ERROR_CHECK_SUM);
-                        }
+                            if (checkSum != checkSumRead) {
+                                throw new SEMException(SEMError.ERROR_CHECK_SUM);
+                            }
 
+                            this.si.fileDataLine(line, nextLineBuffer, bytes / 2);
+                        }
                         // print dot for successful lines, send "ok", process line
                         if (++dotCounter % lines == 0) {
                             if (this.si.height > 600) {
@@ -357,9 +361,6 @@ public class SEMPort {
                             }
                         }
                         numOKs++;
-                        this.si.fileDataLine(line, this.rawMultiChannelBuffer, bytes / 2);
-                        //this.si.parseRawLine(line, this.rawMultiChannelBuffer, bytes / 2);
-
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         break;
 
@@ -368,6 +369,10 @@ public class SEMPort {
                             throw new SEMException(SEMError.ERROR_WRONG_PHASE);
                         }
 
+                        if (this.si.height > 1500) {
+                            SEMThread.progress = 1.0;
+                            Platform.runLater(updateScanning);
+                        }
                         Console.println();
                         Console.print("End of frame. Max line adc time: ");
                         if (buffer.remaining() < 2) {
