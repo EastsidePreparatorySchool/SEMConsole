@@ -383,7 +383,7 @@ public class Console extends Application {
     }
 
     private void updateScanning() {
-        System.out.println("Progress: " + this.semThread.progress);
+//        System.out.println("Progress: " + this.semThread.progress);
         this.showProgressIndicator();
         this.pin.setProgress(this.semThread.progress);
     }

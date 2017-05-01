@@ -33,6 +33,7 @@ public class LineBuffer {
 
         synchronized (buffers) {
             if (buffers.isEmpty()) {
+                System.out.println("New Line buffer");
                 return new LineBuffer(width, height);
             }
             lb = buffers.remove(0);
