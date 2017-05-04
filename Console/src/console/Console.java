@@ -240,7 +240,7 @@ public class Console extends Application {
         scp.setStyle("-fx-background: " + colorScheme[1] + ";");
         this.top.setStyle("-fx-background-color: " + colorScheme[2] + ";");
         h4.setBorder(new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
-        this.pin.setStyle(/*"-fx-background-color: " + colorScheme[0] +*/ ";-fx-progress-color: " + colorScheme[4] + ";");
+        this.pin.setStyle(/*"-fx-background-color: " + colorScheme[0] +*/";-fx-progress-color: " + colorScheme[4] + ";");
 
         bp.setBottom(this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
@@ -366,7 +366,7 @@ public class Console extends Application {
         int index = this.masterPane.getChildren().indexOf(this.pin);
         int size = this.masterPane.getChildren().size();
 
-        if (index != size-1) {
+        if (index != size - 1) {
             if (index != -1) {
                 this.masterPane.getChildren().remove(index);
             }
@@ -454,6 +454,8 @@ public class Console extends Application {
     private void startSEMThread() {
         btn.setDisable(true);
         btn.setTextFill(Color.GRAY);
+        this.pin.setProgress(-1);
+        this.showProgressIndicator();
         new Thread(() -> {
             // stop any existing SEM thread
             stopSEMThread();
@@ -481,7 +483,7 @@ public class Console extends Application {
         if (semThread != null && semThread.isAlive()) {
             this.btn.setText("Disconnect");
             this.txt.setText("Connected");
-            btn.setOnAction((event) -> stopSEMThread());
+            btn.setOnAction((event) -> disconnect());
         } else {
             semThread = null;
             this.txt.setText("Not connected");
@@ -498,7 +500,6 @@ public class Console extends Application {
 
     private void stopSEMThread() {
 
-        this.hideProgressIndicator();
         if (semThread != null) {
             Console.println();
 
@@ -521,7 +522,10 @@ public class Console extends Application {
     private void disconnect() {
         btn.setDisable(true);
         btn.setTextFill(Color.GRAY);
+        this.pin.setProgress(-1.0);
+        this.showProgressIndicator();
         stopSEMThread();
+        this.hideProgressIndicator();
         btn.setOnAction((event) -> startSEMThread());
         btn.setDisable(false);
         btn.setTextFill(Color.BLACK);
