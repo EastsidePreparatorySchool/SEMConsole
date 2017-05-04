@@ -514,7 +514,6 @@ public class Console extends Application {
             }
             semThread = null;
             Console.println("[Console: disconnected]");
-            this.btn.setText("Connect");
             this.txt.setText("Not connected");
         }
     }
@@ -524,11 +523,16 @@ public class Console extends Application {
         btn.setTextFill(Color.GRAY);
         this.pin.setProgress(-1.0);
         this.showProgressIndicator();
-        stopSEMThread();
-        this.hideProgressIndicator();
-        btn.setOnAction((event) -> startSEMThread());
-        btn.setDisable(false);
-        btn.setTextFill(Color.BLACK);
+        new Thread(() -> {
+            stopSEMThread();
+            Platform.runLater(() -> {
+                this.hideProgressIndicator();
+                btn.setOnAction((event) -> startSEMThread());
+                btn.setDisable(false);
+                this.btn.setText("Connect");
+                btn.setTextFill(Color.BLACK);
+            });
+        }).start();
 
     }
 
