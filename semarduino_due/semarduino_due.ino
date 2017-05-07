@@ -50,7 +50,7 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
 // scan line time, tolerance, pixels, channels, spec lines, samples
-//  {           160,    40,    180,        1,        182,     1 }, // RAPID2 mag 100
+  {           160,    40,    180,        1,        182,     1 }, // RAPID2 mag 100
   {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
   {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
@@ -79,7 +79,7 @@ struct Resolution g_allRes[] = {
 
 #define REASON_IDLE   0
 #define REASON_NO_RES 1
-#define REASON_TRACK  2
+#define REASON_DROP   2
 #define REASON_VSYNC  3
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
@@ -103,10 +103,6 @@ volatile bool g_adcInProgress;
 int g_lineBytes;
 volatile int g_phase;
 volatile int g_measuredLineTime;
-volatile long g_trackTimeStart;
-volatile long g_prevTrackTimeStart;
-volatile long g_trackTime;
-volatile long g_trackFaults;
 volatile int g_reason;
 volatile int g_argument;
 volatile int g_numLines;
@@ -127,7 +123,6 @@ uint16_t * g_pDest;
 
 #define DROP_LINES 5;
 #define MAX_RES_FAULTS 10
-#define MAX_TRACK_FAULTS 10
 #define MAX_ERRORS  100
 #define USB_TIMEOUT 100
 #define USB_MIN_WRITE_BUFFER_SIZE 60
@@ -367,8 +362,6 @@ struct EndFrame {
 void sendEndFrame(int lineTime, int frameTime) {
   static struct EndFrame h = {{'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'}, 0, 0};
 
-  flipLED();
-  
   h.lineTime = lineTime;
   h.frameTime = frameTime;
   if (okToWrite()) {
@@ -468,6 +461,9 @@ void initializeADC() {
   } else {
     // slow mode
     ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed 
+//todo: put this back
+//    ADC->ADC_MR |= 0x80;            //set free running mode on ADC
+//    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
     ADC->ADC_MR |= 0x80;            //set free running mode on ADC
     ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
   }
@@ -536,7 +532,6 @@ void flipLED() {
 
 void vsyncHandler() {
   if (digitalRead(VSYNC_PIN) == HIGH) { // rising edge
-
     switch (g_phase) {
       case PHASE_CHECK:
       //todo: ?
@@ -556,7 +551,6 @@ void vsyncHandler() {
         // time to end the frame and send the image
         g_reason = REASON_VSYNC; 
         g_phase = PHASE_IDLE;
-//        flipLED();
         break;
   
       case PHASE_IDLE:
@@ -564,7 +558,7 @@ void vsyncHandler() {
       case PHASE_MEASURING:
       case PHASE_READY_FOR_SCAN:
         // we should never get here, but hey, just stop everything
-        g_phase = PHASE_CHECK;
+        //g_phase = PHASE_IDLE;
         break;
     }
   }
@@ -592,19 +586,11 @@ void hsyncHandler() {
         // take scan time, get ready to start scanning (initiated by main program, need to set up ADC first)
         g_measuredLineTime = micros() - g_measuredLineTime;
         g_phase = PHASE_READY_FOR_SCAN;
-        g_trackTimeStart = 0;
         g_numLines = 0;
         break;
         
       case PHASE_SCANNING:
         if (!g_fSlow) {
-          // keep track of hsync interval, if resolution changes, main routine will trigger vsync and end frame
-          g_prevTrackTimeStart = g_trackTimeStart;
-          g_trackTimeStart = micros();
-          if (g_prevTrackTimeStart != 0) {
-            g_trackTime = g_trackTimeStart - g_prevTrackTimeStart;
-          }
-
           // start ADC (completion handled by ADC interrupt)
           startADC();
         } else {
@@ -687,7 +673,7 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN) {
     if (g_measuredLineTime < 300) {
       if (dropCount > 0) {
-        g_reason = REASON_NO_RES;         // this is a lie
+        g_reason = REASON_DROP;        
         g_argument = g_measuredLineTime;
         g_phase = PHASE_CHECK;
         dropCount--;
@@ -708,11 +694,9 @@ void loop () {
       // if lowres, make sure the queue has room. if hires, we have time to block on the write
       if (okToWrite()) {
         g_fFrameInProgress = true;
+
         sendFrameHeader();
-  
         g_timeFrame = millis();
-        g_trackTime = g_measuredLineTime;
-        g_trackFaults = 0;
         g_fLineReady = false;
         g_pDest = (uint16_t *)&g_pbp[1];
         g_count = g_pCurrentRes->numSamples;
@@ -726,8 +710,9 @@ void loop () {
         g_reason = REASON_NO_RES;
         g_argument = g_measuredLineTime;
         g_phase = PHASE_IDLE;
-      } else
+      } else {
         g_phase = PHASE_READY_TO_MEASURE;
+      }
     }    
   }
 
@@ -748,17 +733,7 @@ void loop () {
 
     // send the line
     sendLine(g_lineBytes);
-
-    if (!g_fSlow) { // can't do this when we switch off interrupts all the time
-      // if resolution changed, end the frame by switching to next phase
-      if ((g_trackTime > (g_measuredLineTime + 50)) || (g_trackTime < (g_measuredLineTime - 50))) {
-        if (++g_trackFaults >= MAX_TRACK_FAULTS){
-          g_reason = REASON_TRACK;
-          g_argument = g_trackTime;
-          g_phase = PHASE_IDLE;
-        }
-      }
-    }
+   
 
 
     // catch any abort message
@@ -778,15 +753,16 @@ void loop () {
   if (g_phase == PHASE_IDLE) {
     if (g_fFrameInProgress) {
       g_timeFrame = millis() - g_timeFrame;
+      flipLED();
       sendEndFrame (timeLineScan, g_reason);
       g_fFrameInProgress = false;
     } else {
-        // reasons
-        // 0 idle
-        // 1 no res
-        // 2 changed res
-        // 3 other vsync
-        sendIdle(g_reason, g_argument);
+      // reasons
+      // 0 idle
+      // 1 no res
+      // 2 changed res
+      // 3 other vsync
+      sendIdle(g_reason, g_argument);
     }
     g_fFrameInProgress = false;
     g_phase = PHASE_CHECK;
@@ -808,10 +784,7 @@ bool checkAbort() {
   char o = 0;
   char k;
 
-//  // if we have not heard back after a frame in over two seconds, reset
-//  if ((!g_fFrameInProgress) && (lastTime != 0) && (millis() - lastTime) > 2000) {
-//    return true;
-//  }
+
   
   while (SerialUSB.available()) {
     k = SerialUSB.read();
@@ -867,7 +840,8 @@ int scanAndCopyOneLine() {
   } else {
     // in fast mode, wait for ADC DMA to finish
     
-    while (NEXT_BUFFER(currentBuffer) == nextBuffer);                  // while current and next are one apart
+//    while (NEXT_BUFFER(currentBuffer) == nextBuffer);   // while current and next are one apart
+    while (g_adcInProgress);                           // while current and next are one apart
       
     // put the line somewhere safe from adc, just past the params header:
     memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
