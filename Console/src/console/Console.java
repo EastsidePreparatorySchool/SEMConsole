@@ -388,6 +388,11 @@ public class Console extends Application {
         this.pin.setProgress(this.semThread.progress);
     }
 
+    private void updateMeta() {
+        Console.printOn();
+        Console.println("Meta-data: " + SEMThread.kv + "kv, x" + SEMThread.mag + ", WD:" + SEMThread.wd + "mm");
+    }
+
     private enum StereoState {
         CANCEL, ONLEFT, ONRIGHT, FINALIZE
     }
@@ -467,7 +472,9 @@ public class Console extends Application {
             // and create a new one
             try {
                 System.out.println("starting thread ...");
-                semThread = new SEMThread(this.ltq, () -> updateDisplay(), () -> SEMThreadStopped(), () -> updateScanning());
+                semThread = new SEMThread(this.ltq, () -> updateDisplay(),
+                        () -> SEMThreadStopped(), () -> updateScanning(),
+                        () -> updateMeta());
                 semThread.start();
                 semThread.setPriority(Thread.MAX_PRIORITY);
             } catch (Exception e) {

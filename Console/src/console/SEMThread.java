@@ -28,14 +28,22 @@ public class SEMThread extends Thread {
     private Runnable update;
     private Runnable restart;
     private Runnable updateScanning;
-    
-    static public volatile double progress;
+    private Runnable updateMeta;
 
-    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning) {
+    static public volatile double progress;
+    static public int kv;
+    static public int mag;
+    static public int wd;
+    static public int oldkv = 0;
+    static public int oldmag = 0;
+    static public int oldwd = 0;
+
+    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning, Runnable updateMeta) {
         this.ltq = q;
         this.update = update;
         this.restart = restart;
         this.updateScanning = updateScanning;
+        this.updateMeta = updateMeta;
     }
 
     SEMPort semport = null;
@@ -54,7 +62,7 @@ public class SEMThread extends Thread {
             this.phase = Phase.WAITING_FOR_FRAME;
             while (!this.isInterrupted() && this.phase != Phase.FINISHED && this.phase != Phase.ABORTED) {
                 this.lastPhase = this.phase;
-                this.phase = semport.processMessage(this.ltq, this.update, this.updateScanning, this.phase);
+                this.phase = semport.processMessage(this.ltq, this.update, this.updateScanning, this.updateMeta, this.phase);
                 if (this.phase == Phase.WAITING_FOR_FRAME || phase == Phase.WAITING_TO_CONNECT) {
                     Thread.yield();
                 }

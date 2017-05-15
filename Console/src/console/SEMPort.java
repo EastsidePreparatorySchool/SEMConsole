@@ -161,7 +161,9 @@ public class SEMPort {
         }
     }
 
-    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda, Runnable updateScanning, SEMThread.Phase phase) {
+    SEMThread.Phase processMessage(LinkedTransferQueue<SEMImage> ltq,
+            Runnable updateDisplayLambda, Runnable updateScanning, Runnable updateMeta,
+            SEMThread.Phase phase) {
         SEMThread.Phase result = phase;
         String message;
         byte[] ab;
@@ -251,14 +253,18 @@ public class SEMPort {
                         buffer.flip();
 
                         // read line number (unsigned short)
-                        int mag = buffer.getInt();
-                        int kv = buffer.getInt();
-                        int wd = buffer.getInt();
+                        SEMThread.mag = buffer.getInt();
+                        SEMThread.kv = buffer.getInt();
+                        SEMThread.wd = buffer.getInt();
 
-                        Console.printOn();
-                        Console.println("Meta-data: "+kv+"kv, x"+mag+", WD:"+wd+"mm");
-
-                        dotCounter++;
+                        if (SEMThread.mag != SEMThread.oldmag
+                                || SEMThread.kv != SEMThread.oldkv
+                                || SEMThread.wd != SEMThread.oldwd) {
+                            SEMThread.oldmag = SEMThread.mag;
+                            SEMThread.oldkv = SEMThread.kv;
+                            SEMThread.oldwd = SEMThread.wd;
+                            Platform.runLater(updateMeta);
+                        }
                         return SEMThread.Phase.WAITING_FOR_FRAME;
                     case "EPS_SEM_FRAME...":
                         if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {
