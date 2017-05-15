@@ -97,6 +97,7 @@ struct Resolution g_allRes[] = {
 
 int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
 int g_channelSelection2 = 3; // TODO: For now, make sure that SEI is on A0 and AEI on A1
+int g_selectedChannelNum = 1;
 
 //
 // Buffers are really independent of the resolution we are tracking, just make them big enough
@@ -703,7 +704,8 @@ struct Resolution *getResolution(int lineTime) {
   // go through known resolutions
   
   for (i=0; i<NUM_MODES; i++) {
-    if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance)) {
+    if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance) 
+      && g_allRes[i].numChannels == g_selectedChannelNum) {
       return &g_allRes[i];
     }
   }
@@ -864,6 +866,38 @@ bool checkAbort() {
     } 
     if (o == 'O' && k == 'K') {
       lastTime = millis();
+      return false;
+    }
+    if (o == 'C' && k == 'H') {
+      g_channelSelection1 = 0;
+      g_channelSelection2 = 0;
+      g_selectedChannelNum = 1;
+      
+      int selectedChannels = SerialUSB.read();
+      int mask = 1;
+      int i;
+      for (i = 0; i< 4; i++) {
+        if (selectedChannels & mask) {
+          g_channelSelection1 = i;
+          selectedChannels &= ~mask;
+        }
+        mask <<= 1;
+      }
+      if (i != 4) {
+        mask = 1;
+        for (i = 0; i< 4; i++) {
+          if (selectedChannels & mask) {
+            g_channelSelection2 = i;
+             selectedChannels &= ~mask;
+            g_selectedChannelNum = 2;
+          }
+          mask <<= 1;
+        }
+      }
+
+      if (i  != 4 &&  selectedChannels != 0) {
+        g_selectedChannelNum = 4;
+      }
       return false;
     }
     o = k;
