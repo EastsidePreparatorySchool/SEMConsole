@@ -51,6 +51,10 @@ public class SEMThread extends Thread {
     public void run() {
         try {
             System.out.println("Thread: starting.");
+            
+            this.kv=0;
+            this.mag=0;
+            this.wd=0;
 
             Console.println("SEM Port: trying to initialize ...");
             this.phase = Phase.WAITING_TO_CONNECT;

@@ -133,7 +133,7 @@ public class Console extends Application {
         txt = new Text("Not connected");
         HBox h = new HBox();
         h.getChildren().add(txt);
-        h.setPrefWidth(150);
+        h.setPrefWidth(240);
         h.setPadding(new Insets(6, 12, 6, 12));
 
         autoUpload = new CheckBox("Auto upload");
@@ -194,7 +194,7 @@ public class Console extends Application {
         meta.setPrefWidth(150);
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(newSession, new Text("    "), btnConnect, h, h2, new Text("    "), stereoBox, new Text("                            "), meta);
+        top.getChildren().addAll(newSession, new Text("    "), btnConnect, h, h2, new Text("    "), stereoBox, new Text("                    "), meta);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
