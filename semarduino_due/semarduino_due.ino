@@ -206,9 +206,10 @@ void setup() {
   blinkBuiltInLED(1);
 
 
-  for (int i = PIN_KV_FINE; i<= PIN_WD; i++) {
+  for (int i = PIN_KV_FINE; i< PIN_WD; i++) {
     pinMode(i, INPUT);
   }
+  pinMode(PIN_WD, INPUT_PULLUP);
   
   for (int i = 0; i< 4; i++) {
     pinMode (SELECT_PIN(i), INPUT);
