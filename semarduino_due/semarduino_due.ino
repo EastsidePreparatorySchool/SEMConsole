@@ -71,14 +71,14 @@ struct Resolution g_allRes[] = {
 #define HSYNC_PIN   3
 #define SELECT_PIN(ch)  (ch+4)
 
-#define PIN_KV_FINE     40
-#define PIN_KV_SCALE    44
+#define PIN_KV_FINE     22
+#define PIN_KV_SCALE    28
     
-#define PIN_MAG_LOW_DIGIT   28
-#define PIN_MAG_HIGH_DIGIT  32
-#define PIN_MAG_EXPONENT    36
+#define PIN_MAG_LOW_DIGIT   32
+#define PIN_MAG_HIGH_DIGIT  40
+#define PIN_MAG_EXPONENT    46
 
-#define PIN_WD              38
+#define PIN_WD              52
   
 
 #define PHASE_IDLE                0
@@ -206,6 +206,10 @@ void setup() {
   blinkBuiltInLED(1);
 
 
+  for (int i = PIN_KV_FINE; i<= PIN_WD; i++) {
+    pinMode(i, INPUT);
+  }
+  
   for (int i = 0; i< 4; i++) {
     pinMode (SELECT_PIN(i), INPUT);
   }
@@ -376,7 +380,7 @@ void sendFrameHeader() {
 
 int readDigit(int lowPin, int bits) {
   int result = 0;
-  for (int i = 0; i< bits; i++) {
+  for (int i = bits-1; i>=0; i--) {
     result <<= 1;
     result += digitalRead(lowPin+i) == HIGH ? 1:0;
   }
@@ -387,8 +391,8 @@ int readDigit(int lowPin, int bits) {
 
 struct Meta {
     uint8_t   headerMeta[16];
-    uint32_t  kv;
     uint32_t  magnification;
+    uint32_t  kv;
     uint32_t  wd;
   };
 
