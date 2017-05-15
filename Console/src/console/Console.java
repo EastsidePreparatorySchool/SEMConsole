@@ -75,7 +75,7 @@ public class Console extends Application {
     private SEMImage currentImageSet = null;
     private SEMImage siLeft = null;
     private SEMImage siRight = null;
-    private Button btn;
+    private Button btnConnect;
     private Text txt;
     private Scene scene;
     private Stage stage;
@@ -93,6 +93,9 @@ public class Console extends Application {
     private RadioButton stereoRight;
     private Button stereoButton;
     private ProgressIndicator pin = null;
+    private Text metaKV;
+    private Text metaMag;
+    private Text metaWD;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -123,14 +126,14 @@ public class Console extends Application {
         newSession.setOnAction((e) -> startNewSession());
 
         // button for connection
-        this.btn = new Button("Connect");
-        btn.setOnAction((event) -> startSEMThread());
-        btn.setPrefWidth(100);
+        this.btnConnect = new Button("Connect");
+        btnConnect.setOnAction((event) -> startSEMThread());
+        btnConnect.setPrefWidth(100);
 
         txt = new Text("Not connected");
         HBox h = new HBox();
         h.getChildren().add(txt);
-        h.setPrefWidth(500);
+        h.setPrefWidth(150);
         h.setPadding(new Insets(6, 12, 6, 12));
 
         autoUpload = new CheckBox("Auto upload");
@@ -139,7 +142,7 @@ public class Console extends Application {
         h2.setPadding(new Insets(6, 12, 6, 12));
 
         // hbox for stereo controls
-        HBox h3 = new HBox();
+        HBox stereoLR = new HBox();
         stereoLeft = new RadioButton("Left    ");
         stereoRight = new RadioButton("Right");
         stereoLeft.setDisable(true);
@@ -162,14 +165,36 @@ public class Console extends Application {
             switchStereoState(this.fStereo.getAsBoolean() ? StereoState.CANCEL : StereoState.ONLEFT);
         });
 
-        h3.getChildren().addAll(stereoLeft, stereoRight);
-        h3.setPadding(new Insets(6, 12, 6, 12));
+        stereoLR.getChildren().addAll(stereoLeft, stereoRight);
+        stereoLR.setPadding(new Insets(6, 12, 6, 12));
 
-        HBox h4 = new HBox();
-        h4.getChildren().addAll(stereoButton, h3);
+        HBox stereoBox = new HBox();
+        stereoBox.getChildren().addAll(stereoButton, stereoLR);
+
+        metaKV = new Text("");
+        HBox metab1 = new HBox();
+        metab1.getChildren().add(metaKV);
+        metab1.setPrefWidth(100);
+        metab1.setPadding(new Insets(6, 12, 6, 12));
+
+        metaMag = new Text("");
+        HBox metab2 = new HBox();
+        metab2.getChildren().add(metaMag);
+        metab2.setPrefWidth(100);
+        metab2.setPadding(new Insets(6, 12, 6, 12));
+
+        metaWD = new Text("");
+        HBox metab3 = new HBox();
+        metab3.getChildren().add(metaWD);
+        metab3.setPrefWidth(100);
+        metab3.setPadding(new Insets(6, 12, 6, 12));
+
+        HBox meta = new HBox();
+        meta.getChildren().addAll(metab1, metab2, metab3);
+        meta.setPrefWidth(150);
 
         top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(newSession, new Text("    "), btn, h, h2, new Text("    "), h4);
+        top.getChildren().addAll(newSession, new Text("    "), btnConnect, h, h2, new Text("    "), stereoBox, new Text("                            "), meta);
         bp.setTop(top);
         cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
@@ -239,7 +264,7 @@ public class Console extends Application {
         this.bp.setStyle("-fx-background-color: " + colorScheme[0] + ";");
         scp.setStyle("-fx-background: " + colorScheme[1] + ";");
         this.top.setStyle("-fx-background-color: " + colorScheme[2] + ";");
-        h4.setBorder(new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
+        stereoBox.setBorder(new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
         this.pin.setStyle(/*"-fx-background-color: " + colorScheme[0] +*/";-fx-progress-color: " + colorScheme[4] + ";");
 
         bp.setBottom(this.cp);
@@ -283,11 +308,12 @@ public class Console extends Application {
 
         if (result.isPresent()) {
             session = result.get();
+            createFolder(getImageDir(), session);
+            this.session = getImageDir() + session;
+            currentSession = new Session(this.session, this);
+        } else {
+            currentSession = null;
         }
-
-        createFolder(getImageDir(), session);
-        this.session = getImageDir() + session;
-        currentSession = new Session(this.session, this);
     }
 
     private void displayImageSet(SEMImage si) {
@@ -352,8 +378,9 @@ public class Console extends Application {
                 displayPhoto(si);
 
                 /// and add to session
-                this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
-
+                if (currentSession != null) {
+                    this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+                }
                 // check if we are in the process of taking a stereo pair, and do the right thing
                 // this will also save images to the session
                 this.checkForStereo(si);
@@ -391,6 +418,9 @@ public class Console extends Application {
     private void updateMeta() {
         Console.printOn();
         Console.println("Meta-data: " + SEMThread.kv + "kv, x" + SEMThread.mag + ", WD:" + SEMThread.wd + "mm");
+        metaKV.setText("Accelerating Voltage: " + SEMThread.kv + "KV");
+        metaMag.setText("Magnification: " + SEMThread.mag + "x");
+        metaWD.setText("WD: " + SEMThread.wd + "mm");
     }
 
     private enum StereoState {
@@ -436,7 +466,9 @@ public class Console extends Application {
                 stereoLeft.setSelected(true);
                 stereoRight.setSelected(false);
                 stereoButton.setText("Cancel");
-                this.stereoName = this.currentSession.generatePartialImageName();
+                if (currentSession != null) {
+                    this.stereoName = this.currentSession.generatePartialImageName();
+                }
                 this.stereoSuffix = "L";
                 break;
             case ONRIGHT: // switch stereo mode on, right
@@ -448,7 +480,9 @@ public class Console extends Application {
                 this.stereoSuffix = "R";
                 break;
             case FINALIZE:
-                this.currentSession.addStereoImage(this.siLeft, this.siRight, this.stereoName, this.autoUpload.isSelected());
+                if (currentSession != null) {
+                    this.currentSession.addStereoImage(this.siLeft, this.siRight, this.stereoName, this.autoUpload.isSelected());
+                }
                 switchStereoState(StereoState.CANCEL);
                 break;
             default:
@@ -457,8 +491,8 @@ public class Console extends Application {
     }
 
     private void startSEMThread() {
-        btn.setDisable(true);
-        btn.setTextFill(Color.GRAY);
+        btnConnect.setDisable(true);
+        btnConnect.setTextFill(Color.GRAY);
         this.pin.setProgress(-1);
         this.showProgressIndicator();
         new Thread(() -> {
@@ -488,15 +522,18 @@ public class Console extends Application {
 
     private void startThreadLambda() {
         if (semThread != null && semThread.isAlive()) {
-            this.btn.setText("Disconnect");
+            this.btnConnect.setText("Disconnect");
             this.txt.setText("Connected");
-            btn.setOnAction((event) -> disconnect());
+            btnConnect.setOnAction((event) -> disconnect());
         } else {
             semThread = null;
             this.txt.setText("Not connected");
+            this.metaKV.setText("");
+            this.metaMag.setText("");
+            this.metaWD.setText("");
         }
-        btn.setDisable(false);
-        btn.setTextFill(Color.BLACK);
+        btnConnect.setDisable(false);
+        btnConnect.setTextFill(Color.BLACK);
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {
@@ -522,22 +559,26 @@ public class Console extends Application {
             semThread = null;
             Console.println("[Console: disconnected]");
             this.txt.setText("Not connected");
+            this.metaKV.setText("");
+            this.metaMag.setText("");
+            this.metaWD.setText("");
+
         }
     }
 
     private void disconnect() {
-        btn.setDisable(true);
-        btn.setTextFill(Color.GRAY);
+        btnConnect.setDisable(true);
+        btnConnect.setTextFill(Color.GRAY);
         this.pin.setProgress(-1.0);
         this.showProgressIndicator();
         new Thread(() -> {
             stopSEMThread();
             Platform.runLater(() -> {
                 this.hideProgressIndicator();
-                btn.setOnAction((event) -> startSEMThread());
-                btn.setDisable(false);
-                this.btn.setText("Connect");
-                btn.setTextFill(Color.BLACK);
+                btnConnect.setOnAction((event) -> startSEMThread());
+                btnConnect.setDisable(false);
+                this.btnConnect.setText("Connect");
+                btnConnect.setTextFill(Color.BLACK);
             });
         }).start();
 
@@ -546,9 +587,13 @@ public class Console extends Application {
     private void SEMThreadStopped() {
         Console.printOn();
         Console.println("[Console: disconnected]");
-        this.btn.setText("Connect");
+        this.btnConnect.setText("Connect");
         this.txt.setText("Not connected");
-        btn.setOnAction((event) -> startSEMThread());
+        this.metaKV.setText("");
+        this.metaMag.setText("");
+        this.metaWD.setText("");
+
+        btnConnect.setOnAction((event) -> startSEMThread());
     }
 
     private void setSizeNormal(ImageView iv, int channel) {
