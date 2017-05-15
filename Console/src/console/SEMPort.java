@@ -183,6 +183,7 @@ public class SEMPort {
                 //System.out.println(result);
 
                 switch (message) {
+
                     case "EPS_SEM_RESET...":
                         Console.printOn();
                         Console.println();
@@ -238,6 +239,27 @@ public class SEMPort {
                         dotCounter++;
                         return SEMThread.Phase.WAITING_FOR_FRAME;
 
+                    case "EPS_SEM_META....":
+                        // read scanline of unrecognized freq
+                        buffer.rewind();
+                        buffer.limit(12);
+                        n = channel.read(buffer);
+                        //System.out.print("[read " + n + "bytes]");
+                        if (n != 12) {
+                            throw new SEMException(SEMError.ERROR_BYTE_COUNT);
+                        }
+                        buffer.flip();
+
+                        // read line number (unsigned short)
+                        int mag = buffer.getInt();
+                        int kv = buffer.getInt();
+                        int wd = buffer.getInt();
+
+                        Console.printOn();
+                        Console.println("Meta-data: "+kv+"kv, x"+mag+", WD:"+wd+"mm");
+
+                        dotCounter++;
+                        return SEMThread.Phase.WAITING_FOR_FRAME;
                     case "EPS_SEM_FRAME...":
                         if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {
                             throw new SEMException(SEMError.ERROR_WRONG_PHASE);
