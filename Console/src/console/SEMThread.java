@@ -37,7 +37,7 @@ public class SEMThread extends Thread {
     static public int oldkv = 0;
     static public int oldmag = 0;
     static public int oldwd = 0;
-    
+
     static public byte channels = 1;
 
     SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning, Runnable updateMeta) {
@@ -53,10 +53,13 @@ public class SEMThread extends Thread {
     public void run() {
         try {
             System.out.println("Thread: starting.");
-            
-            this.kv=0;
-            this.mag=0;
-            this.wd=0;
+
+            this.kv = 0;
+            this.mag = 0;
+            this.wd = 0;
+            this.oldkv = 0;
+            this.oldwd = 0;
+            this.oldmag = 0;
 
             Console.println("SEM Port: trying to initialize ...");
             this.phase = Phase.WAITING_TO_CONNECT;

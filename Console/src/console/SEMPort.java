@@ -420,7 +420,7 @@ public class SEMPort {
                         }
                         int reasonEnd = buffer.getShort(); //unused frame time from Arduino
 
-                        // acknowledge receipt
+                        // acknowledge receipt by sending channel selection
                         channel.write(ByteBuffer.wrap("CH".getBytes(StandardCharsets.UTF_8)));
                         channel.write(ByteBuffer.wrap(new byte[]{SEMThread.channels}));
 
