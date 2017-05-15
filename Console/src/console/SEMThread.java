@@ -37,6 +37,8 @@ public class SEMThread extends Thread {
     static public int oldkv = 0;
     static public int oldmag = 0;
     static public int oldwd = 0;
+    
+    static public byte channels = 1;
 
     SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning, Runnable updateMeta) {
         this.ltq = q;

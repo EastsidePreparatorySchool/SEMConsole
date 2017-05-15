@@ -96,6 +96,7 @@ public class Console extends Application {
     private Text metaKV;
     private Text metaMag;
     private Text metaWD;
+    private RadioButton[] ch = {null, null, null, null};
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -171,65 +172,129 @@ public class Console extends Application {
         HBox stereoBox = new HBox();
         stereoBox.getChildren().addAll(stereoButton, stereoLR);
 
+        this.ch[0] = new RadioButton("SEI   ");
+        this.ch[1] = new RadioButton("BEI1  ");
+        this.ch[2] = new RadioButton("BEI2  ");
+        this.ch[3] = new RadioButton("AEI   ");
+
+        this.ch[1].setDisable(true);
+        this.ch[2].setDisable(true);
+
+        for (int i = 0; i < 4; i++) {
+            final int j = i;
+            this.ch[i].setOnAction((e) -> {
+                if (this.ch[j].isSelected()) {
+                    SEMThread.channels |= (1 << j);
+                } else {
+                    SEMThread.channels &= ~(1 << j);
+                }
+                Console.printOn();
+                Console.println("Channels: " + SEMThread.channels);
+            });
+        }
+
+        HBox res = new HBox();
+
+        res.getChildren()
+                .addAll(ch[0], ch[1], ch[2], ch[3]);
+        res.setPadding(
+                new Insets(6, 12, 6, 12));
+
         metaKV = new Text("");
         HBox metab1 = new HBox();
-        metab1.getChildren().add(metaKV);
-        metab1.setPrefWidth(100);
-        metab1.setPadding(new Insets(6, 12, 6, 12));
+
+        metab1.getChildren()
+                .add(metaKV);
+        metab1.setPrefWidth(
+                100);
+        metab1.setPadding(
+                new Insets(6, 12, 6, 12));
 
         metaMag = new Text("");
         HBox metab2 = new HBox();
-        metab2.getChildren().add(metaMag);
-        metab2.setPrefWidth(100);
-        metab2.setPadding(new Insets(6, 12, 6, 12));
+
+        metab2.getChildren()
+                .add(metaMag);
+        metab2.setPrefWidth(
+                100);
+        metab2.setPadding(
+                new Insets(6, 12, 6, 12));
 
         metaWD = new Text("");
         HBox metab3 = new HBox();
-        metab3.getChildren().add(metaWD);
-        metab3.setPrefWidth(100);
-        metab3.setPadding(new Insets(6, 12, 6, 12));
+
+        metab3.getChildren()
+                .add(metaWD);
+        metab3.setPrefWidth(
+                100);
+        metab3.setPadding(
+                new Insets(6, 12, 6, 12));
 
         HBox meta = new HBox();
-        meta.getChildren().addAll(metab1, metab2, metab3);
-        meta.setPrefWidth(150);
 
-        top.setPadding(new Insets(15, 12, 15, 12));
-        top.getChildren().addAll(newSession, new Text("    "), btnConnect, h, h2, new Text("    "), stereoBox, new Text("                    "), meta);
+        meta.getChildren()
+                .addAll(metab1, metab2, metab3);
+        meta.setPrefWidth(
+                150);
+
+        top.setPadding(
+                new Insets(15, 12, 15, 12));
+        top.getChildren()
+                .addAll(newSession, new Text("    "), btnConnect, h, h2, new Text("    "), stereoBox, new Text("                    "), res, new Text("    "), meta);
         bp.setTop(top);
         cp = new ConsolePane();
-        cp.setPrefWidth(740);       // determines initial width of unmaximized window
+
+        cp.setPrefWidth(
+                740);       // determines initial width of unmaximized window
 
         //panes
         this.aPanes = new StackPane[4];
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0;
+                i < 4; i++) {
             this.aPanes[i] = new StackPane();
             this.aPanes[i].setPadding(new Insets(4, 4, 4, 4));
         }
+
         this.masterPane = new StackPane();
         //this.masterPane.setPadding(new Insets(8, 8, 8, 8));
 
         this.left = new VBox();
-        this.left.setPadding(new Insets(4, 4, 4, 4));
+
+        this.left.setPadding(
+                new Insets(4, 4, 4, 4));
+
         this.thumbnails = new VBox();
 
         this.pin = new ProgressIndicator();
-        this.pin.setMaxHeight(400);
+
+        this.pin.setMaxHeight(
+                400);
 
         ScrollPane scp = new ScrollPane(thumbnails);
-        scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scp.setMinWidth(240);
-        scp.setPrefHeight(1000);
-        scp.getStyleClass().add("edge-to-edge");
 
-        this.left.getChildren().addAll(/*sp1,*/scp);
+        scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+
+        scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        scp.setMinWidth(
+                240);
+        scp.setPrefHeight(
+                1000);
+        scp.getStyleClass()
+                .add("edge-to-edge");
+
+        this.left.getChildren()
+                .addAll(/*sp1,*/scp);
 
         this.right = new StackPane();
-        this.right.setPadding(new Insets(4, 4, 4, 4));
+
+        this.right.setPadding(
+                new Insets(4, 4, 4, 4));
 
         // img
         this.aViews = new ImageView[4];
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0;
+                i < 4; i++) {
             this.aViews[i] = new ImageView();
             this.aViews[i].setSmooth(false);
             this.aViews[i].setCache(true);
@@ -249,51 +314,80 @@ public class Console extends Application {
         HBox hbUp = new HBox();
         HBox hbDown = new HBox();
         VBox vb = new VBox();
-        hbUp.getChildren().addAll(this.aPanes[0], this.aPanes[1]);
+
+        hbUp.getChildren()
+                .addAll(this.aPanes[0], this.aPanes[1]);
         hbUp.setAlignment(Pos.CENTER);
-        hbDown.getChildren().addAll(this.aPanes[2], this.aPanes[3]);
-        vb.getChildren().addAll(hbUp, hbDown);
+
+        hbDown.getChildren()
+                .addAll(this.aPanes[2], this.aPanes[3]);
+        vb.getChildren()
+                .addAll(hbUp, hbDown);
         hbDown.setAlignment(Pos.CENTER);
 
-        masterPane.getChildren().add(vb);
+        masterPane.getChildren()
+                .add(vb);
         masterPane.setAlignment(vb, Pos.CENTER);
+
         vb.setAlignment(Pos.CENTER);
 
         VBox vb2 = new VBox();
 
-        this.bp.setStyle("-fx-background-color: " + colorScheme[0] + ";");
-        scp.setStyle("-fx-background: " + colorScheme[1] + ";");
-        this.top.setStyle("-fx-background-color: " + colorScheme[2] + ";");
-        stereoBox.setBorder(new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
-        this.pin.setStyle(/*"-fx-background-color: " + colorScheme[0] +*/";-fx-progress-color: " + colorScheme[4] + ";");
+        this.bp.setStyle(
+                "-fx-background-color: " + colorScheme[0] + ";");
+        scp.setStyle(
+                "-fx-background: " + colorScheme[1] + ";");
 
-        bp.setBottom(this.cp);
+        this.top.setStyle(
+                "-fx-background-color: " + colorScheme[2] + ";");
+        stereoBox.setBorder(
+                new Border(new BorderStroke(Color.web(colorScheme[3]), BorderStrokeStyle.SOLID, new CornerRadii(2.0), new BorderWidths(2.0))));
+
+        this.pin.setStyle(/*"-fx-background-color: " + colorScheme[0] +*/
+                ";-fx-progress-color: " + colorScheme[4] + ";");
+
+        bp.setBottom(
+                this.cp);
         bp.setAlignment(this.cp, Pos.CENTER);
-        bp.setLeft(this.left);
-        bp.setRight(this.right);
-        bp.setCenter(this.masterPane);
+
+        bp.setLeft(
+                this.left);
+        bp.setRight(
+                this.right);
+        bp.setCenter(
+                this.masterPane);
         bp.setAlignment(this.masterPane, Pos.CENTER);
 
         this.scene = new Scene(bp, 1200, 900);
+
         primaryStage.setScene(scene);
-        primaryStage.setMaximized(true);
+
+        primaryStage.setMaximized(
+                true);
         primaryStage.show();
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0;
+                i < 4; i++) {
             setSizeNormal(aViews[i], i);
         }
 
-        cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
-        left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
+        cp.prefWidthProperty()
+                .bind(this.stage.widthProperty().subtract(16));
+        left.prefHeightProperty()
+                .bind(this.stage.heightProperty().subtract(300));
 
-        primaryStage.setOnCloseRequest((e) -> {
-            if (bigStage != null) {
-                bigStage.close();
-            }
-        });
-        Platform.runLater(() -> {
-            startNewSession();
-        });
+        primaryStage.setOnCloseRequest(
+                (e) -> {
+                    if (bigStage != null) {
+                        bigStage.close();
+                    }
+                }
+        );
+        Platform.runLater(
+                () -> {
+                    startNewSession();
+                }
+        );
     }
 
     private void startNewSession() {
@@ -303,7 +397,7 @@ public class Console extends Application {
 
         TextInputDialog tid = new TextInputDialog(session);
         tid.setTitle("New session");
-        tid.setHeaderText("Enter a name for the new session:");
+        tid.setHeaderText("Save pictures in session?");
         Optional<String> result = tid.showAndWait();
 
         if (result.isPresent()) {
@@ -421,6 +515,7 @@ public class Console extends Application {
         metaKV.setText("Accelerating Voltage: " + SEMThread.kv + "KV");
         metaMag.setText("Magnification: " + SEMThread.mag + "x");
         metaWD.setText("WD: " + SEMThread.wd + "mm");
+
     }
 
     private enum StereoState {
