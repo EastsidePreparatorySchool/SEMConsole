@@ -17,6 +17,7 @@ byte headerBytes[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','B','Y','T
 byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'};
 byte headerReset[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','S','E','T','.','.','.'};
 byte headerIdle[COMMAND_BYTES]     = {'E','P','S','_','S','E','M','_','I','D','L','E','.','.','.','.'};
+byte headerMeta[COMMAND_BYTES]     = {'E','P','S','_','S','E','M','_','M','E','T','A','.','.','.','.'};
 
 #define SENTINEL_BYTES 16
 byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
@@ -50,8 +51,9 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
 // scan line time, tolerance, pixels, channels, spec lines, samples
-  {           160,    40,    180,        1,        182,     1 }, // RAPID2 mag 100
+  {           160,    40,    200,        1,        182,     1 }, // RAPID2 mag 100
   {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
+//  {          5790,   500,   2000,        1,        840,     1 }, // SLOW1
   {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
   {         33326,   500,   4000,        1,       3000,    22 }, // H6V7
@@ -67,6 +69,17 @@ struct Resolution g_allRes[] = {
 
 #define VSYNC_PIN   2
 #define HSYNC_PIN   3
+#define SELECT_PIN(ch)  (ch+4)
+
+#define PIN_KV_FINE     40
+#define PIN_KV_SCALE    44
+    
+#define PIN_MAG_LOW_DIGIT   28
+#define PIN_MAG_HIGH_DIGIT  32
+#define PIN_MAG_EXPONENT    36
+
+#define PIN_WD              38
+  
 
 #define PHASE_IDLE                0
 #define PHASE_READY_TO_MEASURE    1
@@ -191,6 +204,13 @@ void setup() {
   pinMode (LED_BUILTIN, OUTPUT);
   // visual signal that we are alive
   blinkBuiltInLED(1);
+
+
+  for (int i = 0; i< 4; i++) {
+    pinMode (SELECT_PIN(i), INPUT);
+  }
+  pinMode(8, OUTPUT);
+  digitalWrite(8, HIGH);
   
   int n;
   byte buffer[16];
@@ -353,6 +373,44 @@ void sendFrameHeader() {
   }
 }
 
+
+int readDigit(int lowPin, int bits) {
+  int result = 0;
+  for (int i = 0; i< bits; i++) {
+    result <<= 1;
+    result += digitalRead(lowPin+i) == HIGH ? 1:0;
+  }
+  return result;
+}
+
+
+
+struct Meta {
+    uint8_t   headerMeta[16];
+    uint32_t  kv;
+    uint32_t  magnification;
+    uint32_t  wd;
+  };
+
+
+void sendMeta() {
+  static struct Meta m = {{'E','P','S','_','S','E','M','_','M','E','T','A','.','.','.','.'},0,0,0};
+
+  m.kv = readDigit(PIN_KV_FINE, 4);
+  m.kv += 10*readDigit(PIN_KV_SCALE, 2);
+    
+  m.magnification = readDigit(PIN_MAG_LOW_DIGIT, 4) + 10*readDigit(PIN_MAG_HIGH_DIGIT, 4);
+  int exponent = readDigit(PIN_MAG_EXPONENT, 3);
+  for (int i = 0; i< exponent; i++) {
+    m.magnification *=10;
+  }
+
+  m.wd = digitalRead(PIN_WD) == HIGH? 15:39;
+  
+  if (okToWrite()) {
+    SerialUSB.write((uint8_t *)&m, sizeof(m));
+  }
+}
 struct EndFrame {
   uint8_t   header[16];
   uint16_t  lineTime;
@@ -403,7 +461,14 @@ void adcConfigureGain() {
 }
 
 
-
+int getSelectedChannel() {
+  for (int i = 0; i<4; i++) {
+    if (digitalRead(SELECT_PIN(i)) == HIGH) {
+      return i;
+    }
+  }
+  return 0;
+}
 
 //
 // set up analog-to-digital conversions
@@ -411,6 +476,9 @@ void adcConfigureGain() {
 
 void initializeADC() {
   // convert from Ax input pin numbers to ADC channel numbers
+
+  g_channelSelection1 = 0;//getSelectedChannel();
+  
   int channel1 = 7-g_channelSelection1;
   int channel2 = 7-g_channelSelection2;
 
@@ -461,9 +529,6 @@ void initializeADC() {
   } else {
     // slow mode
     ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed 
-//todo: put this back
-//    ADC->ADC_MR |= 0x80;            //set free running mode on ADC
-//    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
     ADC->ADC_MR |= 0x80;            //set free running mode on ADC
     ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
   }
@@ -769,6 +834,7 @@ void loop () {
   }
 
   if (g_phase == PHASE_CHECK) {
+    sendMeta();
     // check for abort
     if (checkAbort()) {
       reset();
