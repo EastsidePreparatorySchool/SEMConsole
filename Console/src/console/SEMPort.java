@@ -295,7 +295,6 @@ public class SEMPort {
                             lastTime = System.currentTimeMillis();
 
                             Console.printOn();
-                            Console.println();
                             Console.print("Start of frame: ");
                             Console.print("width: " + width + ", height: " + height);
                             Console.print(", line scan time: ");
@@ -410,7 +409,8 @@ public class SEMPort {
                             buffer.position(0);
                             //System.out.print("[read " + n + "bytes]");
                         }
-                        Console.print(Short.toUnsignedInt(buffer.getShort()) + "us, frame send time: ");
+                        short s = buffer.getShort();
+                        Console.print(Short.toUnsignedInt(s) + "us, frame send time: ");
                         if (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
@@ -427,7 +427,6 @@ public class SEMPort {
                         if (reasonEnd < 4) {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
-                        Console.printOn();
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + si.maxLine);
                         // process the raw data
@@ -466,7 +465,6 @@ public class SEMPort {
         } catch (SEMException e) {
             result = phase;
             numErrors++;
-//            Console.print("-");
         } catch (Exception e) {
             System.out.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {

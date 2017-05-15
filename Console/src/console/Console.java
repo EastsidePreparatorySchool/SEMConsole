@@ -416,8 +416,8 @@ public class Console extends Application {
     }
 
     private void updateMeta() {
-        Console.printOn();
-        Console.println("Meta-data: " + SEMThread.kv + "kv, x" + SEMThread.mag + ", WD:" + SEMThread.wd + "mm");
+//        Console.printOn();
+//        Console.println("Meta-data: " + SEMThread.kv + "kv, x" + SEMThread.mag + ", WD:" + SEMThread.wd + "mm");
         metaKV.setText("Accelerating Voltage: " + SEMThread.kv + "KV");
         metaMag.setText("Magnification: " + SEMThread.mag + "x");
         metaWD.setText("WD: " + SEMThread.wd + "mm");

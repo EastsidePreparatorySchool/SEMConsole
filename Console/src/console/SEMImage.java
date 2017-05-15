@@ -120,20 +120,22 @@ public class SEMImage {
     }
 
     void knitStereoImage() {
+        int[] leftBuffer = new int[this.width];
+        int[] rightBuffer = new int [this.width];
         for (int i = 0; i < this.channels; i++) {
             PixelReader prLeft = left.images[i].getPixelReader();
             PixelReader prRight = right.images[i].getPixelReader();
             PixelWriter pw = this.images[i].getPixelWriter();
 
             for (int line = 0; line < this.height; line++) {
-                prLeft.getPixels(0, line, this.width, 1, this.format, left.rawBuffer, 0, 0);
-                prRight.getPixels(0, line, this.width, 1, this.format, right.rawBuffer, 0, 0);
+                prLeft.getPixels(0, line, this.width, 1, this.format, leftBuffer, 0, 0);
+                prRight.getPixels(0, line, this.width, 1, this.format, rightBuffer, 0, 0);
 
                 for (int pixel = 0; pixel < this.width; pixel++) {
-                    left.rawBuffer[pixel] = combinePixels(left.rawBuffer[pixel], right.rawBuffer[pixel], this.capturedChannels[i]);
+                    leftBuffer[pixel] = combinePixels(leftBuffer[pixel], rightBuffer[pixel], this.capturedChannels[i]);
                 }
 
-                pw.setPixels(0, line, this.width, 1, this.format, left.rawBuffer, 0, 0);
+                pw.setPixels(0, line, this.width, 1, this.format, leftBuffer, 0, 0);
             }
         }
     }
