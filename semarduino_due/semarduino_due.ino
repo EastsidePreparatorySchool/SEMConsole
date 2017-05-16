@@ -1,4 +1,4 @@
-// 
+//
 // SEM EPS for Arduino Due
 // Input: Analog in A0, A1, A2, A3, hsync and vsync at D3 and D4
 // Output: USB frames to PC
@@ -10,17 +10,17 @@
 // USB communication headers
 
 #define COMMAND_BYTES 16
-byte headerConnect[COMMAND_BYTES]  = {'E','P','S','_','S','E','M','_','C','O','N','N','E','C','T','.'};
-byte headerReady[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','A','D','Y','.','.','.'};
-byte headerFrame[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','F','R','A','M','E','.','.','.'};
-byte headerBytes[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','B','Y','T','E','S','.','.','.'};
-byte headerEndFrame[COMMAND_BYTES] = {'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'};
-byte headerReset[COMMAND_BYTES]    = {'E','P','S','_','S','E','M','_','R','E','S','E','T','.','.','.'};
-byte headerIdle[COMMAND_BYTES]     = {'E','P','S','_','S','E','M','_','I','D','L','E','.','.','.','.'};
-byte headerMeta[COMMAND_BYTES]     = {'E','P','S','_','S','E','M','_','M','E','T','A','.','.','.','.'};
+byte headerConnect[COMMAND_BYTES]  = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'C', 'O', 'N', 'N', 'E', 'C', 'T', '.'};
+byte headerReady[COMMAND_BYTES]    = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'R', 'E', 'A', 'D', 'Y', '.', '.', '.'};
+byte headerFrame[COMMAND_BYTES]    = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'F', 'R', 'A', 'M', 'E', '.', '.', '.'};
+byte headerBytes[COMMAND_BYTES]    = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'B', 'Y', 'T', 'E', 'S', '.', '.', '.'};
+byte headerEndFrame[COMMAND_BYTES] = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'E', 'N', 'D', 'F', 'R', 'A', 'M', 'E'};
+byte headerReset[COMMAND_BYTES]    = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'R', 'E', 'S', 'E', 'T', '.', '.', '.'};
+byte headerIdle[COMMAND_BYTES]     = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'I', 'D', 'L', 'E', '.', '.', '.', '.'};
+byte headerMeta[COMMAND_BYTES]     = {'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'M', 'E', 'T', 'A', '.', '.', '.', '.'};
 
 #define SENTINEL_BYTES 16
-byte sentinelTrailer[SENTINEL_BYTES] = {0,1,2,3,4,5,6,7,8,9,0xA,0xB,0xC,0xD,0xE,0xF};
+byte sentinelTrailer[SENTINEL_BYTES] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF};
 
 struct BytesParams {
   byte      headerBytes[16];
@@ -50,10 +50,10 @@ struct Resolution *g_pCurrentRes;
 
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
-// scan line time, tolerance, pixels, channels, spec lines, samples
+  // scan line time, tolerance, pixels, channels, spec lines, samples
   {           160,    40,    200,        1,        182,     1 }, // RAPID2 mag 100
   {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
-//  {          5790,   500,   2000,        1,        840,     1 }, // SLOW1
+  //  {          5790,   500,   2000,        1,        840,     1 }, // SLOW1
   {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
   {         33326,   500,   4000,        1,       3000,    22 }, // H6V7
@@ -73,13 +73,13 @@ struct Resolution g_allRes[] = {
 
 #define PIN_KV_FINE     22
 #define PIN_KV_SCALE    28
-    
+
 #define PIN_MAG_LOW_DIGIT   32
 #define PIN_MAG_HIGH_DIGIT  40
 #define PIN_MAG_EXPONENT    46
 
 #define PIN_WD              52
-  
+
 
 #define PHASE_IDLE                0
 #define PHASE_READY_TO_MEASURE    1
@@ -108,9 +108,9 @@ int g_selectedChannelNum = 1;
 #define BUFFER_BYTES  (BUFFER_LENGTH * sizeof(uint16_t))
 #define NEXT_BUFFER(n)((n+1)%NUM_BUFFERS) // little macro to aid switch to next buffer
 
-volatile int currentBuffer; 
+volatile int currentBuffer;
 volatile int nextBuffer;
-uint16_t *padcBuffer[NUM_BUFFERS];   
+uint16_t *padcBuffer[NUM_BUFFERS];
 volatile unsigned long g_adcLineTimeStart;
 volatile unsigned long g_adcLineTime;
 volatile bool g_adcInProgress;
@@ -149,16 +149,16 @@ uint16_t * g_pDest;
 
 
 
-// code to blink the built-in LED n times 
+// code to blink the built-in LED n times
 
 void blinkBuiltInLED(int n) {
-  
-  for (int i= 0; i<n; i++) {
+
+  for (int i = 0; i < n; i++) {
     // blink built-in LED
     digitalWrite(LED_BUILTIN, HIGH);
     delay(200);
     digitalWrite(LED_BUILTIN, LOW);
-    if(i < n-1) {
+    if (i < n - 1) {
       delay(200);
     }
   }
@@ -167,7 +167,7 @@ void blinkBuiltInLED(int n) {
 
 //
 // ERROR HALT
-// 
+//
 
 void halt(int blinks) {
   while (true) {
@@ -183,12 +183,12 @@ void halt(int blinks) {
 void reset() {
 
   blinkBuiltInLED(3);
-  detachInterrupt(VSYNC_PIN); 
-  detachInterrupt(HSYNC_PIN); 
+  detachInterrupt(VSYNC_PIN);
+  detachInterrupt(HSYNC_PIN);
 
   freeLineBuffers(); // safe to do
-  
-  while(SerialUSB.available()) {
+
+  while (SerialUSB.available()) {
     SerialUSB.read();
   }
   delay(100);
@@ -198,7 +198,7 @@ void reset() {
 
 void setup() {
   // start USB
-  SerialUSB.begin(0); 
+  SerialUSB.begin(0);
   SerialUSB.write(headerReset, 16);
 
   // set up built-in blink LED, custom led, pushButton
@@ -207,17 +207,17 @@ void setup() {
   blinkBuiltInLED(1);
 
 
-  for (int i = PIN_KV_FINE; i< PIN_WD; i++) {
+  for (int i = PIN_KV_FINE; i < PIN_WD; i++) {
     pinMode(i, INPUT);
   }
   pinMode(PIN_WD, INPUT_PULLUP);
-  
-  for (int i = 0; i< 4; i++) {
+
+  for (int i = 0; i < 4; i++) {
     pinMode (SELECT_PIN(i), INPUT);
   }
   pinMode(8, OUTPUT);
   digitalWrite(8, HIGH);
-  
+
   int n;
   byte buffer[16];
 
@@ -227,13 +227,13 @@ void setup() {
     padcBuffer[i] = NULL;
   }
 
- 
+
   // wait for USB connect command from host
   do {
     do {
       // wait for any request
       do {
-        delayMicroseconds(20); 
+        delayMicroseconds(20);
         n = SerialUSB.available();
       } while (n == 0);
 
@@ -243,15 +243,15 @@ void setup() {
 
       // read any extra bytes
       while (SerialUSB.available()) {
-        SerialUSB.read();   
+        SerialUSB.read();
       }
     } while (n != COMMAND_BYTES);
-   } while (memcmp(buffer, headerConnect, COMMAND_BYTES) != 0);
-  
+  } while (memcmp(buffer, headerConnect, COMMAND_BYTES) != 0);
+
   // acknowledge connection request
   SerialUSB.write(headerReady, 16);
   SerialUSB.flush();
-  blinkBuiltInLED(2);  
+  blinkBuiltInLED(2);
   g_pCurrentRes = NULL;
   g_lastRes = NULL;
   g_phase = PHASE_CHECK;
@@ -270,10 +270,10 @@ void computeCheckSum(int line, int bytes) {
   // compute checkSum
   long checkSum = 0;
   uint16_t *pWord = (uint16_t *)&g_pbp[1];
-  for (int i=0; i<bytes/2; i++) {
+  for (int i = 0; i < bytes / 2; i++) {
     checkSum += *pWord++;
   }
-  
+
   g_pbp->checkSum = checkSum + line + bytes;
   g_pbp->line = line;
   g_pbp->bytes = bytes;
@@ -298,16 +298,16 @@ int setupLineBuffers() {
       halt(3);
     }
   }
-  
+
   // compute buffer size for whole USB command, allocate, and fill with known info
   int bufferSize = sizeof(struct BytesParams) +  bytes + sizeof(sentinelTrailer);
-  g_pbp = (struct BytesParams *) malloc (bufferSize * (g_pCurrentRes->numSamples > 1 ? 2:1)); // if resolution indicates, allocate twice the words
+  g_pbp = (struct BytesParams *) malloc (bufferSize * (g_pCurrentRes->numSamples > 1 ? 2 : 1)); // if resolution indicates, allocate twice the words
   if (g_pbp == NULL) {
     halt(4);
   }
 
   memcpy(&g_pbp->headerBytes, headerBytes, sizeof(headerBytes));
-  memcpy(((byte *)&g_pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer)); 
+  memcpy(((byte *)&g_pbp[1]) + bytes, sentinelTrailer, sizeof (sentinelTrailer));
   g_pbp->bytes = bytes;
 
   // return the size for USB send
@@ -318,7 +318,7 @@ int setupLineBuffers() {
 
 
 void freeLineBuffers() {
-  for (int i = NUM_BUFFERS-1; i >= 0; i--) {
+  for (int i = NUM_BUFFERS - 1; i >= 0; i--) {
     if (padcBuffer != NULL) {
       free(padcBuffer[i]);
       padcBuffer[i] = NULL;
@@ -333,23 +333,23 @@ void freeLineBuffers() {
 
 
 struct Frame {
-    uint8_t   headerFrame[16];
-    uint16_t  numChannels;
-    uint16_t  numPixels;
-    uint16_t  numLines;
-    uint16_t  scanTime;
-    uint16_t  channels[4];
-  };
+  uint8_t   headerFrame[16];
+  uint16_t  numChannels;
+  uint16_t  numPixels;
+  uint16_t  numLines;
+  uint16_t  scanTime;
+  uint16_t  channels[4];
+};
 
 void sendFrameHeader() {
-  static struct Frame h = {{'E','P','S','_','S','E','M','_','F','R','A','M','E','.','.','.'},0,0,0,0,{0,0,0,0}};
+  static struct Frame h = {{'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'F', 'R', 'A', 'M', 'E', '.', '.', '.'}, 0, 0, 0, 0, {0, 0, 0, 0}};
 
-  
+
   h.numChannels = g_pCurrentRes->numChannels;
   h.numPixels = g_pCurrentRes->numPixels;
   h.numLines = g_pCurrentRes->numLines;
   h.scanTime = g_measuredLineTime;
-  
+
   switch (g_pCurrentRes->numChannels) {
     case 4:
       h.channels[0] = 0;
@@ -382,9 +382,9 @@ void sendFrameHeader() {
 
 int readDigit(int lowPin, int bits) {
   int result = 0;
-  for (int i = bits-1; i>=0; i--) {
+  for (int i = bits - 1; i >= 0; i--) {
     result <<= 1;
-    result += digitalRead(lowPin+i) == HIGH ? 1:0;
+    result += digitalRead(lowPin + i) == HIGH ? 1 : 0;
   }
   return result;
 }
@@ -392,27 +392,27 @@ int readDigit(int lowPin, int bits) {
 
 
 struct Meta {
-    uint8_t   headerMeta[16];
-    uint32_t  magnification;
-    uint32_t  kv;
-    uint32_t  wd;
-  };
+  uint8_t   headerMeta[16];
+  uint32_t  magnification;
+  uint32_t  kv;
+  uint32_t  wd;
+};
 
 
 void sendMeta() {
-  static struct Meta m = {{'E','P','S','_','S','E','M','_','M','E','T','A','.','.','.','.'},0,0,0};
+  static struct Meta m = {{'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'M', 'E', 'T', 'A', '.', '.', '.', '.'}, 0, 0, 0};
 
   m.kv = readDigit(PIN_KV_FINE, 4);
-  m.kv += 10*readDigit(PIN_KV_SCALE, 2);
-    
-  m.magnification = readDigit(PIN_MAG_LOW_DIGIT, 4) + 10*readDigit(PIN_MAG_HIGH_DIGIT, 4);
+  m.kv += 10 * readDigit(PIN_KV_SCALE, 2);
+
+  m.magnification = readDigit(PIN_MAG_LOW_DIGIT, 4) + 10 * readDigit(PIN_MAG_HIGH_DIGIT, 4);
   int exponent = readDigit(PIN_MAG_EXPONENT, 3);
-  for (int i = 0; i< exponent; i++) {
-    m.magnification *=10;
+  for (int i = 0; i < exponent; i++) {
+    m.magnification *= 10;
   }
 
-  m.wd = digitalRead(PIN_WD) == HIGH? 15:39;
-  
+  m.wd = digitalRead(PIN_WD) == HIGH ? 15 : 39;
+
   if (okToWrite()) {
     SerialUSB.write((uint8_t *)&m, sizeof(m));
   }
@@ -424,7 +424,7 @@ struct EndFrame {
 };
 
 void sendEndFrame(int lineTime, int frameTime) {
-  static struct EndFrame h = {{'E','P','S','_','S','E','M','_','E','N','D','F','R','A','M','E'}, 0, 0};
+  static struct EndFrame h = {{'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'E', 'N', 'D', 'F', 'R', 'A', 'M', 'E'}, 0, 0};
 
   h.lineTime = lineTime;
   h.frameTime = frameTime;
@@ -433,33 +433,33 @@ void sendEndFrame(int lineTime, int frameTime) {
   }
 }
 
-  
+
 
 
 
 
 
 void SerialUSB_write_uint16_t(uint16_t word) {
-    SerialUSB.write((byte)(word & 255));
-    SerialUSB.write((byte)(word >> 8));
+  SerialUSB.write((byte)(word & 255));
+  SerialUSB.write((byte)(word >> 8));
 }
 
 void SerialUSB_write_uint32_t(uint32_t word) {
-    SerialUSB.write((byte)(word & 255));                           
-    SerialUSB.write((byte)((word >> 8) & 255));
-    SerialUSB.write((byte)((word >> 16) & 255));
-    SerialUSB.write((byte)(word >> 24));
+  SerialUSB.write((byte)(word & 255));
+  SerialUSB.write((byte)((word >> 8) & 255));
+  SerialUSB.write((byte)((word >> 16) & 255));
+  SerialUSB.write((byte)(word >> 24));
 }
 
 
 void adcConfigureGain() {
-  adc_enable_anch(ADC); 
-  
+  adc_enable_anch(ADC);
+
   adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[0].ulADCChannelNumber), ADC_GAINVALUE_0);
   adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[1].ulADCChannelNumber), ADC_GAINVALUE_0);
   adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[2].ulADCChannelNumber), ADC_GAINVALUE_0);
   adc_set_channel_input_gain(ADC, (adc_channel_num_t)(g_APinDescription[3].ulADCChannelNumber), ADC_GAINVALUE_0);
-  
+
   adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[0].ulADCChannelNumber));
   adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[1].ulADCChannelNumber));
   adc_disable_channel_input_offset(ADC, (adc_channel_num_t)(g_APinDescription[2].ulADCChannelNumber));
@@ -468,7 +468,7 @@ void adcConfigureGain() {
 
 
 int getSelectedChannel() {
-  for (int i = 0; i<4; i++) {
+  for (int i = 0; i < 4; i++) {
     if (digitalRead(SELECT_PIN(i)) == HIGH) {
       return i;
     }
@@ -484,9 +484,9 @@ void initializeADC() {
   // convert from Ax input pin numbers to ADC channel numbers
 
   g_channelSelection1 = 0;//getSelectedChannel();
-  
-  int channel1 = 7-g_channelSelection1;
-  int channel2 = 7-g_channelSelection2;
+
+  int channel1 = 7 - g_channelSelection1;
+  int channel2 = 7 - g_channelSelection2;
 
   pmc_enable_periph_clk(ID_ADC);
   adc_init(ADC, SystemCoreClock, ADC_FREQ_MAX, ADC_STARTUP_FAST);
@@ -494,50 +494,50 @@ void initializeADC() {
   adcConfigureGain();
 
   if (!g_fSlow) {
-    ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out. 
+    ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out.
     ADC->ADC_MR |= 0x80000000;     // high bit indicates to use sequence numbers
-    ADC->ADC_EMR |= (1<<24);      // turn on channel numbers
-    ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels   
-    
+    ADC->ADC_EMR |= (1 << 24);    // turn on channel numbers
+    ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels
+
     switch (g_pCurrentRes->numChannels) {
       case 4:
-      // set 4 channels 
-      ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
-      ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
-      break;
-      
+        // set 4 channels
+        ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
+        ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
+        break;
+
       case 2:
-      // set 2 channels  
-      ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-      ADC->ADC_SEQR1 = (channel1 << (channel2 *4)) | (channel2 << (channel1*4));
-      break;
-  
+        // set 2 channels
+        ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
+        ADC->ADC_SEQR1 = (channel1 << (channel2 * 4)) | (channel2 << (channel1 * 4));
+        break;
+
       case 1:
-      //todo: make sure this works
-      ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
-      ADC->ADC_SEQR1 = (channel1 << (channel1 *4));
-      break;
+        //todo: make sure this works
+        ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
+        ADC->ADC_SEQR1 = (channel1 << (channel1 * 4));
+        break;
     }
     NVIC_EnableIRQ(ADC_IRQn);
-  
+
     //ADC->ADC_IDR = ~(1 << 27);              // disable other interrupts
     ADC->ADC_IER = 1 << 27;                 // enable the DMA one
     ADC->ADC_RPR = (uint32_t)padcBuffer[0]; // set up DMA buffer
     ADC->ADC_RCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;           // and number of words
     ADC->ADC_RNPR = (uint32_t)padcBuffer[1]; // next DMA buffer
-    ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;  
-  
+    ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;
+
     currentBuffer = 0;
-    nextBuffer = 1; 
-  
+    nextBuffer = 1;
+
     ADC->ADC_PTCR = 1;
     ADC->ADC_CR = 2;
   } else {
     // slow mode
-    ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed 
+    ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed
     ADC->ADC_MR |= 0x80;            //set free running mode on ADC
     ADC->ADC_CHER = 0x80 >> g_channelSelection1;           //enable ADC on selected pin
-//    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
+    //    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
   }
   g_adcInProgress = false;
 }
@@ -552,33 +552,33 @@ void ADC_Handler() {
     ADC->ADC_RNPR = (uint32_t)padcBuffer[nextBuffer]; // put it in place
     ADC->ADC_RNCR = g_pCurrentRes->numPixels * g_pCurrentRes->numChannels;
     g_adcInProgress = false;
-    }
+  }
 }
 
 void stopADC() {
-    ADC->ADC_MR &=0xFFFFFF00;                         // disable free run mode
-    g_adcLineTime = micros() - g_adcLineTimeStart;    // record microseconds
+  ADC->ADC_MR &= 0xFFFFFF00;                        // disable free run mode
+  g_adcLineTime = micros() - g_adcLineTimeStart;    // record microseconds
 }
 
 void startADC() {
   if (!g_adcInProgress) {
     switch (g_pCurrentRes->numChannels) {
       case 4:
-        ADC->ADC_MR |=0x000000F0;     // a0-a3 free running
+        ADC->ADC_MR |= 0x000000F0;    // a0-a3 free running
         break;
-        
+
       case 2:
-        ADC->ADC_MR |= (1<<(7-g_channelSelection1)) | (1<<(7-g_channelSelection2));     // two channels free running
+        ADC->ADC_MR |= (1 << (7 - g_channelSelection1)) | (1 << (7 - g_channelSelection2)); // two channels free running
         break;
-        
+
       case 1:
-        ADC->ADC_MR |= (1<<(7-g_channelSelection1));     // one channel free running
+        ADC->ADC_MR |= (1 << (7 - g_channelSelection1)); // one channel free running
         break;
     }
-  g_adcInProgress = true;
-  g_adcLineTimeStart = micros();
+    g_adcInProgress = true;
+    g_adcLineTimeStart = micros();
   }
- 
+
 }
 
 
@@ -593,23 +593,23 @@ void setupInterrupts() {
 void flipLED() {
   volatile static bool fOn = false;
 
-    if (fOn) {
-      digitalWrite(LED_BUILTIN, LOW);
-      fOn = false;
-    } else {
-      digitalWrite(LED_BUILTIN, HIGH);
-      fOn = true;
-    }
+  if (fOn) {
+    digitalWrite(LED_BUILTIN, LOW);
+    fOn = false;
+  } else {
+    digitalWrite(LED_BUILTIN, HIGH);
+    fOn = true;
+  }
 }
 
 void vsyncHandler() {
   if (digitalRead(VSYNC_PIN) == HIGH) { // rising edge
     switch (g_phase) {
       case PHASE_CHECK:
-      //todo: ?
+        //todo: ?
         g_phase = PHASE_READY_TO_MEASURE;
         break;
-        
+
       case PHASE_SCANNING:
       case PHASE_READY_TO_MEASURE:
       case PHASE_MEASURING:
@@ -621,10 +621,10 @@ void vsyncHandler() {
     switch (g_phase) {
       case PHASE_SCANNING:
         // time to end the frame and send the image
-        g_reason = REASON_VSYNC; 
+        g_reason = REASON_VSYNC;
         g_phase = PHASE_IDLE;
         break;
-  
+
       case PHASE_IDLE:
       case PHASE_READY_TO_MEASURE:
       case PHASE_MEASURING:
@@ -642,7 +642,7 @@ void hsyncHandler() {
       case PHASE_IDLE:
         // not doing anything right now
         break;
-      
+
       case PHASE_READY_TO_MEASURE:
         // start stopwatch, switch phase
         if (g_drop == 0) {
@@ -653,14 +653,14 @@ void hsyncHandler() {
           g_drop--;
         }
         break;
-  
+
       case PHASE_MEASURING:
         // take scan time, get ready to start scanning (initiated by main program, need to set up ADC first)
         g_measuredLineTime = micros() - g_measuredLineTime;
         g_phase = PHASE_READY_FOR_SCAN;
         g_numLines = 0;
         break;
-        
+
       case PHASE_SCANNING:
         if (!g_fSlow) {
           // start ADC (completion handled by ADC interrupt)
@@ -671,7 +671,7 @@ void hsyncHandler() {
           int pixels = g_pixels;
           int count = g_count;
           uint32_t *pDest = (uint32_t *)g_pDest;
- 
+
           noInterrupts();
           while (pixels--) {
             value = 0;
@@ -687,10 +687,10 @@ void hsyncHandler() {
           g_pixels = g_pCurrentRes->numPixels;
           interrupts();
         }
-        
+
         ++g_numLines;
         break;
-    } 
+    }
   }
 }
 
@@ -703,14 +703,14 @@ struct Resolution *getResolution(int lineTime) {
   int i;
 
   // go through known resolutions
-  
-  for (i=0; i<NUM_MODES; i++) {
-    if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance) 
-      && g_allRes[i].numChannels == g_selectedChannelNum) {
+
+  for (i = 0; i < NUM_MODES; i++) {
+    if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance)
+        && g_allRes[i].numChannels == g_selectedChannelNum) {
       return &g_allRes[i];
     }
   }
-  
+
   return NULL;
 }
 
@@ -730,10 +730,10 @@ void loop () {
   int line;
   static int dropCount = FAST_DROP_COUNT;
 
-  // 
+  //
   // let hsync measure the time
   //
-  
+
   while (g_phase == PHASE_READY_TO_MEASURE) {
   }
 
@@ -746,7 +746,7 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN) {
     if (g_measuredLineTime < 300) {
       if (dropCount > 0) {
-        g_reason = REASON_DROP;        
+        g_reason = REASON_DROP;
         g_argument = g_measuredLineTime;
         g_phase = PHASE_CHECK;
         dropCount--;
@@ -755,7 +755,7 @@ void loop () {
       }
     }
   }
-    
+
   if (g_phase == PHASE_READY_FOR_SCAN)  {
     g_pCurrentRes = getResolution(g_measuredLineTime);
     if (g_pCurrentRes != NULL) {
@@ -786,7 +786,7 @@ void loop () {
       } else {
         g_phase = PHASE_READY_TO_MEASURE;
       }
-    }    
+    }
   }
 
 
@@ -806,7 +806,7 @@ void loop () {
 
     // send the line
     sendLine(g_lineBytes);
-   
+
 
 
     // catch any abort message
@@ -815,10 +815,10 @@ void loop () {
       return;
     }
 
-    
+
 
   }
-  
+
   //
   // aftermath
   // send frame, check for abort
@@ -847,10 +847,10 @@ void loop () {
     if (checkAbort()) {
       reset();
       return;
-    } 
+    }
   }
 
-  
+
 }
 
 bool checkAbort() {
@@ -859,55 +859,87 @@ bool checkAbort() {
   char k;
 
 
-  
+
   while (SerialUSB.available()) {
     k = SerialUSB.read();
     if (o == 'A' && k == 'B') {
       return true;
-    } 
+    }
     if (o == 'O' && k == 'K') {
       lastTime = millis();
       return false;
     }
     if (o == 'C' && k == 'H') {
-      if (SerialUSB.available()){
-        g_channelSelection1 = 0;
-        g_channelSelection2 = 0;
-        g_selectedChannelNum = 1;
-        flipLED();
-        
-        int selectedChannels = SerialUSB.read();
-        int mask = 1;
-        int i;
-        for (i = 0; i< 4; i++) {
-          if (selectedChannels & mask) {
-            g_channelSelection1 = i;
-            selectedChannels &= ~mask;
-          }
-          mask <<= 1;
-        }
-        if (i != 4) {
-          mask = 1;
-          for (i = 0; i< 4; i++) {
-            if (selectedChannels & mask) {
-              g_channelSelection2 = i;
-               selectedChannels &= ~mask;
-              g_selectedChannelNum = 2;
-            }
-            mask <<= 1;
-          }
-        }
-  
-        if (i  != 4 &&  selectedChannels != 0) {
-          g_selectedChannelNum = 4;
-        }
-        return false;
-      }
+      readChannelSelection();
+      return false;
     }
     o = k;
   }
 
   return false;
+}
+
+
+void readChannelSelection() {
+  if (SerialUSB.available()) {
+    int old1 = g_channelSelection1;
+    int old2 = g_channelSelection2;
+    int oldnum = g_selectedChannelNum;
+
+    g_channelSelection1 = 0;
+    g_channelSelection2 = 0;
+    g_selectedChannelNum = 0;
+
+    unsigned int selectedChannels = SerialUSB.read();
+    unsigned int mask = 1;
+    int i;
+    for (i = 0; i < 4; i++) {
+      if (selectedChannels & mask) {
+        g_channelSelection1 = i;
+        selectedChannels &= ~mask;
+        g_selectedChannelNum = 1;
+        break;
+      }
+      mask <<= 1;
+    }
+    if (i != 4) {
+      mask = 1;
+      for (i = 0; i < 4; i++) {
+        if (selectedChannels & mask) {
+          g_channelSelection2 = i;
+          selectedChannels &= ~mask;
+          g_selectedChannelNum = 2;
+          break;
+        }
+        mask <<= 1;
+      }
+    }
+
+    if (i  != 4 &&  selectedChannels != 0) {
+      g_selectedChannelNum = 4;
+    }
+
+    // catch "no channels selected" and go back to default
+    if (g_selectedChannelNum == 0) {
+      g_channelSelection1 = 0;
+      g_channelSelection2 = 0;
+      g_selectedChannelNum = 1;
+    }
+    
+/*    
+    if (old1 != g_channelSelection1 || old2 != g_channelSelection2 || oldnum != g_selectedChannelNum) {
+      blinkBuiltInLED(g_selectedChannelNum);
+      if (g_selectedChannelNum != 4) {
+        delay(1000);
+        blinkBuiltInLED(g_channelSelection1 + 1);
+        if (g_selectedChannelNum == 2) {
+          delay(1000);
+          blinkBuiltInLED(g_channelSelection2 + 1);
+        }
+      }
+    }
+*/
+  }
 }
 
 void adjustToNewRes() {
@@ -937,21 +969,21 @@ int scanAndCopyOneLine() {
     }
 
 
-    int pixels = g_lineBytes/2;
+    int pixels = g_lineBytes / 2;
     uint32_t *pSource = (uint32_t *)&g_pbp[1];
     uint16_t *pDest = (uint16_t *) pSource;
-    int factor = (g_pCurrentRes->numSamples); 
+    int factor = (g_pCurrentRes->numSamples);
     while (pixels--) {
-      *pDest++ = (*pSource++/factor)|0x7000; // divide by number of samples, add channel A0 marker
+      *pDest++ = (*pSource++ / factor) | 0x7000; // divide by number of samples, add channel A0 marker
     }
-    memcpy(((byte *)&g_pbp[1]) + g_lineBytes, sentinelTrailer, sizeof (sentinelTrailer)); 
+    memcpy(((byte *)&g_pbp[1]) + g_lineBytes, sentinelTrailer, sizeof (sentinelTrailer));
     g_fLineReady = false;
   } else {
     // in fast mode, wait for ADC DMA to finish
-    
-//    while (NEXT_BUFFER(currentBuffer) == nextBuffer);   // while current and next are one apart
+
+    //    while (NEXT_BUFFER(currentBuffer) == nextBuffer);   // while current and next are one apart
     while (g_adcInProgress);                           // while current and next are one apart
-      
+
     // put the line somewhere safe from adc, just past the params header:
     memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
     currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
@@ -961,7 +993,7 @@ int scanAndCopyOneLine() {
 
 
 void sendIdle(int reason, int argument) {
-  if (okToWrite()){
+  if (okToWrite()) {
     SerialUSB.write(headerIdle, 16);
     SerialUSB_write_uint32_t(reason);
     SerialUSB_write_uint32_t(argument);
@@ -970,15 +1002,15 @@ void sendIdle(int reason, int argument) {
 
 
 /*
- setup:      
+  setup:
   ADC->ADC_MR |= 0x80;  //set free running mode on ADC
   ADC->ADC_CHER = 0x80; //enable ADC on pin A0
-}
+  }
 
-sample:
+  sample:
     while((ADC->ADC_ISR & 0x80)==0); // wait for conversion
     values[i]=ADC->ADC_CDR[7]; //get values
-  
+
 */
 
 
