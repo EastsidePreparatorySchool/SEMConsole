@@ -949,8 +949,7 @@ public class Console extends Application {
 
     // main fx launcher
     public static void main(String[] args) {
-
-        //UsbJava.test();
+/*
         ArrayList<RemoteDevice> a = Bluetooth.getDevices();
         for (RemoteDevice r : a) {
             try {
@@ -960,6 +959,7 @@ public class Console extends Application {
             } catch (IOException ex) {
             }
         }
+*/
 
         try {
             launch(args);
