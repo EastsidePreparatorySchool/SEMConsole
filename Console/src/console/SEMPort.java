@@ -265,6 +265,11 @@ public class SEMPort {
                             SEMThread.oldwd = SEMThread.wd;
                             Platform.runLater(updateMeta);
                         }
+
+                        // acknowledge receipt
+                        channel.write(ByteBuffer.wrap("CH".getBytes(StandardCharsets.UTF_8)));
+                        channel.write(ByteBuffer.wrap(new byte[]{SEMThread.channels}));
+
                         return SEMThread.Phase.WAITING_FOR_FRAME;
                     case "EPS_SEM_FRAME...":
                         if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {

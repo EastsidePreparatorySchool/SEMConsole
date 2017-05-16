@@ -536,7 +536,8 @@ void initializeADC() {
     // slow mode
     ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed 
     ADC->ADC_MR |= 0x80;            //set free running mode on ADC
-    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
+    ADC->ADC_CHER = 0x80 >> g_channelSelection1;           //enable ADC on selected pin
+//    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
   }
   g_adcInProgress = false;
 }
@@ -825,7 +826,7 @@ void loop () {
   if (g_phase == PHASE_IDLE) {
     if (g_fFrameInProgress) {
       g_timeFrame = millis() - g_timeFrame;
-      flipLED();
+      //flipLED();
       sendEndFrame (timeLineScan, g_reason);
       g_fFrameInProgress = false;
     } else {
@@ -869,36 +870,39 @@ bool checkAbort() {
       return false;
     }
     if (o == 'C' && k == 'H') {
-      g_channelSelection1 = 0;
-      g_channelSelection2 = 0;
-      g_selectedChannelNum = 1;
-      
-      int selectedChannels = SerialUSB.read();
-      int mask = 1;
-      int i;
-      for (i = 0; i< 4; i++) {
-        if (selectedChannels & mask) {
-          g_channelSelection1 = i;
-          selectedChannels &= ~mask;
-        }
-        mask <<= 1;
-      }
-      if (i != 4) {
-        mask = 1;
+      if (SerialUSB.available()){
+        g_channelSelection1 = 0;
+        g_channelSelection2 = 0;
+        g_selectedChannelNum = 1;
+        flipLED();
+        
+        int selectedChannels = SerialUSB.read();
+        int mask = 1;
+        int i;
         for (i = 0; i< 4; i++) {
           if (selectedChannels & mask) {
-            g_channelSelection2 = i;
-             selectedChannels &= ~mask;
-            g_selectedChannelNum = 2;
+            g_channelSelection1 = i;
+            selectedChannels &= ~mask;
           }
           mask <<= 1;
         }
+        if (i != 4) {
+          mask = 1;
+          for (i = 0; i< 4; i++) {
+            if (selectedChannels & mask) {
+              g_channelSelection2 = i;
+               selectedChannels &= ~mask;
+              g_selectedChannelNum = 2;
+            }
+            mask <<= 1;
+          }
+        }
+  
+        if (i  != 4 &&  selectedChannels != 0) {
+          g_selectedChannelNum = 4;
+        }
+        return false;
       }
-
-      if (i  != 4 &&  selectedChannels != 0) {
-        g_selectedChannelNum = 4;
-      }
-      return false;
     }
     o = k;
   }

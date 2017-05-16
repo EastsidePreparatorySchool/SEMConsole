@@ -6,6 +6,7 @@
 package console;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -13,6 +14,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.function.BooleanSupplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -53,6 +56,8 @@ import javafx.stage.Screen;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
+
+import javax.bluetooth.RemoteDevice;
 
 /**
  *
@@ -946,6 +951,16 @@ public class Console extends Application {
     public static void main(String[] args) {
 
         //UsbJava.test();
+        ArrayList<RemoteDevice> a = Bluetooth.getDevices();
+        for (RemoteDevice r : a) {
+            try {
+                if (r.isTrustedDevice()) {
+                    System.out.println("" + r.getFriendlyName(false) + "(" + r.getBluetoothAddress() + ")");
+                }
+            } catch (IOException ex) {
+            }
+        }
+
         try {
             launch(args);
         } finally {
