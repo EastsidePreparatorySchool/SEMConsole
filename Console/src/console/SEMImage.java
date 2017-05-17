@@ -249,7 +249,7 @@ public class SEMImage {
 
         // compute ranges from first 75% of image. ignore duplicates as best we can
         int prevLine = -1;
-        for (int i = 0; i < (size * 3 / 4); i++) {
+        for (int i = 0; i < size; i++) {
             int[] data = alineBuffers.get(i);
 
             int line = data[data.length - 1];
@@ -258,6 +258,8 @@ public class SEMImage {
             }
             prevLine = line;
         }
+        //Console.printOn();
+        //Console.println(""+rangeMin[0]+" "+rangeMax[0]);
     }
 
     public void makeImagesForDisplay() {

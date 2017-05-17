@@ -267,8 +267,8 @@ public class SEMPort {
                         }
 
                         // acknowledge receipt
-                        channel.write(ByteBuffer.wrap("CH".getBytes(StandardCharsets.UTF_8)));
-                        channel.write(ByteBuffer.wrap(new byte[]{SEMThread.channels}));
+//                        channel.write(ByteBuffer.wrap("CH".getBytes(StandardCharsets.UTF_8)));
+//                        channel.write(ByteBuffer.wrap(new byte[]{SEMThread.channels}));
 
                         return SEMThread.Phase.WAITING_FOR_FRAME;
                     case "EPS_SEM_FRAME...":
@@ -426,8 +426,9 @@ public class SEMPort {
                         int reasonEnd = buffer.getShort(); //unused frame time from Arduino
 
                         // acknowledge receipt by sending channel selection
-                        channel.write(ByteBuffer.wrap("CH".getBytes(StandardCharsets.UTF_8)));
-                        channel.write(ByteBuffer.wrap(new byte[]{SEMThread.channels}));
+                        ByteBuffer bb =ByteBuffer.wrap("CH0".getBytes(StandardCharsets.UTF_8));
+                        bb.put(2, SEMThread.channels);
+                        channel.write(bb);
 
                         String reasonS = "unknown";
                         if (reasonEnd < 4) {
