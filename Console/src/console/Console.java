@@ -949,6 +949,9 @@ public class Console extends Application {
 
     // main fx launcher
     public static void main(String[] args) {
+        
+        //ConsolePane.MoveSystemConsole();
+        
 /*
         ArrayList<RemoteDevice> a = Bluetooth.getDevices();
         for (RemoteDevice r : a) {

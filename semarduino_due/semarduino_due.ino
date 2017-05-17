@@ -95,9 +95,9 @@ struct Resolution g_allRes[] = {
 #define REASON_DROP   2
 #define REASON_VSYNC  3
 
-int g_channelSelection1 = 0; // TODO: Make this programmable with digital inputs
-int g_channelSelection2 = 3; // TODO: For now, make sure that SEI is on A0 and AEI on A1
-int g_selectedChannelNum = 1;
+int g_line1 = 0; 
+int g_line2 = 0; 
+int g_numChannels = 1;
 
 //
 // Buffers are really independent of the resolution we are tracking, just make them big enough
@@ -121,6 +121,7 @@ volatile int g_reason;
 volatile int g_argument;
 volatile int g_numLines;
 volatile int g_resFaults;
+int g_fResetRes;
 volatile int g_drop;
 struct Resolution *g_lastRes;
 int g_timeFrame;
@@ -260,6 +261,7 @@ void setup() {
   g_timeFrame = 0;
   g_fFrameInProgress = false;
   g_fSlow = false;
+  g_fResetRes = true;
 
   setupInterrupts();
 }
@@ -338,7 +340,7 @@ struct Frame {
   uint16_t  numPixels;
   uint16_t  numLines;
   uint16_t  scanTime;
-  uint16_t  channels[4];
+  uint16_t  lines[4];
 };
 
 void sendFrameHeader() {
@@ -352,26 +354,26 @@ void sendFrameHeader() {
 
   switch (g_pCurrentRes->numChannels) {
     case 4:
-      h.channels[0] = 0;
-      h.channels[1] = 0;
-      h.channels[2] = 0;
-      h.channels[3] = 0;
+      h.lines[0] = 0;
+      h.lines[1] = 0;
+      h.lines[2] = 0;
+      h.lines[3] = 0;
       break;
 
     case 2:
       // list just the specific 2 channels we are capturing
-      h.channels[0] = g_channelSelection1;
-      h.channels[1] = g_channelSelection2;
-      h.channels[2] = 0;
-      h.channels[3] = 0;
+      h.lines[0] = g_line1;
+      h.lines[1] = g_line2;
+      h.lines[2] = 0;
+      h.lines[3] = 0;
       break;
 
     case 1:
       // list just the specific 1 channel we are capturing in FAST
-      h.channels[0] = g_channelSelection1;
-      h.channels[1] = 0;
-      h.channels[2] = 0;
-      h.channels[3] = 0;
+      h.lines[0] = g_line1;
+      h.lines[1] = 0;
+      h.lines[2] = 0;
+      h.lines[3] = 0;
       break;
   }
   if (okToWrite()) {
@@ -401,7 +403,6 @@ struct Meta {
 
 void sendMeta() {
   static struct Meta m = {{'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'M', 'E', 'T', 'A', '.', '.', '.', '.'}, 0, 0, 0};
-
   m.kv = readDigit(PIN_KV_FINE, 4);
   m.kv += 10 * readDigit(PIN_KV_SCALE, 2);
 
@@ -467,14 +468,6 @@ void adcConfigureGain() {
 }
 
 
-int getSelectedChannel() {
-  for (int i = 0; i < 4; i++) {
-    if (digitalRead(SELECT_PIN(i)) == HIGH) {
-      return i;
-    }
-  }
-  return 0;
-}
 
 //
 // set up analog-to-digital conversions
@@ -483,39 +476,37 @@ int getSelectedChannel() {
 void initializeADC() {
   // convert from Ax input pin numbers to ADC channel numbers
 
-  g_channelSelection1 = 0;//getSelectedChannel();
-
-  int channel1 = 7 - g_channelSelection1;
-  int channel2 = 7 - g_channelSelection2;
+  int channel1 = 7 - g_line1;
+  int channel2 = 7 - g_line2;
 
   pmc_enable_periph_clk(ID_ADC);
   adc_init(ADC, SystemCoreClock, ADC_FREQ_MAX, ADC_STARTUP_FAST);
   analogReadResolution(12);
   adcConfigureGain();
+  ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out.
+  ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels
 
   if (!g_fSlow) {
-    ADC->ADC_MR &= 0xFFFF0000;     // mode register "prescale" zeroed out.
     ADC->ADC_MR |= 0x80000000;     // high bit indicates to use sequence numbers
     ADC->ADC_EMR |= (1 << 24);    // turn on channel numbers
-    ADC->ADC_CHDR = 0xFFFFFFFF;   // disable all channels
 
     switch (g_pCurrentRes->numChannels) {
       case 4:
         // set 4 channels
         ADC->ADC_CHER = 0xF0;         // enable ch 7, 6, 5, 4 -> pins a0, a1, a2, a3
-        ADC->ADC_SEQR1 = 0x45670000;  // produce these channel readings for every completion
+        ADC->ADC_SEQR1 = 0x76540000;  // produce these channel readings for every completion
         break;
 
       case 2:
         // set 2 channels
         ADC->ADC_CHER = (1 << channel1) | (1 << channel2);
-        ADC->ADC_SEQR1 = (channel1 << (channel2 * 4)) | (channel2 << (channel1 * 4));
+        ADC->ADC_SEQR1 = (channel1 << (channel1 * 4)) | (channel2 << (channel2 * 4));
         break;
 
       case 1:
         //todo: make sure this works
-        ADC->ADC_CHER = (1 << channel1); // todo: does this work for channels other than A0?
-        ADC->ADC_SEQR1 = (channel1 << (channel1 * 4));
+        ADC->ADC_CHER = 1 << channel1; // todo: does this work for channels other than A0?
+        ADC->ADC_SEQR1 = channel1 << (channel1 * 4);
         break;
     }
     NVIC_EnableIRQ(ADC_IRQn);
@@ -534,12 +525,94 @@ void initializeADC() {
     ADC->ADC_CR = 2;
   } else {
     // slow mode
-    ADC->ADC_MR &= 0xFFFF0000;      // mode register "prescale" zeroed out to scan at highest speed
-    ADC->ADC_MR |= 0x80;            //set free running mode on ADC
-    ADC->ADC_CHER = 0x80 >> g_channelSelection1;           //enable ADC on selected pin
-    //    ADC->ADC_CHER = 0x80;           //enable ADC on pin A0
-  }
+    ADC->ADC_MR &= 0x7FFF0000;                    // mode register "prescale" zeroed out to scan at highest speed
+                                                  // no high bit indicates to NOT use sequence numbers
+    ADC->ADC_CHER = 0x80 >> g_line1;  // enable ADC on selected pin
+    ADC->ADC_MR |= 0x80;                          // set free running mode on ADC
+ }
   g_adcInProgress = false;
+
+
+  /*
+   Some help for those working with the sequence registers with the DUE ADC: 
+ 
+The ADC in the DUE is connected so that the Arduino pins A0,A1,A2,A3 correspond to the AVR ADC channels ch7, ch6, ch5, and ch4, respectively.  The converter can be programmed to acquire a sequence of channels with one trigger. Instructions for configuring the acquisition are given in section 43 of the SAM3x data sheet, but are rather confusing, in my opinion.
+To use the registers that determine the sequence of channels that are acquired, follow these steps:
+ 
+How many acquisitions do you want in your sequence? You must enable this many channels in the ADC_CHER. (channel enable register) 
+Which channels do you want in your sequence?  These channels must be included in the ones that you enable in ADC_CHER.
+EXAMPLE:  Want to have a sequence with four acquisitions.  The channels to be acquired are only two, channel 7 and channel 6. (arduino A0 and A1) 
+SOLUTIONS:  four bits must be set in ADC_CHER.  Of these 4, two must be channel 7 and channel 6, and the other two are arbitrary.
+            example SOL1:  CHER set up for    ch0,ch1 ch6,ch7       CHER= 0x00C3
+            example SOL2:  CHER  set up for   ch1, ch6, ch7, ch12  CHER= 0x10C2
+ 
+Now, write the channels that you want acquired into the sequence register positions for the channels that you have enabled. 
+Work in numerical order from the lowest numbered acquisition channel to the highest numbered acquisition channel.  
+Note that the labels in the sequence register documentation are numbered from 1 instead of zero.  This is simply a confusion
+(or error) in the documentation. (that is, for example, USCH1 corresponds to the adc channel #0....USCH10 corresponds to the adc channel #9) 
+
+EXAMPLE:  You want to acquire 7,7,6,6 with every trigger
+                  USING SOL1 (ch0,ch1,ch6,ch7)
+                                  SEQR1= (7<<0) | (7<<4) |(6<<24) |(6<<28); //=0x66000077
+                            USING SOL2 (ch1,ch6,ch7,ch12)
+                                SEQR1= (7<<4) | (7<<24) |(6<<28);  //=0x67000070
+                                SEQR2=(6<<16);                                  // =0x60000
+EXAMPLE2:  You want to acquire 6,7,6,7 with every trigger 
+                  USING SOL1 (ch0,ch1,ch6,ch7)
+                                SEQR1= (6<<0) | (7<<4) |(6<<24) |(7<<28);//=0x76000076
+                  USING SOL2 (ch1,ch6,ch7,ch12)
+                               SEQR1= (6<<4) | (7<<24) |(6<<28);  //=0x67000060
+                               SEQR2=(7<<16);                                   //=0x70000
+ 
+   I have attached code that acquires A1,A0,A1,A0.... like the  SOL1, example 2 above.  The ADC runs in the background, always overwriting a length 4 data array.  (Note that in this code, the ADC is clock is slowed down below the recommended speed.)  
+ 
+ 
+   * 
+   * 
+   * 
+   // Arduino Due ADC->DMA 
+// modified by contravalent from code on the  internet by "Stimmer"
+// this routine reads the two arduino channels A0 and A1
+// fills the array global_ADCounts_Array in the background, with data from the ADC  
+
+ pmc_enable_periph_clk(ID_ADC);   //power management controller told to turn on adc
+ ADC->ADC_CR |=1; //reset the adc
+ ADC->ADC_MR= 0x9038ff00;  //this setting is used by arduino. 
+  // prescale :  ADC clock is mck/((prescale+1)*2).  mck is 84MHZ. 
+  // prescale : 0xFF=255=164.0625KHz
+  ADC->ADC_MR &=0xFFFF00FF;   //mode register "prescale" zeroed out. 
+  ADC->ADC_MR |=0x0000ff00;   //slow down the adc clock so we don't interrupt so often . this divide sets it very slow
+  ADC->ADC_EMR |= (1<<24);    // turn on channel numbers
+  ADC->ADC_CHDR=0xFFFFFFFF;   // disable all channels   
+  ADC->ADC_CHER=0x00C3;       //   use channels 0,1, 6 and 7
+  ADC->ADC_MR |=0x80000000;   //USEQ bit set, saying use the sequence
+  ADC->ADC_SEQR1=0x76000076;  // use0->6, use1->7, use6->6, use7->7 
+  ADC->ADC_SEQR2=0x0000;
+  
+  NVIC_EnableIRQ(ADC_IRQn); // interrupt controller set to enable adc.
+  ADC->ADC_IDR=~((1<<27)); // interrupt disable register, disables all interrupts but ENDRX
+  ADC->ADC_IER=(1<<27);   // interrupt enable register, enables only ENDRX
+  Serial.println();
+  Serial.print("mode register ="); Serial.println(REG_ADC_MR, HEX); 
+  Serial.print("channel enabled register ="); Serial.println(REG_ADC_CHSR, HEX);
+  Serial.print("sequence register1 ="); Serial.println(REG_ADC_SEQR1, HEX); 
+  Serial.print("interrupts ="); Serial.println(REG_ADC_IMR, HEX); delay(5000);
+ // following are the DMA controller registers for this peripheral
+ // "receive buffer address" 
+ ADC->ADC_RPR=(uint32_t) global_ADCounts_Array;   // DMA receive pointer register  points to beginning of global_ADCount
+ // "receive count" 
+ ADC->ADC_RCR=NUM_CHANNELS;  //  receive counter set to 4
+ // "next-buffer address"
+ ADC->ADC_RNPR=(uint32_t)global_ADCounts_Array; // next receive pointer register DMA global_ADCounts_Arrayfer  points to second set of data 
+ // and "next count"
+ ADC->ADC_RNCR=NUM_CHANNELS;   //  and next counter is set to 4
+ // "transmit control register"
+ ADC->ADC_PTCR=1;  // transfer control register for the DMA is set to enable receiver channel requests
+ // now that all things are set up, it is safe to start the ADC.....
+ ADC->ADC_MR |=0x80; // mode register of adc bit seven, free run, set to free running. starts ADC
+
+
+   */
 }
 
 void ADC_Handler() {
@@ -556,25 +629,13 @@ void ADC_Handler() {
 }
 
 void stopADC() {
-  ADC->ADC_MR &= 0xFFFFFF00;                        // disable free run mode
+  ADC->ADC_MR &= 0xFFFFFF7F;                        // disable free run mode
   g_adcLineTime = micros() - g_adcLineTimeStart;    // record microseconds
 }
 
 void startADC() {
   if (!g_adcInProgress) {
-    switch (g_pCurrentRes->numChannels) {
-      case 4:
-        ADC->ADC_MR |= 0x000000F0;    // a0-a3 free running
-        break;
-
-      case 2:
-        ADC->ADC_MR |= (1 << (7 - g_channelSelection1)) | (1 << (7 - g_channelSelection2)); // two channels free running
-        break;
-
-      case 1:
-        ADC->ADC_MR |= (1 << (7 - g_channelSelection1)); // one channel free running
-        break;
-    }
+    ADC->ADC_MR |= 0x80;    // adc free running
     g_adcInProgress = true;
     g_adcLineTimeStart = micros();
   }
@@ -677,7 +738,7 @@ void hsyncHandler() {
             value = 0;
             i = count;
             while (i--) {
-              value += ((ADC->ADC_CDR[7]) & 0x0FFF);  // get values, no tag
+              value += ((ADC->ADC_CDR[7-g_line1]) & 0x0FFF);  // get values, no tag
             }
             *pDest++ = value; // tag as channel 0 and store
           }
@@ -706,7 +767,7 @@ struct Resolution *getResolution(int lineTime) {
 
   for (i = 0; i < NUM_MODES; i++) {
     if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance)
-        && g_allRes[i].numChannels == g_selectedChannelNum) {
+        && g_allRes[i].numChannels == g_numChannels) {
       return &g_allRes[i];
     }
   }
@@ -759,9 +820,10 @@ void loop () {
   if (g_phase == PHASE_READY_FOR_SCAN)  {
     g_pCurrentRes = getResolution(g_measuredLineTime);
     if (g_pCurrentRes != NULL) {
-      if (g_pCurrentRes != g_lastRes) {
+      if (g_pCurrentRes != g_lastRes || g_fResetRes) {
         adjustToNewRes();
         g_lastRes = g_pCurrentRes;
+        g_fResetRes = false;
       }
 
       // if lowres, make sure the queue has room. if hires, we have time to block on the write
@@ -769,6 +831,7 @@ void loop () {
         g_fFrameInProgress = true;
 
         sendFrameHeader();
+        flipLED();
         g_timeFrame = millis();
         g_fLineReady = false;
         g_pDest = (uint16_t *)&g_pbp[1];
@@ -780,6 +843,7 @@ void loop () {
       }
     } else {// res not recognized
       if (g_resFaults++ > MAX_RES_FAULTS) {
+        g_resFaults = 0;
         g_reason = REASON_NO_RES;
         g_argument = g_measuredLineTime;
         g_phase = PHASE_IDLE;
@@ -867,11 +931,11 @@ bool checkAbort() {
     }
     if (o == 'O' && k == 'K') {
       lastTime = millis();
-      return false;
+      //return false;
     }
     if (o == 'C' && k == 'H') {
       readChannelSelection();
-      return false;
+      //return false;
     }
     o = k;
   }
@@ -882,33 +946,34 @@ bool checkAbort() {
 
 void readChannelSelection() {
   if (SerialUSB.available()) {
-    int old1 = g_channelSelection1;
-    int old2 = g_channelSelection2;
-    int oldnum = g_selectedChannelNum;
+    int old1 = g_line1;
+    int old2 = g_line2;
+    int oldnum = g_numChannels;
 
-    g_channelSelection1 = 0;
-    g_channelSelection2 = 0;
-    g_selectedChannelNum = 0;
+    int line1, line2, numChannels;
+
+    line1 = 0;
+    line2 = 0;
+    numChannels = 0;
 
     unsigned int selectedChannels = SerialUSB.read();
     unsigned int mask = 1;
     int i;
     for (i = 0; i < 4; i++) {
       if (selectedChannels & mask) {
-        g_channelSelection1 = i;
+        line1 = i;
         selectedChannels &= ~mask;
-        g_selectedChannelNum = 1;
+        numChannels = 1;
         break;
       }
       mask <<= 1;
     }
     if (i != 4) {
-      mask = 1;
-      for (i = 0; i < 4; i++) {
+      for (; i < 4; i++) {
         if (selectedChannels & mask) {
-          g_channelSelection2 = i;
+          line2 = i;
           selectedChannels &= ~mask;
-          g_selectedChannelNum = 2;
+          numChannels = 2;
           break;
         }
         mask <<= 1;
@@ -916,29 +981,35 @@ void readChannelSelection() {
     }
 
     if (i  != 4 &&  selectedChannels != 0) {
-      g_selectedChannelNum = 4;
+      numChannels = 4;
     }
 
     // catch "no channels selected" and go back to default
-    if (g_selectedChannelNum == 0) {
-      g_channelSelection1 = 0;
-      g_channelSelection2 = 0;
-      g_selectedChannelNum = 1;
+    if (numChannels == 0) {
+      line1 = 0;
+      line2 = 0;
+      numChannels = 1;
     }
     
-/*    
-    if (old1 != g_channelSelection1 || old2 != g_channelSelection2 || oldnum != g_selectedChannelNum) {
-      blinkBuiltInLED(g_selectedChannelNum);
-      if (g_selectedChannelNum != 4) {
-        delay(1000);
-        blinkBuiltInLED(g_channelSelection1 + 1);
-        if (g_selectedChannelNum == 2) {
-          delay(1000);
-          blinkBuiltInLED(g_channelSelection2 + 1);
-        }
-      }
+    
+    if (old1 != line1 || old2 != line2 || oldnum != numChannels) {
+      noInterrupts();
+      g_line1 = line1;
+      g_line2 = line2;
+      g_numChannels = numChannels;
+      g_fResetRes = true;
+      interrupts();
+//      blinkBuiltInLED(g_numChannels);
+//      if (g_numChannels != 4) {
+//        delay(1000);
+//        blinkBuiltInLED(g_line1 + 1);
+//        if (g_numChannels == 2) {
+//          delay(1000);
+//          blinkBuiltInLED(g_line2 + 1);
+//        }
+//      }
     }
-*/
+
   }
 }
 
@@ -974,7 +1045,7 @@ int scanAndCopyOneLine() {
     uint16_t *pDest = (uint16_t *) pSource;
     int factor = (g_pCurrentRes->numSamples);
     while (pixels--) {
-      *pDest++ = (*pSource++ / factor) | 0x7000; // divide by number of samples, add channel A0 marker
+      *pDest++ = (*pSource++ / factor) | ((7-g_line1)<<12); // divide by number of samples, add channel marker
     }
     memcpy(((byte *)&g_pbp[1]) + g_lineBytes, sentinelTrailer, sizeof (sentinelTrailer));
     g_fLineReady = false;
