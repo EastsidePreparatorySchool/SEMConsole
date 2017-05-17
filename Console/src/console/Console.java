@@ -189,8 +189,14 @@ public class Console extends Application {
         for (int i = 0; i < 4; i++) {
             final int j = i;
             this.ch[i].setOnAction((e) -> {
+
                 if (this.ch[j].isSelected()) {
-                    SEMThread.channels |= (1 << j);
+                    for (RadioButton ch : this.ch) {
+                        if (ch != this.ch[j]) {
+                            ch.setSelected(false);
+                        }
+                    }
+                    SEMThread.channels = (byte)(1 << j);
                 } else {
                     SEMThread.channels &= ~(1 << j);
                 }
@@ -949,7 +955,7 @@ public class Console extends Application {
 
     // main fx launcher
     public static void main(String[] args) {
-/*
+        /*
         ArrayList<RemoteDevice> a = Bluetooth.getDevices();
         for (RemoteDevice r : a) {
             try {
@@ -959,7 +965,7 @@ public class Console extends Application {
             } catch (IOException ex) {
             }
         }
-*/
+         */
 
         try {
             launch(args);
