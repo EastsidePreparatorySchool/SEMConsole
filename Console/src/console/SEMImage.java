@@ -231,6 +231,8 @@ public class SEMImage {
             }
         }
     }
+    
+  
 
     public void rangeImages() {
         if (alineBuffers.isEmpty()) {
