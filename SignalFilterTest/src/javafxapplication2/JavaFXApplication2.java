@@ -114,7 +114,7 @@ public class JavaFXApplication2 extends Application {
 
             // apply filter
             lineFilterLowPass(input, output, sampleRate, cutoff);
-            lineFilterNotch(input, output, sampleRate, cutoff, 4000);
+            //lineFilterNotch(input, output, sampleRate, cutoff, 4000);
 
             
             // encode pixels
