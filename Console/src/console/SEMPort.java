@@ -47,10 +47,11 @@ public class SEMPort {
     static private final byte[] msgBuffer = new byte[16];
     static private final int[] capturedChannels = new int[4];
 
-    static private final ByteBuffer commandConnect = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
-    static private final ByteBuffer commandAbort =ByteBuffer.wrap("AB".getBytes(StandardCharsets.UTF_8));
-    static private final ByteBuffer commandChannelSelect =ByteBuffer.wrap("CH0".getBytes(StandardCharsets.UTF_8));
-    static private final ByteBuffer commandOk =ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8));
+    ByteBuffer commandConnect = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
+
+    static private final ByteBuffer commandAbort = ByteBuffer.wrap("AB".getBytes(StandardCharsets.UTF_8));
+    static private final ByteBuffer commandChannelSelect = ByteBuffer.wrap("CH0".getBytes(StandardCharsets.UTF_8));
+    static private final ByteBuffer commandOk = ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8));
 
     int proposedBytes;
     long frameStartTime;
@@ -96,6 +97,7 @@ public class SEMPort {
                 buffer = ByteBuffer.allocateDirect(32000);
                 buffer.order(ByteOrder.LITTLE_ENDIAN);
 
+                commandConnect.rewind();
                 channel.write(commandConnect);
 
                 int n = channel.read(buffer);
@@ -129,6 +131,7 @@ public class SEMPort {
         try {
             if (this.port != null) {
                 // send abort
+                commandAbort.rewind();
                 channel.write(commandAbort);
                 // drain all messages
 
@@ -185,7 +188,7 @@ public class SEMPort {
                 buffer.get(msgBuffer);
                 message = new String(msgBuffer);
                 //System.out.println(result);
-             
+
                 switch (message) {
 
                     case "EPS_SEM_RESET...":
@@ -423,6 +426,7 @@ public class SEMPort {
                         int reasonEnd = buffer.getShort(); //unused frame time from Arduino
 
                         // acknowledge receipt by sending channel selection
+                        commandChannelSelect.rewind();
                         commandChannelSelect.put(2, SEMThread.channels);
                         channel.write(commandChannelSelect);
 

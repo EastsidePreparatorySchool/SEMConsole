@@ -317,8 +317,7 @@ public class Console extends Application {
         MetaBadge mb = new MetaBadge(25, 100, 39, new String[]{"GM", "RPF"});
         masterPane.getChildren().add(mb);
         masterPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
-*/
-        
+         */
         vb.setAlignment(Pos.CENTER);
 
         VBox vb2 = new VBox();
@@ -399,10 +398,6 @@ public class Console extends Application {
         if (si == null) {
             for (int i = 0; i < 4; i++) {
                 this.aViews[i].setImage(null);
-                this.aPanes[i].getChildren().remove(1);
-                MetaBadge mb = new MetaBadge(si, new String[]{"unknown"});
-                this.aPanes[i].getChildren().add(i, mb);
-                this.aPanes[i].setAlignment(mb, Pos.BOTTOM_RIGHT);
             }
 
             return;
@@ -411,9 +406,17 @@ public class Console extends Application {
         // parse and create images if we have not done this before
         si.makeImagesForDisplay();
 
-        // put the images in place
+        // put the images in place, create metadata badges
         for (int i = 0; i < channels; i++) {
             this.aViews[i].setImage(si.images[i]);
+            
+            
+            if (this.aPanes[i].getChildren().size() > 1) {
+                this.aPanes[i].getChildren().remove(1);
+            }
+            MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], new String[]{"unknown"});
+            this.aPanes[i].getChildren().add(mb);
+            this.aPanes[i].setAlignment(mb, Pos.BOTTOM_RIGHT);
 
         }
 
@@ -421,6 +424,7 @@ public class Console extends Application {
         this.channels = channels;
         for (int i = 0; i < 4; i++) {
             setSizeNormal(aViews[i], i);
+
         }
 
         this.currentImageSet = si;
@@ -706,7 +710,7 @@ public class Console extends Application {
             // create large display window
             this.bigView = new ImageView(image);
             bigView.setSmooth(true);
-            MetaBadge mb = new MetaBadge(si, new String[]{"unknown"});
+            MetaBadge mb = new MetaBadge(si, si.capturedChannels[0], new String[]{"unknown"});
             StackPane sp = new StackPane();
             sp.getChildren().addAll(this.bigView, mb);
             sp.setAlignment(mb, Pos.BOTTOM_RIGHT);

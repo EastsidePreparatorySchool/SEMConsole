@@ -19,16 +19,20 @@ import javafx.scene.text.Text;
  */
 public class MetaBadge extends StackPane {
 
-    private final int width = 220;
-    private final int height = 100;
+    private final int width = 200;
+    private final int height = 110;
+    private final String[] channelLabels = {"SEI", "BEI1", "BEI2", "AEI"};
     Rectangle badge;
+    Text channel;
     Text kv;
     Text mag;
     Text wd;
     Text ops;
     VBox vbox;
 
-    MetaBadge(int kv, int mag, int wd, String[] ops) {
+    MetaBadge(int channel, int kv, int mag, int wd, String[] ops) {
+        this.channel = new Text("Channel: " + channelLabels[channel]);
+        this.channel.setFill(Color.GOLD);
         this.kv = new Text("Accelerating Voltage: " + kv + "kv");
         this.kv.setFill(Color.GOLD);
         this.mag = new Text("Magnification: " + mag + "x");
@@ -43,7 +47,7 @@ public class MetaBadge extends StackPane {
         this.ops.setFill(Color.GOLD);
 
         this.vbox = new VBox();
-        this.vbox.getChildren().addAll(this.kv, this.mag, this.wd, this.ops);
+        this.vbox.getChildren().addAll(this.channel, this.kv, this.mag, this.wd, this.ops);
         this.vbox.setAlignment(Pos.CENTER_LEFT);
         this.vbox.setPadding(new Insets(10,15,10,15));
         this.vbox.setMinSize(width, height);
@@ -56,12 +60,13 @@ public class MetaBadge extends StackPane {
         this.badge.setArcHeight(10);
 
         this.getChildren().addAll(this.badge, this.vbox);
-        this.setMinSize(width, height);
-        this.setMaxSize(width, height);
+        this.setMinSize(width+20, height+20);
+        this.setMaxSize(width+20, height+20);
+        this.setPadding(new Insets(10,10,10,10));
     }
     
-        MetaBadge(SEMImage si, String[]ops) {
-            this (si.kv, si.magnification, si.wd, ops);
+        MetaBadge(SEMImage si, int channel, String[]ops) {
+            this (channel, si.kv, si.magnification, si.wd, ops);
         }
 
 }
