@@ -196,7 +196,7 @@ public class Console extends Application {
                             ch.setSelected(false);
                         }
                     }
-                    SEMThread.channels = (byte)(1 << j);
+                    SEMThread.channels = (byte) (1 << j);
                 } else {
                     SEMThread.channels &= ~(1 << j);
                 }
@@ -313,6 +313,12 @@ public class Console extends Application {
         masterPane.getChildren().add(vb);
         masterPane.setAlignment(vb, Pos.CENTER);
 
+        /*
+        MetaBadge mb = new MetaBadge(25, 100, 39, new String[]{"GM", "RPF"});
+        masterPane.getChildren().add(mb);
+        masterPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+*/
+        
         vb.setAlignment(Pos.CENTER);
 
         VBox vb2 = new VBox();
@@ -393,6 +399,10 @@ public class Console extends Application {
         if (si == null) {
             for (int i = 0; i < 4; i++) {
                 this.aViews[i].setImage(null);
+                this.aPanes[i].getChildren().remove(1);
+                MetaBadge mb = new MetaBadge(si, new String[]{"unknown"});
+                this.aPanes[i].getChildren().add(i, mb);
+                this.aPanes[i].setAlignment(mb, Pos.BOTTOM_RIGHT);
             }
 
             return;
@@ -696,8 +706,10 @@ public class Console extends Application {
             // create large display window
             this.bigView = new ImageView(image);
             bigView.setSmooth(true);
+            MetaBadge mb = new MetaBadge(si, new String[]{"unknown"});
             StackPane sp = new StackPane();
-            sp.getChildren().addAll(this.bigView);
+            sp.getChildren().addAll(this.bigView, mb);
+            sp.setAlignment(mb, Pos.BOTTOM_RIGHT);
 
             if (allScreens.size() > 1) {
                 // two screens or more
@@ -956,7 +968,6 @@ public class Console extends Application {
     // main fx launcher
     public static void main(String[] args) {
 
-        
         //ConsolePane.MoveSystemConsole();
         /*
         ArrayList<RemoteDevice> a = Bluetooth.getDevices();
@@ -969,7 +980,6 @@ public class Console extends Application {
             }
         }
          */
-
         try {
             launch(args);
         } finally {

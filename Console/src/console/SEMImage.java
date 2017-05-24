@@ -26,20 +26,21 @@ public class SEMImage {
     public int height;
     public WritableImage[] images;
     public final int[] capturedChannels;
+    public final int kv;
+    public final int magnification;
+    public final int wd;
 
     private PixelWriter[] writers;
     private PixelFormat pf;
     private WritablePixelFormat<IntBuffer> format;
 
-    private final boolean firstLine;
-    private int[] rawBuffer;
-    ArrayList<int[]> alineBuffers;
+    private int[] lineBuffer;
+    ArrayList<int[]> aRawLineBuffers;
     public int rangeMin[];
     public int rangeMax[];
     public int rangeMaxLine[];
     public int maxLine = 0;
     public String imageNames[];
-//    public int aLineData[][];
     public LineBuffer lb;
     public int lineCounter;
 
@@ -50,13 +51,18 @@ public class SEMImage {
 
     Image thumbnail = null;
 
-    SEMImage(int channels, int[] capturedChannels, int width, int height) {
+    SEMImage(int channels, int[] capturedChannels, int width, int height, int kv, int mag, int wd) {
         this.format = WritablePixelFormat.getIntArgbInstance();
         this.channels = channels;
         this.width = width;
         this.height = height;
-        this.rawBuffer = new int[width];
-        this.alineBuffers = new ArrayList<>(3000);
+        this.kv = kv;
+        this.magnification = mag;
+        this.wd = wd;
+        
+        
+        this.lineBuffer = new int[width];
+        this.aRawLineBuffers = new ArrayList<>(3000);
         this.capturedChannels = new int[channels];
         this.rangeMin = new int[channels];
         this.rangeMax = new int[channels];
@@ -68,15 +74,11 @@ public class SEMImage {
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
-        firstLine = true;
-
         //
-        // allocate lines
+        // make line buffer pool
         //
-//        this.aLineData = new int[height][width + 1];
         this.lb = LineBuffer.grabLineBuffer(width, height);
         this.lineCounter = 0;
-
     }
 
     SEMImage(SEMImage left, SEMImage right) {
@@ -86,7 +88,10 @@ public class SEMImage {
         this.channels = Math.min(left.channels, right.channels);
         this.width = Math.min(left.width, right.width);
         this.height = Math.min(left.height, right.height);
-
+        this.kv = left.kv;
+        this.magnification = left.magnification;
+        this.wd = left.wd;
+        
         this.capturedChannels = new int[channels];
         System.arraycopy(left.capturedChannels, 0, this.capturedChannels, 0, channels);
 
@@ -99,8 +104,6 @@ public class SEMImage {
             images[i] = new WritableImage(width, height);
             writers[i] = images[i].getPixelWriter();
         }
-
-        firstLine = true;
     }
 
     void dehydrate() {
@@ -155,7 +158,7 @@ public class SEMImage {
 
         data[count] = line;
 
-        this.alineBuffers.add(data);
+        this.aRawLineBuffers.add(data);
         if (line > maxLine) {
             maxLine = line;
         }
@@ -210,7 +213,7 @@ public class SEMImage {
                 intensity = getValue(data[i]);
                 intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
 
-                rawBuffer[pixel++] = grayScale(capturedChannel, intensity);
+                lineBuffer[pixel++] = grayScale(capturedChannel, intensity);
             }
 
             // find the right image to write into
@@ -223,7 +226,7 @@ public class SEMImage {
             }
             // write rawBuffer into images[writeChannel]
             try {
-                writers[writeChannel].setPixels(0, line, this.width, 1, this.format, rawBuffer, 0, this.width);
+                writers[writeChannel].setPixels(0, line, this.width, 1, this.format, lineBuffer, 0, this.width);
             } catch (Exception e) {
                 System.out.println("Write failed: " + line + ", " + height);
                 System.out.println(e.getStackTrace());
@@ -235,11 +238,11 @@ public class SEMImage {
   
 
     public void rangeImages() {
-        if (alineBuffers.isEmpty()) {
+        if (aRawLineBuffers.isEmpty()) {
             return;
         }
 
-        int size = alineBuffers.size();
+        int size = aRawLineBuffers.size();
 
 //        if (maxLine + 1 > height) {
 //            this.height = maxLine + 1;
@@ -252,7 +255,7 @@ public class SEMImage {
         // compute ranges from first 75% of image. ignore duplicates as best we can
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
-            int[] data = alineBuffers.get(i);
+            int[] data = aRawLineBuffers.get(i);
 
             int line = data[data.length - 1];
             if (line != prevLine) {
@@ -265,7 +268,7 @@ public class SEMImage {
     }
 
     public void makeImagesForDisplay() {
-        if (alineBuffers == null || alineBuffers.isEmpty()) {
+        if (aRawLineBuffers == null || aRawLineBuffers.isEmpty()) {
             return;
         }
 
@@ -277,7 +280,7 @@ public class SEMImage {
         // compute min and max for contrast
         rangeImages();
 
-        int size = alineBuffers.size();
+        int size = aRawLineBuffers.size();
 
         // allocate images
         for (int i = 0; i < channels; i++) {
@@ -288,7 +291,7 @@ public class SEMImage {
         // parse all lines, correcting data values for ranges
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
-            int[] lineData = alineBuffers.get(i);
+            int[] lineData = aRawLineBuffers.get(i);
             int line = (lineData[lineData.length - 1]) + (height - (maxLine + 1)); // correct for vsync jitter by aligning at bottom
             if (line < 0) {
                 line = 0;
@@ -380,8 +383,8 @@ public class SEMImage {
         format = null;
         pf = null;
 
-        rawBuffer = null;
-        alineBuffers = null;
+        lineBuffer = null;
+        aRawLineBuffers = null;
         LineBuffer.returnLineBuffer(this.lb);
 
     }

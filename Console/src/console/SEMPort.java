@@ -42,8 +42,15 @@ public class SEMPort {
     int lastBytes = 0;
     long lastTime = 0;
 
-    int[] rawMultiChannelBuffer;
+    //int[] rawMultiChannelBuffer;
     private int rawLength = 0;
+    static private final byte[] msgBuffer = new byte[16];
+    static private final int[] capturedChannels = new int[4];
+
+    static private final ByteBuffer commandConnect = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
+    static private final ByteBuffer commandAbort =ByteBuffer.wrap("AB".getBytes(StandardCharsets.UTF_8));
+    static private final ByteBuffer commandChannelSelect =ByteBuffer.wrap("CH0".getBytes(StandardCharsets.UTF_8));
+    static private final ByteBuffer commandOk =ByteBuffer.wrap("OK".getBytes(StandardCharsets.UTF_8));
 
     int proposedBytes;
     long frameStartTime;
@@ -89,20 +96,17 @@ public class SEMPort {
                 buffer = ByteBuffer.allocateDirect(32000);
                 buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-                ByteBuffer command = ByteBuffer.wrap("EPS_SEM_CONNECT.".getBytes(StandardCharsets.UTF_8));
-
-                channel.write(command);
+                channel.write(commandConnect);
 
                 int n = channel.read(buffer);
                 if (n != 0) {
                     buffer.position(0);
-                    byte[] ab = new byte[16];
-                    buffer.get(ab);
-                    String result = new String(ab);
+                    buffer.get(msgBuffer);
+                    String result = new String(msgBuffer);
                     if (result.equals("EPS_SEM_READY...")) {
                         return;
                     } else {
-                        System.out.println("Wrong answer: 0x" + Integer.toHexString(ab[0]) + " 0x" + Integer.toHexString(ab[0]));
+                        System.out.println("Wrong answer: 0x" + Integer.toHexString(msgBuffer[0]) + " 0x" + Integer.toHexString(msgBuffer[0]));
                     }
                 } else {
                     System.out.println("No answer.");
@@ -125,7 +129,7 @@ public class SEMPort {
         try {
             if (this.port != null) {
                 // send abort
-                channel.write(ByteBuffer.wrap("AB".getBytes(StandardCharsets.UTF_8)));
+                channel.write(commandAbort);
                 // drain all messages
 
                 // wait for ack
@@ -140,9 +144,8 @@ public class SEMPort {
                         //System.out.println("[read " + n + "bytes]");
                         if (n != 0) {
                             buffer.position(0);
-                            byte[] ab = new byte[16];
-                            buffer.get(ab);
-                            String message = new String(ab);
+                            buffer.get(msgBuffer);
+                            String message = new String(msgBuffer);
                             //System.out.println(result);
 
                             if (message.equals("EPS_SEM_RESET...")) {
@@ -179,11 +182,10 @@ public class SEMPort {
             //System.out.println("[read " + n + "bytes]");
             if (n != 0) {
                 buffer.position(0);
-                ab = new byte[16];
-                buffer.get(ab);
-                message = new String(ab);
+                buffer.get(msgBuffer);
+                message = new String(msgBuffer);
                 //System.out.println(result);
-
+             
                 switch (message) {
 
                     case "EPS_SEM_RESET...":
@@ -266,10 +268,6 @@ public class SEMPort {
                             Platform.runLater(updateMeta);
                         }
 
-                        // acknowledge receipt
-//                        channel.write(ByteBuffer.wrap("CH".getBytes(StandardCharsets.UTF_8)));
-//                        channel.write(ByteBuffer.wrap(new byte[]{SEMThread.channels}));
-
                         return SEMThread.Phase.WAITING_FOR_FRAME;
                     case "EPS_SEM_FRAME...":
                         if (phase != SEMThread.Phase.WAITING_FOR_FRAME) {
@@ -315,7 +313,6 @@ public class SEMPort {
                             Platform.runLater(updateScanning);
                         }
 
-                        int[] capturedChannels = new int[4];
                         for (int i = 0; i < 4; i++) {
                             capturedChannels[i] = Short.toUnsignedInt(buffer.getShort());
                             if (i < channelCount) {
@@ -324,12 +321,12 @@ public class SEMPort {
                         }
                         this.proposedBytes = channelCount * width * 2;
 
-                        // allocate buffer and image
+                        /*// allocate buffer and image
                         if (rawLength < channelCount * width) {
                             rawLength = channelCount * width;
                             rawMultiChannelBuffer = new int[rawLength];
-                        }
-                        this.si = new SEMImage(channelCount, capturedChannels, width, height);
+                        }*/
+                        this.si = new SEMImage(channelCount, capturedChannels, width, height, SEMThread.kv, SEMThread.mag, SEMThread.wd);
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         lastBytes = this.proposedBytes + 24;
                         break;
@@ -426,9 +423,8 @@ public class SEMPort {
                         int reasonEnd = buffer.getShort(); //unused frame time from Arduino
 
                         // acknowledge receipt by sending channel selection
-                        ByteBuffer bb =ByteBuffer.wrap("CH0".getBytes(StandardCharsets.UTF_8));
-                        bb.put(2, SEMThread.channels);
-                        channel.write(bb);
+                        commandChannelSelect.put(2, SEMThread.channels);
+                        channel.write(commandChannelSelect);
 
                         String reasonS = "unknown";
                         if (reasonEnd < 4) {
