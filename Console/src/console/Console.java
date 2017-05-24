@@ -71,6 +71,7 @@ public class Console extends Application {
     private int channels;
     private ImageView[] aViews;
     private ImageView bigView;
+    private StackPane bigSp;
     private StackPane[] aPanes;
     private StackPane masterPane;
     private VBox left;
@@ -409,8 +410,7 @@ public class Console extends Application {
         // put the images in place, create metadata badges
         for (int i = 0; i < channels; i++) {
             this.aViews[i].setImage(si.images[i]);
-            
-            
+
             if (this.aPanes[i].getChildren().size() > 1) {
                 this.aPanes[i].getChildren().remove(1);
             }
@@ -705,15 +705,12 @@ public class Console extends Application {
         si.makeImagesForDisplay();
 
         Image image = si.images[0];
+        MetaBadge mb = new MetaBadge(si, si.capturedChannels[0], new String[]{"unknown"});
 
         if (this.bigStage == null) {
             // create large display window
             this.bigView = new ImageView(image);
             bigView.setSmooth(true);
-            MetaBadge mb = new MetaBadge(si, si.capturedChannels[0], new String[]{"unknown"});
-            StackPane sp = new StackPane();
-            sp.getChildren().addAll(this.bigView, mb);
-            sp.setAlignment(mb, Pos.BOTTOM_RIGHT);
 
             if (allScreens.size() > 1) {
                 // two screens or more
@@ -728,7 +725,10 @@ public class Console extends Application {
 
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
-                Scene sc = new Scene(sp);
+                this.bigSp = new StackPane();
+                this.bigSp.getChildren().addAll(this.bigView, mb);
+                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+                Scene sc = new Scene(this.bigSp);
                 this.bigStage.setScene(sc);
                 this.bigStage.show();
 
@@ -742,7 +742,7 @@ public class Console extends Application {
                 this.bigStage.setFullScreenExitHint("");
 
                 // create a scene with events that will close the stage
-                Scene sc = new Scene(sp);
+                Scene sc = new Scene(this.bigSp);
                 sc.setOnMouseClicked((e) -> {
                     // one screen : close it
                     this.bigStage.close();
@@ -772,29 +772,14 @@ public class Console extends Application {
             } else {
                 // second screen: update image
                 this.bigView.setImage(image);
+                if (this.bigSp.getChildren().size() > 1) {
+                    this.bigSp.getChildren().remove(1);
+                }
+                this.bigSp.getChildren().add(mb);
             }
         }
     }
 
-    String channelText(int width, int height, int channel) {
-        String result = "" + width + "x" + height + " channel: ";
-        switch (channel) {
-            case 0:
-                result += "A0 (secondary electron image)";
-                break;
-            case 1:
-                result += "A1 (absorbed current image)";
-                break;
-            case 2:
-                result += "A2 (backscatter image 1)";
-                break;
-            case 3:
-                result += "A3 (backscatter image 2)";
-                break;
-        }
-
-        return result;
-    }
 
     private void selectPane(StackPane sp) {
         if (this.selectedPane != null) {
