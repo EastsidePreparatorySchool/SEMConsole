@@ -828,8 +828,10 @@ void loop () {
 
       // if lowres, make sure the queue has room. if hires, we have time to block on the write
       if (okToWrite()) {
-        g_fFrameInProgress = true;
+        // send meta data
+        sendMeta();
 
+        g_fFrameInProgress = true;
         sendFrameHeader();
         flipLED();
         g_timeFrame = millis();
@@ -900,13 +902,13 @@ void loop () {
       // 2 changed res
       // 3 other vsync
       sendIdle(g_reason, g_argument);
+      sendMeta();
     }
     g_fFrameInProgress = false;
     g_phase = PHASE_CHECK;
   }
 
   if (g_phase == PHASE_CHECK) {
-    sendMeta();
     // check for abort
     if (checkAbort()) {
       reset();
