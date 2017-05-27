@@ -38,6 +38,23 @@ public class FileUpload {
         }
     }
 
+
+    public static void uploadFileAndMetaDataToServer(String imagePath, String operators, String channel, int kv, int mag, int wd) {
+        String stem = DEPLOYED_PATH;
+        if (IS_LOCAL) {
+            stem = LOCAL_PATH;
+        }
+
+        try {
+            String uploadUrl = getUploadURL(stem + "geturl");
+            uploadImage(uploadUrl, imagePath);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    
+    
     public static void uploadImage(String urlString, String imagePath) throws FileNotFoundException, IOException {
         File f = new File(imagePath);
         PostMethod postMessage = new PostMethod(urlString);
