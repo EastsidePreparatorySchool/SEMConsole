@@ -525,10 +525,10 @@ void initializeADC() {
     ADC->ADC_CR = 2;
   } else {
     // slow mode
-    ADC->ADC_MR &= 0x7FFF0000;                    // mode register "prescale" zeroed out to scan at highest speed
-                                                  // no high bit indicates to NOT use sequence numbers
+    ADC->ADC_MR &= 0x7FFF0000;        // mode register "prescale" zeroed out to scan at highest speed
+                                      // no high bit indicates to NOT use sequence numbers
     ADC->ADC_CHER = 0x80 >> g_line1;  // enable ADC on selected pin
-    ADC->ADC_MR |= 0x80;                          // set free running mode on ADC
+    ADC->ADC_MR |= 0x80;              // set free running mode on ADC
  }
   g_adcInProgress = false;
 
