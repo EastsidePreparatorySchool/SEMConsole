@@ -103,6 +103,7 @@ public class Console extends Application {
     private Text metaMag;
     private Text metaWD;
     private RadioButton[] ch = {null, null, null, null};
+    private String operators = "unknown";
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -111,6 +112,8 @@ public class Console extends Application {
     final static private String[] colorScheme2 = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
     final static private String[] colorScheme3 = {"#2e6266", "#6e8898", "#9fb1bc", "#d3d0cb", "#e2c044"};
     final static private String[] colorScheme4 = {"#d3d0cb", "#9fb1bc", "#6e8898", "#2e6266", "#e2c044"};
+
+    final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
 
     final static private String[] colorScheme = colorScheme4;
 
@@ -178,10 +181,10 @@ public class Console extends Application {
         HBox stereoBox = new HBox();
         stereoBox.getChildren().addAll(stereoButton, stereoLR);
 
-        this.ch[0] = new RadioButton("SEI   ");
-        this.ch[1] = new RadioButton("BEI1  ");
-        this.ch[2] = new RadioButton("BEI2  ");
-        this.ch[3] = new RadioButton("AEI   ");
+        for (int i = 0; i < 4; i++) {
+            this.ch[i] = new RadioButton(this.channelNames[i]);
+        }
+      
 
         this.ch[1].setDisable(true);
         this.ch[2].setDisable(true);
@@ -377,7 +380,7 @@ public class Console extends Application {
             session = result.get();
             createFolder(getImageDir(), session);
             this.session = getImageDir() + session;
-            currentSession = new Session(this.session, this);
+            currentSession = new Session(this.session, this, this.operators);
         } else {
             currentSession = null;
         }
@@ -584,7 +587,8 @@ public class Console extends Application {
                 System.out.println("starting thread ...");
                 semThread = new SEMThread(this.ltq, () -> updateDisplay(),
                         () -> SEMThreadStopped(), () -> updateScanning(),
-                        () -> updateMeta());
+                        () -> updateMeta(),
+                        this.operators);
                 semThread.start();
                 semThread.setPriority(Thread.MAX_PRIORITY);
             } catch (Exception e) {
@@ -779,7 +783,6 @@ public class Console extends Application {
             }
         }
     }
-
 
     private void selectPane(StackPane sp) {
         if (this.selectedPane != null) {

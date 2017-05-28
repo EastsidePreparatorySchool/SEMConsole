@@ -34,18 +34,20 @@ public class SEMThread extends Thread {
     static public int kv;
     static public int mag;
     static public int wd;
+    static public String operators;
     static public int oldkv = 0;
     static public int oldmag = 0;
     static public int oldwd = 0;
 
     static public byte channels = 1;
 
-    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning, Runnable updateMeta) {
+    SEMThread(LinkedTransferQueue<SEMImage> q, Runnable update, Runnable restart, Runnable updateScanning, Runnable updateMeta, String operators) {
         this.ltq = q;
         this.update = update;
         this.restart = restart;
         this.updateScanning = updateScanning;
         this.updateMeta = updateMeta;
+        this.operators = operators;
     }
 
     SEMPort semport = null;

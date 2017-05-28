@@ -329,7 +329,7 @@ public class SEMPort {
                             rawLength = channelCount * width;
                             rawMultiChannelBuffer = new int[rawLength];
                         }*/
-                        this.si = new SEMImage(channelCount, capturedChannels, width, height, SEMThread.kv, SEMThread.mag, SEMThread.wd);
+                        this.si = new SEMImage(channelCount, capturedChannels, width, height, SEMThread.kv, SEMThread.mag, SEMThread.wd, SEMThread.operators);
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         lastBytes = this.proposedBytes + 24;
                         break;

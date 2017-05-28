@@ -29,6 +29,7 @@ public class SEMImage {
     public final int kv;
     public final int magnification;
     public final int wd;
+    public final String operators;
 
     private PixelWriter[] writers;
     private PixelFormat pf;
@@ -51,7 +52,7 @@ public class SEMImage {
 
     Image thumbnail = null;
 
-    SEMImage(int channels, int[] capturedChannels, int width, int height, int kv, int mag, int wd) {
+    SEMImage(int channels, int[] capturedChannels, int width, int height, int kv, int mag, int wd, String operators) {
         this.format = WritablePixelFormat.getIntArgbInstance();
         this.channels = channels;
         this.width = width;
@@ -59,6 +60,7 @@ public class SEMImage {
         this.kv = kv;
         this.magnification = mag;
         this.wd = wd;
+        this.operators = operators;
         
         
         this.lineBuffer = new int[width];
@@ -91,6 +93,7 @@ public class SEMImage {
         this.kv = left.kv;
         this.magnification = left.magnification;
         this.wd = left.wd;
+        this.operators = left.operators;
         
         this.capturedChannels = new int[channels];
         System.arraycopy(left.capturedChannels, 0, this.capturedChannels, 0, channels);
