@@ -382,7 +382,12 @@ public class Console extends Application {
             this.session = getImageDir() + session;
             currentSession = new Session(this.session, this, this.operators);
         } else {
-            currentSession = null;
+            //currentSession = null;   
+            session = "default";
+            createFolder(getImageDir(), session);
+            this.session = getImageDir() + session;
+            currentSession = new Session(this.session, this, this.operators);
+
         }
     }
 
