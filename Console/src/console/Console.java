@@ -735,8 +735,8 @@ public class Console extends Application {
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
                 this.bigSp = new StackPane();
-                this.bigSp.getChildren().addAll(this.bigView, mb);
                 StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+                this.bigSp.getChildren().addAll(this.bigView, mb);
                 Scene sc = new Scene(this.bigSp);
                 this.bigStage.setScene(sc);
                 this.bigStage.show();
