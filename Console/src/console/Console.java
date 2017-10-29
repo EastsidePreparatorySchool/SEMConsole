@@ -5,8 +5,9 @@
  */
 package console;
 
+import java.awt.Robot;
+import java.awt.event.KeyEvent;
 import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -14,8 +15,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.function.BooleanSupplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -25,9 +24,16 @@ import javafx.stage.Stage;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.ActionEvent;
+import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.RadioButton;
@@ -56,8 +62,6 @@ import javafx.stage.Screen;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
-
-import javax.bluetooth.RemoteDevice;
 
 /**
  *
@@ -104,6 +108,7 @@ public class Console extends Application {
     private Text metaWD;
     private RadioButton[] ch = {null, null, null, null};
     private String operators = "unknown";
+    final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -112,10 +117,10 @@ public class Console extends Application {
     final static private String[] colorScheme2 = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
     final static private String[] colorScheme3 = {"#2e6266", "#6e8898", "#9fb1bc", "#d3d0cb", "#e2c044"};
     final static private String[] colorScheme4 = {"#d3d0cb", "#9fb1bc", "#6e8898", "#2e6266", "#e2c044"};
-
-    final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
-
     final static private String[] colorScheme = colorScheme4;
+    private Thread slideshowThread;
+    private Alert slideshowAlert;
+    private int slideshowSeconds = 5;
 
     @Override
     public void start(Stage primaryStage) {
@@ -184,7 +189,6 @@ public class Console extends Application {
         for (int i = 0; i < 4; i++) {
             this.ch[i] = new RadioButton(this.channelNames[i]);
         }
-      
 
         this.ch[1].setDisable(true);
         this.ch[2].setDisable(true);
@@ -369,26 +373,111 @@ public class Console extends Application {
     private void startNewSession() {
         Date date = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
-        String session = dateFormat.format(date);
+        String sessionName = dateFormat.format(date);
 
-        TextInputDialog tid = new TextInputDialog(session);
+        TextInputDialog tid = new TextInputDialog(sessionName);
         tid.setTitle("New session");
-        tid.setHeaderText("Save pictures in session?");
+        tid.setHeaderText("Enter new session name or 'slideshow [seconds]'");
         Optional<String> result = tid.showAndWait();
 
         if (result.isPresent()) {
-            session = result.get();
-            createFolder(getImageDir(), session);
-            this.session = getImageDir() + session;
-            currentSession = new Session(this.session, this, this.operators);
+            sessionName = result.get();
+            if (sessionName.toLowerCase().startsWith("slideshow")) {
+                String arg = sessionName.substring(9).trim();
+                if (arg.length() > 0) {
+                    try {
+                        this.slideshowSeconds = Integer.parseInt(arg);
+                    } catch (Exception e) {
+                    }
+                }
+                startSlideShow();
+                return;
+            }
         } else {
             //currentSession = null;   
-            session = "default";
-            createFolder(getImageDir(), session);
-            this.session = getImageDir() + session;
-            currentSession = new Session(this.session, this, this.operators);
-
+            sessionName = "default";
         }
+
+        // create a session for new images to go to 
+        createFolder(getImageDir(), sessionName);
+        this.session = getImageDir() + session;
+        currentSession = new Session(this.session, this, this.operators);
+
+    }
+
+    private void startSlideShow() {
+        // create a session to get images from 
+        createFolder(getImageDir(), "favorites");
+        this.session = getImageDir() + "favorites";
+        currentSession = new Session(this.session, this, this.operators);
+
+        String[] slideshowFiles = currentSession.gatherSlideshowFiles();
+        if (slideshowFiles.length > 0) {
+
+            // set up a dialog for primary screen
+            Alert alert = new Alert(AlertType.CONFIRMATION);
+            alert.setTitle("Slideshow running");
+            alert.setHeaderText("The slidesshow you requested is running on the secondary display.");
+            alert.setContentText("Select 'Cancel' to end it.");
+            ButtonType buttonTypeCancel = new ButtonType("Cancel", ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(buttonTypeCancel);
+
+            // start thread for secondary display
+            this.slideshowAlert = alert;
+            this.slideshowThread = new Thread(() -> slideshowThread(slideshowFiles));
+            this.slideshowThread.start();
+
+            // display modal dialog to quit, wait for it, interrupt slideshow thread
+            Optional<ButtonType> result = alert.showAndWait();
+            this.slideshowThread.interrupt();
+        } else {
+            // set up a dialog for primary screen
+            Alert alert = new Alert(AlertType.INFORMATION);
+            alert.setTitle("Slide show");
+            alert.setHeaderText("No slides found");
+            alert.setContentText("Press ok to continue");
+
+            alert.showAndWait();
+        }
+
+        // go back to login dialog
+        Platform.runLater(() -> this.startNewSession());
+    }
+
+    private void slideshowThread(String[] slideshowFiles) {
+        int i = 0;
+
+        // create AWT robot to keep screen alive
+        Robot r = null;
+        try {
+            r = new Robot();
+        } catch (Exception e) {
+        }
+
+        do {
+            // get next file name
+            String next = slideshowFiles[i++];
+            i %= slideshowFiles.length;
+
+            // displayt next picture
+            Platform.runLater(() -> {
+                Console.println("Next slide: " + next);
+                displayPhoto(this.currentSession.loadFile(next));
+            });
+
+            // sleep for 5 seconds
+            try {
+                Thread.sleep(this.slideshowSeconds * 1000);
+            } catch (InterruptedException e) {
+                Platform.runLater(() -> this.slideshowAlert.close());
+                return;
+            }
+
+            // wake up screen
+            r.keyPress(KeyEvent.VK_SHIFT);
+            r.keyRelease(KeyEvent.VK_SHIFT);
+        } while (!Thread.interrupted());
+        Platform.runLater(() -> this.slideshowAlert.close());
     }
 
     private void displayImageSet(SEMImage si) {
@@ -422,7 +511,7 @@ public class Console extends Application {
             if (this.aPanes[i].getChildren().size() > 1) {
                 this.aPanes[i].getChildren().remove(1);
             }
-            MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], new String[]{"unknown"});
+            MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}));
             this.aPanes[i].getChildren().add(mb);
             this.aPanes[i].setAlignment(mb, Pos.BOTTOM_RIGHT);
 
@@ -714,7 +803,8 @@ public class Console extends Application {
         si.makeImagesForDisplay();
 
         Image image = si.images[0];
-        MetaBadge mb = new MetaBadge(si, si.capturedChannels[0], new String[]{"unknown"});
+        MetaBadge mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}));
+        StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
 
         if (this.bigStage == null) {
             // create large display window
@@ -735,7 +825,6 @@ public class Console extends Application {
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
                 this.bigSp = new StackPane();
-                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
                 this.bigSp.getChildren().addAll(this.bigView, mb);
                 Scene sc = new Scene(this.bigSp);
                 this.bigStage.setScene(sc);
@@ -750,20 +839,20 @@ public class Console extends Application {
                 this.bigStage.initModality(Modality.APPLICATION_MODAL);
                 this.bigStage.setFullScreenExitHint("");
 
+                this.bigSp = new StackPane();
+                this.bigSp.getChildren().addAll(this.bigView, mb);
+
                 // create a scene with events that will close the stage
                 Scene sc = new Scene(this.bigSp);
-                sc.setOnMouseClicked((e) -> {
+                EventHandler<Event> eh = (e) -> {
                     // one screen : close it
                     this.bigStage.close();
                     this.bigStage = null;
+                    this.slideshowThread.interrupt();
                     e.consume();
-                });
-                sc.setOnKeyTyped((e) -> {
-                    // one screen : close it
-                    this.bigStage.close();
-                    this.bigStage = null;
-                    e.consume();
-                });
+                };
+                sc.setOnMouseClicked(eh);
+                sc.setOnKeyTyped(eh);
                 this.bigStage.setScene(sc);
                 this.bigStage.setFullScreen(true);
                 this.bigStage.show();
@@ -773,17 +862,10 @@ public class Console extends Application {
             this.bigStage.show();
 
         } else {
-            // big display is already there
-            if (allScreens.size() == 1) {
-                // one screen : close it
-                this.bigStage.close();
-                this.bigStage = null;
-            } else {
-                // second screen: update image
-                this.bigView.setImage(image);
-                if (this.bigSp.getChildren().size() > 1) {
-                    this.bigSp.getChildren().remove(1);
-                }
+            // big display is already there, update the contents of the ImageView and stackpane (metabadge)
+            this.bigView.setImage(image);
+            if (this.bigSp.getChildren().size() > 1) {
+                this.bigSp.getChildren().remove(1);
                 this.bigSp.getChildren().add(mb);
             }
         }

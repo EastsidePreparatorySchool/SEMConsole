@@ -25,11 +25,11 @@ public class SEMImage {
     public int width;
     public int height;
     public WritableImage[] images;
-    public final int[] capturedChannels;
-    public final int kv;
-    public final int magnification;
-    public final int wd;
-    public final String operators;
+    public int[] capturedChannels;
+    public int kv;
+    public int magnification;
+    public int wd;
+    public String operators;
 
     private PixelWriter[] writers;
     private PixelFormat pf;
@@ -61,8 +61,7 @@ public class SEMImage {
         this.magnification = mag;
         this.wd = wd;
         this.operators = operators;
-        
-        
+
         this.lineBuffer = new int[width];
         this.aRawLineBuffers = new ArrayList<>(3000);
         this.capturedChannels = new int[channels];
@@ -83,6 +82,33 @@ public class SEMImage {
         this.lineCounter = 0;
     }
 
+    SEMImage(String fileName) {
+        // img_<count>_channel-<capturedchannel>.png>
+        this.format = null;
+        this.lb = null;
+        this.lineCounter = 0;
+        this.lineBuffer = null;
+        this.aRawLineBuffers = null;
+        this.rangeMin = null;
+        this.rangeMax = null;
+        this.rangeMaxLine = null;
+        this.writers = null;
+
+        this.width = -1;
+        this.height = -1;
+        this.kv = -1;
+        this.magnification = -1;
+        this.wd = -1;
+        this.operators = null;
+        this.channels = 1;
+        this.capturedChannels = new int[]{-1};
+        
+        Session.parseFileName(fileName, this);
+
+        this.images = new WritableImage[1];
+        this.imageNames = new String[]{fileName};
+    }
+
     SEMImage(SEMImage left, SEMImage right) {
         this.left = left;
         this.right = right;
@@ -94,7 +120,7 @@ public class SEMImage {
         this.magnification = left.magnification;
         this.wd = left.wd;
         this.operators = left.operators;
-        
+
         this.capturedChannels = new int[channels];
         System.arraycopy(left.capturedChannels, 0, this.capturedChannels, 0, channels);
 
@@ -127,7 +153,7 @@ public class SEMImage {
 
     void knitStereoImage() {
         int[] leftBuffer = new int[this.width];
-        int[] rightBuffer = new int [this.width];
+        int[] rightBuffer = new int[this.width];
         for (int i = 0; i < this.channels; i++) {
             PixelReader prLeft = left.images[i].getPixelReader();
             PixelReader prRight = right.images[i].getPixelReader();
@@ -237,8 +263,6 @@ public class SEMImage {
             }
         }
     }
-    
-  
 
     public void rangeImages() {
         if (aRawLineBuffers.isEmpty()) {
