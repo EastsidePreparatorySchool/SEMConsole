@@ -10,6 +10,7 @@ import java.awt.event.KeyEvent;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -473,9 +474,13 @@ public class Console extends Application {
                 return;
             }
 
-            // wake up screen
-            r.keyPress(KeyEvent.VK_SHIFT);
-            r.keyRelease(KeyEvent.VK_SHIFT);
+            // keep screen from switching off during daytime
+            Calendar c = Calendar.getInstance();
+            if (c.get(Calendar.HOUR_OF_DAY) > 8 && c.get(Calendar.HOUR_OF_DAY) < 17) {
+                // simulate a shift-key press and release
+                r.keyPress(KeyEvent.VK_SHIFT);
+                r.keyRelease(KeyEvent.VK_SHIFT);
+            }
         } while (!Thread.interrupted());
         Platform.runLater(() -> this.slideshowAlert.close());
     }
