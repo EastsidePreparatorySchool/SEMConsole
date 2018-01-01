@@ -401,8 +401,9 @@ public class Console extends Application {
 
         // create a session for new images to go to 
         createFolder(getImageDir(), sessionName);
-        this.session = getImageDir() + session;
+        this.session = getImageDir() + sessionName;
         currentSession = new Session(this.session, this, this.operators);
+        System.out.println("Creating folder "+session);
 
     }
 
