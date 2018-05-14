@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>SEM Live Feed</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="assets/css/styles.css" rel="stylesheet">
+        <link href="assets/css/gradients.css" rel="stylesheet">
+        <script>
+        function startTime() {
+            var today = new Date();
+            var h = today.getHours();
+            var m = today.getMinutes();
+            var s = today.getSeconds();
+            m = checkTime(m);
+            s = checkTime(s);
+            document.getElementById('txt').innerHTML =
+            h + ":" + m + ":" + s;
+            var t = setTimeout(startTime, 500);
+        }
+        function checkTime(i) {
+            if (i < 10) {i = "0" + i};  // add zero in front of numbers < 10
+            return i;
+        }
+        </script>
+        <style>
+            div.gallery {
+                border: 1px solid #ccc;
+            }
+
+            div.gallery:hover {
+                border: 1px solid #777;
+            }
+
+            div.gallery img {
+                width: 350px;
+                height: 250px;
+            }
+
+            div.desc {
+                padding: 15px;
+                text-align: center;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            .responsive {
+                padding: 0 6px;
+                float: left;
+                width: 24.99999%;
+            }
+
+            @media only screen and (max-width: 700px){
+                .responsive {
+                    width: 49.99999%;
+                    margin: 6px 0;
+                }
+            }
+
+            @media only screen and (max-width: 500px){
+                .responsive {
+                    width: 100%;
+                }
+            }
+
+            .clearfix:after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+        </style>
+    </head>
+    <body onload="getImagesByPopularity(); startTime()">
+
+        <h2>SEM Gallery</h2>
+        <div id="txt"></div>
+        <br>
+        <br>
+    <center>
+        <a href="livestream.html"><button>Go To Livestream</button></a>
+        <a href="security.html"><button>Monitor Security Cameras</button></a>
+
+    </center>
+    <br>
+    <br>
+    <center><h4>Gallery</h4></center>
+    <center>
+        <button onclick="getImagesByPopularity()">Sort Images by Popularity</button>
+        <button onclick="getImagesByColored()">Sort Images by Color</button>
+        <button onclick="getImagesByTimestamp()">Sort Images by Time Added</button>
+
+    </center>
+    <br>
+    <br>
+    <div id="images"></div>
+    <script src="/assets/js/set-background.js"></script>
+    <script src="/assets/js/galleryController.js"></script>
+</body>
+</html>
