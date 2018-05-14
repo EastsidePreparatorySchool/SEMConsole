@@ -426,6 +426,7 @@ public class Console extends Application {
             // start thread for secondary display
             this.slideshowAlert = alert;
             this.slideshowThread = new Thread(() -> slideshowThread(slideshowFiles));
+            this.slideshowThread.setDaemon(true);
             this.slideshowThread.start();
 
             // display modal dialog to quit, wait for it, interrupt slideshow thread
@@ -480,6 +481,8 @@ public class Console extends Application {
                 // simulate a shift-key press and release
                 r.keyPress(KeyEvent.VK_SHIFT);
                 r.keyRelease(KeyEvent.VK_SHIFT);
+            } else {
+                Platform.exit();
             }
         } while (!Thread.interrupted());
         Platform.runLater(() -> this.slideshowAlert.close());
