@@ -20,7 +20,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.Scanner;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.function.BooleanSupplier;
 import javafx.animation.KeyFrame;
@@ -138,9 +138,8 @@ public class Console extends Application {
     public static void main(String[] args) {
         //this line calls the function to insert the test images into the database
         //this has to be done anew with each run of the sql script
-       
-        //db.initializeTables(operators);
 
+        //db.initializeTables(operators);
         //DROP SPARK ROUTE HANDLERS HERE
         staticFiles.location("/static");
         get("/getImageData", "application/json", (req, res) -> getImageDataHandler(req), new JSONRT());
@@ -160,10 +159,7 @@ public class Console extends Application {
         //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         Webcam w = Webcam.getDefault();//<---------then comment this out
         new WebcamStreamer(8080, w, 100, true, false);
-        
-        
-        
-        
+
         Webcam v = Webcam.getDefault();
         //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         //This is example setting
@@ -199,8 +195,8 @@ public class Console extends Application {
 
     //Cookie Handler here
     public static Route setCookie = (Request req, Response res) -> { //doesn't run anymore
-        String index = req.queryParams("data"); 
-        
+        String index = req.queryParams("data");
+
         res.cookie(index, index);//this is the only line that doesn't work, meant to set the cookie with a title of cookie and data of cookie
         return "done";
 
@@ -269,6 +265,7 @@ public class Console extends Application {
             return db.updateVotes(index, 1);
         }
     }
+
     public static Object showStreamHandler(Request req) throws InterruptedException {
         Webcam w = Webcam.getDefault();
         new WebcamStreamer(4567, w, 0.5, true, false);
@@ -276,6 +273,7 @@ public class Console extends Application {
             Thread.sleep(5000);
         } while (true);
     }
+
     //SEM CODE FROM MR. MEIN
     @Override
     public void start(Stage primaryStage) {
@@ -608,6 +606,10 @@ public class Console extends Application {
         try {
             r = new Robot();
         } catch (Exception e) {
+            System.out.println("Could not create keep-alive robot");
+            Scanner sc = new Scanner(System.in);
+            sc.nextLine();
+            return;
         }
 
         do {
@@ -635,6 +637,9 @@ public class Console extends Application {
                 // simulate a shift-key press and release
                 r.keyPress(KeyEvent.VK_SHIFT);
                 r.keyRelease(KeyEvent.VK_SHIFT);
+            } else {
+                // time to go away
+                Platform.exit();
             }
         } while (!Thread.interrupted());
         Platform.runLater(() -> this.slideshowAlert.close());
