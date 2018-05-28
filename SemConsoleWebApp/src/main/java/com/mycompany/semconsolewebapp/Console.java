@@ -344,8 +344,8 @@ public class Console extends Application {
             this.ch[i] = new RadioButton(this.channelNames[i]);
         }
 
-        this.ch[1].setDisable(true);
-        this.ch[2].setDisable(true);
+//        this.ch[1].setDisable(true);
+//        this.ch[2].setDisable(true);
         this.ch[0].setSelected(true);
 
         for (int i = 0; i < 4; i++) {

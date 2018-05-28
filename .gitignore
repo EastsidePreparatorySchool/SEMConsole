@@ -18,3 +18,9 @@ SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console$StereoSta
 SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console.class
 *.class
 SemConsoleWebApp/target/test-classes/.netbeans_automatic_build
+*.class
+*.class
+*.class
+*.class
+SemConsoleWebApp/target/maven-archiver/pom.properties
+SemConsoleWebApp/target/SemConsoleWebApp-1.0-SNAPSHOT.jar
