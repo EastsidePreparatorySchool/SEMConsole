@@ -12,3 +12,9 @@ libs/*
 /FileUploadTest/nbproject/private/
 /FileUploadTest/build/
 /SemConsoleWebApp/target/
+SemConsoleWebApp/target/classes/.netbeans_automatic_build
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console$1.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console$StereoState.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console.class
+*.class
+SemConsoleWebApp/target/test-classes/.netbeans_automatic_build

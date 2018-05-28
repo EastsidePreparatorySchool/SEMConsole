@@ -191,6 +191,7 @@ public class Console extends Application {
                 }
             }
         }
+        Runtime.getRuntime().halt(0);
     }
 
     //Cookie Handler here
