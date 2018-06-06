@@ -102,7 +102,7 @@ public class SEMImage {
         this.operators = null;
         this.channels = 1;
         this.capturedChannels = new int[]{-1};
-        
+
         Session.parseFileName(fileName, this);
 
         this.images = new WritableImage[1];
@@ -195,8 +195,7 @@ public class SEMImage {
     }
 
     // keep track of min and max for a line, for all channels
-    void rangeLine(int line, int[] data, int count
-    ) {
+    void rangeLine(int line, int[] data, int count) {
         int intensity;
 
         for (int channel = 0; channel < this.channels; channel++) {
@@ -208,8 +207,7 @@ public class SEMImage {
     }
 
     //todo: is this what we want?
-    int autoContrast(int value, int min, int max
-    ) {
+    int autoContrast(int value, int min, int max) {
         //return value;
         int newValue = (int) (((double) value - (double) min) * (double) 4095 / ((double) max - (double) min));
         if (newValue > 4095) {
@@ -223,8 +221,7 @@ public class SEMImage {
     //
     // extract separate image lines from one line of data
     //
-    void parseRawLineToWriters(int line, int[] data, int count
-    ) {
+    void parseRawLineToWriters(int line, int[] data, int count) {
         int pixel;
         int capturedChannel;
         int writeChannel;

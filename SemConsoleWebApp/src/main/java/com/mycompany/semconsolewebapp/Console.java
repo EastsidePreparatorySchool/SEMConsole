@@ -58,6 +58,7 @@ import javafx.scene.layout.BorderWidths;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -525,6 +526,13 @@ public class Console extends Application {
     }
 
     private void startNewSession() {
+        if (true) {
+            this.session = getImageDir() + "test";
+            currentSession = new Session(this.session, this, this.operators);
+            readExistingSessionFiles();
+            return;
+        }
+
         Date date = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
         String sessionName = dateFormat.format(date);
@@ -554,10 +562,57 @@ public class Console extends Application {
             sessionName = "default";
         }
 
-        // create a session for new images to go to 
-        createFolder(getImageDir(), sessionName);
+        if (sessionName.startsWith("open ")) {
+            sessionName = sessionName.substring(5).trim();
+        } else {
+            // create a session for new images to go to 
+            createFolder(getImageDir(), sessionName);
+        }
+
         this.session = getImageDir() + sessionName;
         currentSession = new Session(this.session, this, this.operators);
+
+        // read existing files
+        readExistingSessionFiles();
+    }
+
+    private void readExistingSessionFiles() {
+        ArrayList<String> pics = new ArrayList<>();
+        this.currentSession.scanFolder(session, pics);
+        pics.sort(null);
+
+        this.pin.setProgress(-1);
+        this.showProgressIndicator();
+
+        // load them all, but on another thread
+        Thread t = new Thread(() -> {
+            SEMImage si = null;
+
+            int i = 0;
+            for (String s : pics) {
+                int i2 = i++;
+                Platform.runLater(() -> {
+                    this.pin.setProgress(i2 / (double) pics.size());
+                });
+
+                si = this.currentSession.loadFile(s);
+                final SEMImage lambdaSi = si;
+                Platform.runLater(() -> {
+                    this.addThumbnail(lambdaSi);
+                });
+            }
+
+            SEMImage siFinal = si;
+            Platform.runLater(() -> {
+                this.pin.setProgress(1);
+                this.hideProgressIndicator();
+                if (siFinal != null) {
+                    this.displayPhoto(siFinal);
+                }
+            });
+
+        });
+        t.start();
     }
 
     private void startSlideShow() {
@@ -566,7 +621,7 @@ public class Console extends Application {
         this.session = getImageDir() + "favorites";
         currentSession = new Session(this.session, this, this.operators);
 
-        String[] slideshowFiles = currentSession.gatherSlideshowFiles();
+        String[] slideshowFiles = currentSession.gatherFiles();
         if (slideshowFiles.length > 0) {
 
             // set up a dialog for primary screen
@@ -677,7 +732,9 @@ public class Console extends Application {
             if (this.aPanes[i].getChildren().size() > 1) {
                 this.aPanes[i].getChildren().remove(1);
             }
-            MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}));
+
+            double compression = si.width / this.aViews[i].getViewport().getWidth();
+            MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
             this.aPanes[i].getChildren().add(mb);
             this.aPanes[i].setAlignment(mb, Pos.BOTTOM_RIGHT);
 
@@ -750,7 +807,7 @@ public class Console extends Application {
     private void updateScanning() {
 //        System.out.println("Progress: " + this.semThread.progress);
         this.showProgressIndicator();
-        this.pin.setProgress(this.semThread.progress);
+        this.pin.setProgress(Console.semThread.progress);
     }
 
     private void updateMeta() {
@@ -963,12 +1020,11 @@ public class Console extends Application {
 
     public void displayPhoto(SEMImage si) {
         List<Screen> allScreens = Screen.getScreens();
+        MetaBadge mb = null;
 
         si.makeImagesForDisplay();
 
         Image image = si.images[0];
-        MetaBadge mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}));
-        StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
 
         if (this.bigStage == null) {
             // create large display window
@@ -989,6 +1045,11 @@ public class Console extends Application {
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
                 this.bigSp = new StackPane();
+
+                double compression = si.height / bounds.getHeight();
+                mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
+                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+
                 this.bigSp.getChildren().addAll(this.bigView, mb);
                 Scene sc = new Scene(this.bigSp);
                 this.bigStage.setScene(sc);
@@ -996,12 +1057,19 @@ public class Console extends Application {
 
             } else {
                 // One screen only
+                Screen screen = allScreens.get(0);
+                Rectangle2D bounds = screen.getVisualBounds();
+
                 this.bigStage = new Stage();
                 this.bigStage.setFullScreen(true);
 
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.APPLICATION_MODAL);
                 this.bigStage.setFullScreenExitHint("");
+
+                double compression = si.height / bounds.getHeight();
+                mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
+                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
 
                 this.bigSp = new StackPane();
                 this.bigSp.getChildren().addAll(this.bigView, mb);
@@ -1012,7 +1080,9 @@ public class Console extends Application {
                     // one screen : close it
                     this.bigStage.close();
                     this.bigStage = null;
-                    this.slideshowThread.interrupt();
+                    if (this.slideshowThread != null) {
+                        this.slideshowThread.interrupt();
+                    }
                     e.consume();
                 };
                 sc.setOnMouseClicked(eh);
@@ -1021,8 +1091,22 @@ public class Console extends Application {
                 this.bigStage.setFullScreen(true);
                 this.bigStage.show();
             }
-            this.bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
-            this.bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
+//            this.bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
+//            this.bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
+            System.out.println("" + this.bigStage.getWidth() + "," + this.bigStage.getHeight());
+            System.out.println("" + si.width + "," + si.height);
+
+            if (this.bigStage.getWidth() / this.bigStage.getHeight() > si.width / (double) si.height) {
+                this.bigView.setFitHeight(this.bigStage.getHeight());
+                this.bigView.setFitWidth(this.bigStage.getHeight() / si.height * si.width);
+//                this.bigSp.setPrefHeight(this.bigStage.getHeight());
+//                this.bigSp.setPrefWidth(this.bigStage.getHeight() / si.height * si.width);
+//                this.bigSp.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+                mb.setTranslateX(((this.bigStage.getHeight() / si.height * si.width) - this.bigStage.getWidth()) / 2);
+            } else {
+                // todo: should code here for the case that image is wider (in aspect) than screen
+            }
+
             this.bigStage.show();
 
         } else {

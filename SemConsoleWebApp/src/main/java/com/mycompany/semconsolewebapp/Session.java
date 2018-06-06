@@ -130,7 +130,7 @@ public class Session {
 //        }
         String partName = null;
         String partValue = null;
-        for (int i = 0; i < parts.length - 1; i++) {
+        for (int i = 0; i < parts.length - 2; i++) {
             try {
                 partName = parts[i].substring(0, parts[i].indexOf("-"));
                 partValue = parts[i].substring(parts[i].indexOf("-") + 1);
@@ -181,12 +181,12 @@ public class Session {
         return si;
     }
 
-    public String[] gatherSlideshowFiles() {
+    public String[] gatherFiles() {
         ArrayList<String> files = new ArrayList<>();
         Console.println("Scanning " + this.folder);
 
         scanFolder(this.folder, files);
-        Console.println("Slides found: " + files.size());
+        Console.println("Images found: " + files.size());
         return files.toArray(new String[files.size()]);
 
     }

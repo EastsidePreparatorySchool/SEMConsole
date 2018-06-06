@@ -31,12 +31,14 @@ public class JavaFXApplication2 extends Application {
     Image old;
     int width;
     int height;
-    VBox root;
+    HBox root;
     CheckBox zoom;
 
     @Override
     public void start(Stage primaryStage) {
-        img = new Image("file:c:\\users\\gmein\\desktop\\test.png");
+
+        img = new Image(JavaFXApplication2.class.getResourceAsStream("test.png"));
+        //"file:c:\\users\\gmein\\desktop\\test.png");
         this.width = (int) img.getWidth();
         this.height = (int) img.getHeight();
 
@@ -72,6 +74,7 @@ public class JavaFXApplication2 extends Application {
         slider.setShowTickLabels(true);
         slider.setShowTickMarks(true);
         slider.setMajorTickUnit(1);
+
         HBox hb = new HBox();
         hb.getChildren().addAll(btn, slider, zoom);
 
@@ -79,8 +82,47 @@ public class JavaFXApplication2 extends Application {
         iv.setPreserveRatio(true);
         iv.setFitHeight(900);
 
-        root = new VBox();
-        root.getChildren().addAll(hb, iv);
+        Slider brightness = new Slider();
+        Slider contrastLow = new Slider();
+        Slider contrastHigh = new Slider();
+
+        brightness.setPrefWidth(800);
+        brightness.setMin(0);
+        brightness.setMax(100);
+        brightness.setValue(0);
+        brightness.setShowTickLabels(true);
+        brightness.setShowTickMarks(true);
+        brightness.setMajorTickUnit(10);
+        brightness.valueProperty().addListener((f) -> {
+            adjustBrightnessAndContrast(contrastLow.getValue(), contrastHigh.getValue(), brightness.getValue());
+        });
+
+        contrastLow.setPrefWidth(800);
+        contrastLow.setMin(0);
+        contrastLow.setMax(100);
+        contrastLow.setValue(0);
+        contrastLow.setShowTickLabels(true);
+        contrastLow.setShowTickMarks(true);
+        contrastLow.setMajorTickUnit(10);
+        contrastLow.valueProperty().addListener((f) -> {
+            adjustBrightnessAndContrast(contrastLow.getValue(), contrastHigh.getValue(), brightness.getValue());
+        });
+        contrastHigh.setPrefWidth(800);
+        contrastHigh.setMin(0);
+        contrastHigh.setMax(100);
+        contrastHigh.setValue(100);
+        contrastHigh.setShowTickLabels(true);
+        contrastHigh.setShowTickMarks(true);
+        contrastHigh.setMajorTickUnit(10);
+        contrastHigh.valueProperty().addListener((f) -> {
+            adjustBrightnessAndContrast(contrastLow.getValue(), contrastHigh.getValue(), brightness.getValue());
+        });
+
+        VBox vb = new VBox();
+        vb.getChildren().addAll(hb, iv, brightness, contrastHigh, contrastLow);
+
+        root = new HBox();
+        root.getChildren().addAll(vb);
 
         Scene scene = new Scene(root, 0, 0);
 
@@ -88,6 +130,61 @@ public class JavaFXApplication2 extends Application {
         primaryStage.setScene(scene);
         primaryStage.setMaximized(true);
         primaryStage.show();
+    }
+
+    public void adjustBrightnessAndContrast(double clow, double chigh, double bright) {
+        int[] input = new int[this.width];
+        int[] output = new int[this.width];
+
+        WritableImage wimg = new WritableImage(width, height);
+        PixelReader pr = img.getPixelReader();
+        PixelWriter pw = wimg.getPixelWriter();
+        WritablePixelFormat<IntBuffer> pf = WritablePixelFormat.getIntArgbInstance();
+
+        for (int line = 0; line < this.height; line++) {
+            // read pixels
+            pr.getPixels(0, line, this.width, 1, pf, input, 0, 0);
+
+            // decode pixels
+            for (int i = 0; i < this.width; i++) {
+                input[i] = decode(input[i]);
+            }
+            // adjust pixels
+            for (int i = 0; i < this.width; i++) {
+                double value = input[i];
+                // first, lower to bottom
+                value -= clow*4096/100;
+                if (value < 0) {
+                    value = 0;
+                }
+                // then, scale with contrast
+                value *= 100/Math.abs(chigh - clow);
+                
+                // finally, adjust brightness
+                value += bright*4096/100;
+                if (value > 4095) {
+                    value = 4095;
+                }
+                
+                // save
+                output[i] = (int) value;
+            }
+
+            // encode pixels
+            for (int i = 0; i < this.width; i++) {
+                output[i] = encode(output[i]);
+            }
+
+            // write pixels
+            pw.setPixels(0, line, this.width, 1, pf, output, 0, 0);
+        }
+
+        try {
+            this.iv.setImage(wimg);
+
+        } catch (Exception e) {
+            this.iv = null;
+        }
     }
 
     public void filter(double sampleRate, double cutoff, double notchwidth) {
@@ -116,7 +213,6 @@ public class JavaFXApplication2 extends Application {
             lineFilterLowPass(input, output, sampleRate, cutoff);
             //lineFilterNotch(input, output, sampleRate, cutoff, 4000);
 
-            
             // encode pixels
             for (int i = 0; i < this.width; i++) {
                 output[i] = encode(output[i]);
@@ -138,7 +234,7 @@ public class JavaFXApplication2 extends Application {
         double RC = 1.0 / (f * 2 * 3.14);
         double dt = 1.0 / sampleRate;
         double alpha = dt / (RC + dt);
-        output[0] = (input[0]+input[1]+input[2]+input[3])/4;
+        output[0] = (input[0] + input[1] + input[2] + input[3]) / 4;
         for (int i = 1; i < this.width; i++) {
             output[i] = output[i - 1] + (int) (alpha * (input[i] - output[i - 1]));
         }
