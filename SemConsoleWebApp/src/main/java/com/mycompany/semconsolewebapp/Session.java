@@ -3,8 +3,10 @@ package com.mycompany.semconsolewebapp;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.concurrent.LinkedTransferQueue;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
@@ -181,7 +183,6 @@ public class Session {
 
         return si;
     }
-    
 
     public String[] gatherFiles() {
         ArrayList<String> files = new ArrayList<>();
@@ -219,6 +220,42 @@ public class Session {
         siStereo.knitStereoImage();
         this.consoleInstance.displayPhoto(siStereo);
         this.saveImageSetAndAdd(siStereo, name, null, upload);
+    }
+
+    void readExistingFiles(ProgressIndicator pin, LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda) {
+        ArrayList<String> pics = new ArrayList<>();
+        this.scanFolder(this.folder, pics);
+        pics.sort(null);
+
+        pin.setProgress(-1);
+        pin.setVisible(true);
+
+        // load them all, but on another thread
+        Thread t = new Thread(() -> {
+            SEMImage si = null;
+            SEMImage siDisplay = null;
+
+            int i = 0;
+            for (String s : pics) {
+                int i2 = i++;
+                Platform.runLater(() -> {
+                    pin.setProgress(i2 / (double) pics.size());
+                });
+
+                si = this.loadFile(s);
+                ltq.add(si);
+                Platform.runLater(updateDisplayLambda);
+
+            }
+
+            Platform.runLater(() -> {
+                pin.setProgress(1);
+                pin.setVisible(false);
+            });
+
+        }
+        );
+        t.start();
     }
 
 }

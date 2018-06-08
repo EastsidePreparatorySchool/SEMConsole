@@ -58,3 +58,6 @@ SignalFilterTest/dist/SignalFilterTest.jar
 SignalFilterTest/dist/SignalFilterTest.jnlp
 SignalFilterTest/dist/web-files/dtjava.js
 SignalFilterTest/build/classes/javafxapplication2/test2.png
+*.class
+SemConsoleWebApp/target/maven-archiver/pom.properties
+SemConsoleWebApp/target/SemConsoleWebApp-1.0-SNAPSHOT.jar

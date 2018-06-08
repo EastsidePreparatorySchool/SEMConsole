@@ -121,7 +121,9 @@ public class Console extends Application {
     private RadioButton[] ch = {null, null, null, null};
     private static String operators = "unknown";
     final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
+
     static boolean testMode = true;
+    final ArrayList<SEMImage> testPics = new ArrayList<>();
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -534,11 +536,22 @@ public class Console extends Application {
     }
 
     private void testModeInit() {
+
         this.session = getImageDir() + "test";
         currentSession = new Session(this.session, this, this.operators);
-        readExistingSessionFiles();
+        // read existing files
+        currentSession.readExistingFiles(this.pin, this.ltq, () -> {
+            SEMImage si = ltq.peek();
+            if (si.height >= 1500) {
+                Platform.runLater(() -> updateDisplay());
+            } else {
+                ltq.remove();
+                synchronized (testPics) {
+                    testPics.add(si);
+                }
+            }
+        });
         runLaterAfterDelay(2000, () -> testModePostPic());
-        return;
     }
 
     private void testModePostPic() {
@@ -546,18 +559,28 @@ public class Console extends Application {
         Console.println();
         Console.println();
         Console.println();
+        SEMImage si = null;
 
-        SEMImage si = this.currentSession.loadFile("img-26_channel-0_kv-10_mag-100_wd-15_operators-unknown_.png");
+//        SEMImage si = this.currentSession.loadFile("img-26_channel-0_kv-10_mag-100_wd-15_operators-unknown_.png");
+        synchronized (testPics) {
+            if (testPics.size() > 0) {
+                si = testPics.remove(0);
+                testPics.add(si);
+            }
+        }
 
-        SEMThread.kv = si.kv;
-        SEMThread.mag = si.magnification;
-        SEMThread.operators = "Test";
-        SEMThread.wd = si.wd;
-        updateMeta();
+        if (si != null) {
+            SEMThread.kv = si.kv;
+            SEMThread.mag = si.magnification;
+            SEMThread.operators = "Test";
+            SEMThread.wd = si.wd;
+            updateMeta();
 
-        this.ltq.add(si);
-        this.channels = 1;
-        updateDisplay();
+            this.ltq.add(si);
+            this.channels = 1;
+            updateDisplay();
+        }
+        
         runLaterAfterDelay(1000, () -> testModePostPic());
     }
 
@@ -603,50 +626,8 @@ public class Console extends Application {
         currentSession = new Session(this.session, this, this.operators);
 
         // read existing files
-        readExistingSessionFiles();
-    }
-
-    private void readExistingSessionFiles() {
-        ArrayList<String> pics = new ArrayList<>();
-        this.currentSession.scanFolder(session, pics);
-        pics.sort(null);
-
-        this.pin.setProgress(-1);
-        this.showProgressIndicator();
-
-        // load them all, but on another thread
-        Thread t = new Thread(() -> {
-            SEMImage si = null;
-            SEMImage siDisplay = null;
-
-            int i = 0;
-            for (String s : pics) {
-                int i2 = i++;
-                Platform.runLater(() -> {
-                    this.pin.setProgress(i2 / (double) pics.size());
-                });
-
-                si = this.currentSession.loadFile(s);
-                if (si.height >= 1500) {
-                    final SEMImage lambdaSi = si;
-                    Platform.runLater(() -> {
-                        this.addThumbnail(lambdaSi);
-                    });
-                    siDisplay = si;
-                }
-            }
-
-            SEMImage siFinal = siDisplay;
-            Platform.runLater(() -> {
-                this.pin.setProgress(1);
-                this.hideProgressIndicator();
-                if (siFinal != null) {
-//                    this.displayPhoto(siFinal);
-                }
-            });
-
+        currentSession.readExistingFiles(this.pin, this.ltq, () -> {
         });
-        t.start();
     }
 
     private void startSlideShow() {
