@@ -137,9 +137,9 @@ public class MetaBadge extends StackPane {
         l6.setTranslateY(20 + sd.pixelY);
 
         this.setAlignment(Pos.TOP_LEFT);
-        this.getChildren().addAll(bigBadge, sp, l, l2, l3, l4, l5, l6, scale);
-        this.setMinSize(width + 40, height + 40);
-        this.setMaxSize(width + 40, height + 40);
+        super.getChildren().addAll(bigBadge, sp, l, l2, l3, l4, l5, l6, scale);
+        super.setMinSize(width + 40, height + 40);
+        super.setMaxSize(width + 40, height + 40);
     }
 
     MetaBadge(SEMImage si, int channel, String[] ops, double compression) {
@@ -167,10 +167,21 @@ public class MetaBadge extends StackPane {
             scale = sd.scale;
         }
 
+        ScaleData(ScaleData sd, int mag) {
+            this.mag = mag;
+            pixelX = sd.pixelX * mag / sd.mag;
+            pixelY = sd.pixelY * mag / sd.mag;
+            scale = sd.scale;
+        }
+
         void fitScale(int maxx, int maxy) {
-            double factor;
+            double factor = 1;
             while (this.pixelY > maxy || this.pixelX > maxx) {
-                factor = (Double.toString(this.scale).endsWith("5")) ? 5 : 2;
+                if (Double.toString(this.scale).endsWith("5")) {
+                    factor = 2.5;
+                } else {
+                    factor = 2;
+                }
 
                 this.scale /= factor;
                 this.pixelX /= factor;
@@ -180,15 +191,22 @@ public class MetaBadge extends StackPane {
 
         private static final ScaleData[] data = {
             new ScaleData(100, 479, 516, 0.1),
-            new ScaleData(110, 500, 540, 0.1)
+            new ScaleData(110, 500, 540, 0.1),
+            new ScaleData(900, 445, 317, 0.01)
         };
 
         static ScaleData findScaleData(int mag) {
-            for (ScaleData sd : data) {
-                if (sd.mag == mag) {
-                    return new ScaleData(sd);
+            int i;
+            for (i = 0; i < data.length; i++) {
+                if (data[i].mag >= mag) {
+                    break;
                 }
             }
+
+            if (i < data.length) {
+                return new ScaleData(data[i], mag);
+            }
+
             return new ScaleData(0, 10, 10, 0);
         }
 
@@ -199,6 +217,7 @@ public class MetaBadge extends StackPane {
                 }
             }
 
+            System.out.println("ST: " + this.scale);
             return "unknown";
         }
 
@@ -215,13 +234,17 @@ public class MetaBadge extends StackPane {
 
         private static final ScaleText[] texts = {
             new ScaleText(0, "inv"),
-            new ScaleText(1, "1 mm"),
-            new ScaleText(0.5, "0.5 mm"),
-            new ScaleText(0.1, "0.1 mm"),
-            new ScaleText(0.05, "50 \u00b5m"),
-            new ScaleText(0.01, "10 \u00b5m"),
-            new ScaleText(000.5, "5 \u00b5m"),
-            new ScaleText(000.1, "1 \u00b5m")
+            new ScaleText(2, "2mm"),
+            new ScaleText(1, "1mm"),
+            new ScaleText(0.5, "0.5mm"),
+            new ScaleText(0.2, "0.2mm"),
+            new ScaleText(0.1, "0.1mm"),
+            new ScaleText(0.05, "50\u00b5m"),
+            new ScaleText(0.02, "20\u00b5m"),
+            new ScaleText(0.01, "10\u00b5m"),
+            new ScaleText(0.005, "5\u00b5m"),
+            new ScaleText(0.002, "2\u00b5m"),
+            new ScaleText(0.001, "1\u00b5m")
         };
     }
 

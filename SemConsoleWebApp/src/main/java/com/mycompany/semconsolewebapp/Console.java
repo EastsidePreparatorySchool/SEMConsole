@@ -93,7 +93,7 @@ public class Console extends Application {
     private VBox left;
     private VBox thumbnails;
     private StackPane right;
-    private LinkedTransferQueue<SEMImage> ltq;
+    final private LinkedTransferQueue<SEMImage> ltq = new LinkedTransferQueue<>();
     private static SEMImage currentImageSet = null;
     private SEMImage siLeft = null;
     private SEMImage siRight = null;
@@ -284,7 +284,6 @@ public class Console extends Application {
     public void start(Stage primaryStage) {
 
         // main transfer mechanism with other thread
-        this.ltq = new LinkedTransferQueue<>();
         this.stage = primaryStage;
 
         primaryStage.setTitle("SEM Console");
@@ -541,14 +540,16 @@ public class Console extends Application {
         currentSession = new Session(this.session, this, this.operators);
         // read existing files
         currentSession.readExistingFiles(this.pin, this.ltq, () -> {
-            SEMImage si = ltq.peek();
-            if (si != null) {
-                if (si.height >= 1500) {
-                    Platform.runLater(() -> updateDisplay());
-                } else {
-                    ltq.remove();
-                    synchronized (testPics) {
-                        testPics.add(si);
+            synchronized (ltq) {
+                SEMImage si = ltq.peek();
+                if (si != null) {
+                    if (si.height >= 1500) {
+                        Platform.runLater(() -> updateDisplay());
+                    } else {
+                        ltq.remove();
+                        synchronized (testPics) {
+                            testPics.add(si);
+                        }
                     }
                 }
             }

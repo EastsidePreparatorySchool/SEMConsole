@@ -177,7 +177,7 @@ public class Session {
             si.width = (int) si.images[0].getWidth();
             si.height = (int) si.images[0].getHeight();
         } catch (Exception ex) {
-            System.out.println(ex.getMessage());
+            System.err.println(ex.getMessage());
             si = null;
         }
 
@@ -243,9 +243,12 @@ public class Session {
                 });
 
                 si = this.loadFile(s);
-                ltq.add(si);
-                Platform.runLater(updateDisplayLambda);
-
+                if (si != null) {
+                    synchronized (ltq) {
+                        ltq.add(si);
+                    }
+                    Platform.runLater(updateDisplayLambda);
+                }
             }
 
             Platform.runLater(() -> {
