@@ -61,3 +61,12 @@ SignalFilterTest/build/classes/javafxapplication2/test2.png
 *.class
 SemConsoleWebApp/target/maven-archiver/pom.properties
 SemConsoleWebApp/target/SemConsoleWebApp-1.0-SNAPSHOT.jar
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console$1.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console$StereoState.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Console.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/MetaBadge.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/SEMImage.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Session$SessionImage.class
+SemConsoleWebApp/target/classes/com/mycompany/semconsolewebapp/Session.class
+SemConsoleWebApp/target/maven-archiver/pom.properties
+SemConsoleWebApp/target/SemConsoleWebApp-1.0-SNAPSHOT.jar

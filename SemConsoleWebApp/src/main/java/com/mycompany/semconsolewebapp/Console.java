@@ -542,12 +542,14 @@ public class Console extends Application {
         // read existing files
         currentSession.readExistingFiles(this.pin, this.ltq, () -> {
             SEMImage si = ltq.peek();
-            if (si.height >= 1500) {
-                Platform.runLater(() -> updateDisplay());
-            } else {
-                ltq.remove();
-                synchronized (testPics) {
-                    testPics.add(si);
+            if (si != null) {
+                if (si.height >= 1500) {
+                    Platform.runLater(() -> updateDisplay());
+                } else {
+                    ltq.remove();
+                    synchronized (testPics) {
+                        testPics.add(si);
+                    }
                 }
             }
         });
@@ -580,7 +582,7 @@ public class Console extends Application {
             this.channels = 1;
             updateDisplay();
         }
-        
+
         runLaterAfterDelay(1000, () -> testModePostPic());
     }
 
