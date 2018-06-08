@@ -8,7 +8,7 @@
   </information>
   <resources>
     <j2se version="1.6+" href="http://java.sun.com/products/autodl/j2se"/>
-    <jar href="SignalFilterTest.jar" size="4790" download="eager" />
+    <jar href="SignalFilterTest.jar" size="41322215" download="eager" />
   </resources>
   <applet-desc  width="800" height="600" main-class="com.javafx.main.NoJavaFXFallback"  name="SignalFilterTest" >
     <param name="requiredFXVersion" value="8.0+"/>

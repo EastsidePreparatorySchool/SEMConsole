@@ -119,8 +119,9 @@ public class Console extends Application {
     private Text metaMag;
     private Text metaWD;
     private RadioButton[] ch = {null, null, null, null};
-    private static String operators = "EN SH";
+    private static String operators = "unknown";
     final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
+    static boolean testMode = true;
 
     static private ConsolePane cp;
     static private boolean printOff = false;
@@ -158,16 +159,16 @@ public class Console extends Application {
         //Here is where you would have to use sout Webcam.getWebCams(timeoutvalue) to see what webcams are available, then
         //then set Webcam w = the preffered webcam
         //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        Webcam w = Webcam.getDefault();//<---------then comment this out
-        new WebcamStreamer(8080, w, 100, true, false);
-
-        Webcam v = Webcam.getDefault();
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //This is example setting
-        //to switch on the live view of the sem, flip the last false into a true;
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        new WebcamStreamer(8079, v, 25, true, false);
-
+        // todo: figure out how this works, this is SamFK's work
+//        Webcam w = Webcam.getDefault();//<---------then comment this out
+//        new WebcamStreamer(8080, w, 100, true, false);
+//
+//        Webcam v = Webcam.getDefault();
+//        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//        //This is example setting
+//        //to switch on the live view of the sem, flip the last false into a true;
+//        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//        new WebcamStreamer(8079, v, 25, true, false);
         //START OF SEM CODE 
         //ConsolePane.MoveSystemConsole();
         /*
@@ -520,18 +521,47 @@ public class Console extends Application {
                 bigStage.close();
             }
         });
-        Platform.runLater(() -> {
-            startNewSession();
-        });
+
+        if (testMode) {
+            Platform.runLater(() -> {
+                testModeInit();
+            });
+        } else {
+            Platform.runLater(() -> {
+                startNewSession();
+            });
+        }
+    }
+
+    private void testModeInit() {
+        this.session = getImageDir() + "test";
+        currentSession = new Session(this.session, this, this.operators);
+        readExistingSessionFiles();
+        runLaterAfterDelay(2000, () -> testModePostPic());
+        return;
+    }
+
+    private void testModePostPic() {
+        Console.println("Loading test file ...");
+        Console.println();
+        Console.println();
+        Console.println();
+
+        SEMImage si = this.currentSession.loadFile("img-26_channel-0_kv-10_mag-100_wd-15_operators-unknown_.png");
+
+        SEMThread.kv = si.kv;
+        SEMThread.mag = si.magnification;
+        SEMThread.operators = "Test";
+        SEMThread.wd = si.wd;
+        updateMeta();
+
+        this.ltq.add(si);
+        this.channels = 1;
+        updateDisplay();
+        runLaterAfterDelay(1000, () -> testModePostPic());
     }
 
     private void startNewSession() {
-        if (true) {
-            this.session = getImageDir() + "test";
-            currentSession = new Session(this.session, this, this.operators);
-            readExistingSessionFiles();
-            return;
-        }
 
         Date date = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
@@ -587,6 +617,7 @@ public class Console extends Application {
         // load them all, but on another thread
         Thread t = new Thread(() -> {
             SEMImage si = null;
+            SEMImage siDisplay = null;
 
             int i = 0;
             for (String s : pics) {
@@ -596,18 +627,21 @@ public class Console extends Application {
                 });
 
                 si = this.currentSession.loadFile(s);
-                final SEMImage lambdaSi = si;
-                Platform.runLater(() -> {
-                    this.addThumbnail(lambdaSi);
-                });
+                if (si.height >= 1500) {
+                    final SEMImage lambdaSi = si;
+                    Platform.runLater(() -> {
+                        this.addThumbnail(lambdaSi);
+                    });
+                    siDisplay = si;
+                }
             }
 
-            SEMImage siFinal = si;
+            SEMImage siFinal = siDisplay;
             Platform.runLater(() -> {
                 this.pin.setProgress(1);
                 this.hideProgressIndicator();
                 if (siFinal != null) {
-                    this.displayPhoto(siFinal);
+//                    this.displayPhoto(siFinal);
                 }
             });
 
@@ -726,27 +760,28 @@ public class Console extends Application {
         si.makeImagesForDisplay();
 
         // put the images in place, create metadata badges
-        for (int i = 0; i < channels; i++) {
-            this.aViews[i].setImage(si.images[i]);
+        for (int i = 0; i < 4; i++) {
+            if (i < channels) {
+                this.aViews[i].setImage(si.images[i]);
+            }
 
+            // remove old meta badge
             if (this.aPanes[i].getChildren().size() > 1) {
                 this.aPanes[i].getChildren().remove(1);
             }
 
-            double compression = si.width / this.aViews[i].getViewport().getWidth();
-            MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
-            this.aPanes[i].getChildren().add(mb);
-            this.aPanes[i].setAlignment(mb, Pos.BOTTOM_RIGHT);
-
-        }
-
-        // adjust all of their sizes
-        this.channels = channels;
-        for (int i = 0; i < 4; i++) {
+            // adjust all of their sizes
             setSizeNormal(aViews[i], i);
 
+            if (i < channels) {
+                double compression = si.width / this.aViews[i].getBoundsInLocal().getWidth();
+                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
+                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+                this.aPanes[i].getChildren().add(mb);
+            }
         }
 
+        this.channels = channels;
         this.currentImageSet = si;
     }
 
@@ -992,50 +1027,58 @@ public class Console extends Application {
     }
 
     private void setSizeNormal(ImageView iv, int channel) {
-        if (this.channels == 2) {
-            if (channel < 2) {
-                iv.fitHeightProperty().bind(this.stage.widthProperty().subtract(300).multiply(3).divide(8));
-                iv.fitWidthProperty().bind(this.stage.widthProperty().subtract(300).divide(2));
-            } else {
-                iv.fitHeightProperty().unbind();
-                iv.fitWidthProperty().unbind();
-                iv.setFitWidth(0);
-                iv.setFitHeight(0);
-            }
-        } else if (this.channels == 1) {
-            if (channel < 1) {
-                iv.fitHeightProperty().bind(this.stage.heightProperty().subtract(260));
-                iv.fitWidthProperty().bind(this.stage.heightProperty().subtract(260).multiply(4).divide(3));
-            } else {
-                iv.fitHeightProperty().unbind();
-                iv.fitWidthProperty().unbind();
-                iv.setFitWidth(0);
-                iv.setFitHeight(0);
-            }
-        } else {
-            iv.fitHeightProperty().bind(this.stage.heightProperty().subtract(260).divide(2));
-            iv.fitWidthProperty().bind(this.stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
+        switch (this.channels) {
+            case 2:
+                if (channel < 2) {
+                    iv.fitHeightProperty().bind(this.stage.widthProperty().subtract(300).multiply(3).divide(8));
+                    iv.fitWidthProperty().bind(this.stage.widthProperty().subtract(300).divide(2));
+                } else {
+                    iv.fitHeightProperty().unbind();
+                    iv.fitWidthProperty().unbind();
+                    iv.setFitWidth(0);
+                    iv.setFitHeight(0);
+                }
+                break;
+            case 1:
+                if (channel < 1) {
+                    iv.fitHeightProperty().bind(this.stage.heightProperty().subtract(260));
+                    iv.fitWidthProperty().bind(this.stage.heightProperty().subtract(260).multiply(4).divide(3));
+                } else {
+                    iv.fitHeightProperty().unbind();
+                    iv.fitWidthProperty().unbind();
+                    iv.setFitWidth(0);
+                    iv.setFitHeight(0);
+                }
+                break;
+            default:
+                iv.fitHeightProperty().bind(this.stage.heightProperty().subtract(260).divide(2));
+                iv.fitWidthProperty().bind(this.stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
+                break;
         }
     }
 
     public void displayPhoto(SEMImage si) {
         List<Screen> allScreens = Screen.getScreens();
-        MetaBadge mb = null;
+        MetaBadge mb;
+        double compression;
+        EventHandler<Event> eh = null;
 
         si.makeImagesForDisplay();
 
         Image image = si.images[0];
 
-        if (this.bigStage == null) {
-            // create large display window
-            this.bigView = new ImageView(image);
-            bigView.setSmooth(true);
+        // create large display window
+        this.bigView = new ImageView(image);
+        bigView.setSmooth(true);
+        this.bigView.setImage(image);
+        this.bigSp = new StackPane();
 
-            if (allScreens.size() > 1) {
-                // two screens or more
-                Screen secondaryScreen = allScreens.get(1);
-                Rectangle2D bounds = secondaryScreen.getVisualBounds();
+        if (allScreens.size() > 1) {
+            // two screens or more
+            Screen secondaryScreen = allScreens.get(1);
+            Rectangle2D bounds = secondaryScreen.getVisualBounds();
 
+            if (this.bigStage == null) {
                 this.bigStage = new Stage();
                 this.bigStage.setX(bounds.getMinX());
                 this.bigStage.setY(bounds.getMinY());
@@ -1044,79 +1087,62 @@ public class Console extends Application {
 
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
-                this.bigSp = new StackPane();
-
-                double compression = si.height / bounds.getHeight();
-                mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
-                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
-
-                this.bigSp.getChildren().addAll(this.bigView, mb);
+                this.bigStage.setFullScreenExitHint("");
                 Scene sc = new Scene(this.bigSp);
                 this.bigStage.setScene(sc);
-                this.bigStage.show();
+            }
 
-            } else {
-                // One screen only
-                Screen screen = allScreens.get(0);
-                Rectangle2D bounds = screen.getVisualBounds();
+            compression = si.height / bounds.getHeight();
+        } else {
+            // One screen only
+            Screen screen = allScreens.get(0);
+            Rectangle2D bounds = screen.getVisualBounds();
 
+            if (this.bigStage == null) {
                 this.bigStage = new Stage();
                 this.bigStage.setFullScreen(true);
 
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.APPLICATION_MODAL);
                 this.bigStage.setFullScreenExitHint("");
-
-                double compression = si.height / bounds.getHeight();
-                mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
-                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
-
-                this.bigSp = new StackPane();
-                this.bigSp.getChildren().addAll(this.bigView, mb);
-
-                // create a scene with events that will close the stage
                 Scene sc = new Scene(this.bigSp);
-                EventHandler<Event> eh = (e) -> {
-                    // one screen : close it
-                    this.bigStage.close();
-                    this.bigStage = null;
-                    if (this.slideshowThread != null) {
-                        this.slideshowThread.interrupt();
-                    }
-                    e.consume();
-                };
-                sc.setOnMouseClicked(eh);
-                sc.setOnKeyTyped(eh);
                 this.bigStage.setScene(sc);
-                this.bigStage.setFullScreen(true);
-                this.bigStage.show();
-            }
-//            this.bigView.fitHeightProperty().bind(this.bigStage.heightProperty());
-//            this.bigView.fitWidthProperty().bind(this.bigStage.heightProperty().multiply(4).divide(3));
-            System.out.println("" + this.bigStage.getWidth() + "," + this.bigStage.getHeight());
-            System.out.println("" + si.width + "," + si.height);
-
-            if (this.bigStage.getWidth() / this.bigStage.getHeight() > si.width / (double) si.height) {
-                this.bigView.setFitHeight(this.bigStage.getHeight());
-                this.bigView.setFitWidth(this.bigStage.getHeight() / si.height * si.width);
-//                this.bigSp.setPrefHeight(this.bigStage.getHeight());
-//                this.bigSp.setPrefWidth(this.bigStage.getHeight() / si.height * si.width);
-//                this.bigSp.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
-                mb.setTranslateX(((this.bigStage.getHeight() / si.height * si.width) - this.bigStage.getWidth()) / 2);
-            } else {
-                // todo: should code here for the case that image is wider (in aspect) than screen
             }
 
-            this.bigStage.show();
+            compression = si.height / bounds.getHeight();
 
-        } else {
-            // big display is already there, update the contents of the ImageView and stackpane (metabadge)
-            this.bigView.setImage(image);
-            if (this.bigSp.getChildren().size() > 1) {
-                this.bigSp.getChildren().remove(1);
-                this.bigSp.getChildren().add(mb);
-            }
+            // create an event that will close the stage
+            eh = (e) -> {
+                // one screen : close it
+                this.bigStage.close();
+                this.bigStage = null;
+                if (this.slideshowThread != null) {
+                    this.slideshowThread.interrupt();
+                }
+                e.consume();
+            };
+
         }
+
+        // create meta badge and add it and view to pane
+        mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
+        StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+        this.bigSp.getChildren().addAll(this.bigView, mb);
+
+        // squeeze image and adjust meta badge placement based on dimensions
+        if (this.bigStage.getWidth() / this.bigStage.getHeight() > si.width / (double) si.height) {
+            this.bigView.setFitHeight(this.bigStage.getHeight());
+            this.bigView.setFitWidth(this.bigStage.getHeight() / si.height * si.width);
+            mb.setTranslateX(((this.bigStage.getHeight() / si.height * si.width) - this.bigStage.getWidth()) / 2);
+        } else {
+            // todo: should code here for the case that image is wider (in aspect) than screen
+        }
+
+        this.bigStage.getScene().setRoot(this.bigSp);
+        this.bigStage.getScene().setOnMouseClicked(eh);
+        this.bigStage.getScene().setOnKeyTyped(eh);
+        this.bigStage.setFullScreen(true);
+        this.bigStage.show();
     }
 
     private void selectPane(StackPane sp) {

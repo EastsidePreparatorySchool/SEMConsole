@@ -176,10 +176,12 @@ public class Session {
             si.height = (int) si.images[0].getHeight();
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
+            si = null;
         }
 
         return si;
     }
+    
 
     public String[] gatherFiles() {
         ArrayList<String> files = new ArrayList<>();
