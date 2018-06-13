@@ -623,6 +623,7 @@ public class Console extends Application {
         if (sessionName.startsWith("open ")) {
             sessionName = sessionName.substring(5).trim();
             if (sessionName.equalsIgnoreCase("test")) {
+                testMode = true;
                 testModeInit();
                 return;
             }
@@ -796,7 +797,7 @@ public class Console extends Application {
                 this.hideProgressIndicator();
                 displayImageSet(this.currentImageSet);
             } else {
-                // for large (photo button) images, displau photo on large screen
+                // for large (photo button) images, display photo on large screen
                 displayPhoto(si);
 
                 /// and add to session

@@ -68,41 +68,43 @@ public class Session {
                     this.consoleInstance.addThumbnail(si);
                 });
 
-                // add metadata to file name
-                fullName = decorateFileName(fullName, si, i);
-                si.fileName = fullName;
-                try {
-                    file = new File(this.folder + System.getProperty("file.separator") + fullName);
-                    ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
-                } catch (Exception ex) {
-                    System.out.println(ex.getMessage());
-                }
-
-                if (i == 0 && upload) {
-                    fullName = fullName.substring(0, fullName.length() - 4); // take of ".png"
-                    fullName += ".jpg";
+                if (!Console.testMode) {
+                    // add metadata to file name
+                    fullName = decorateFileName(fullName, si, i);
                     si.fileName = fullName;
                     try {
-                        // make lower-resolution jpg from image, then save and upload
                         file = new File(this.folder + System.getProperty("file.separator") + fullName);
-                        ImageView iv = new ImageView(si.images[i]);
-                        Pane p = new Pane();
-                        p.getChildren().add(iv);
-                        p.setMinSize(1080 / 3 * 4, 1080);
-                        p.setMaxSize(1080 / 3 * 4, 1080);
-                        WritableImage wi = new WritableImage(1080 / 3 * 4, 1080);
-                        p.snapshot(null, wi);
-
-                        ImageIO.write(SwingFXUtils.fromFXImage(wi, null), "jpg", file);
-
-                        FileUpload.uploadFileAndMetaDataToServer(fullName,
-                                this.operators,
-                                Console.channelNames[si.capturedChannels[i]],
-                                si.kv,
-                                si.magnification,
-                                si.wd);
+                        ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
                     } catch (Exception ex) {
                         System.out.println(ex.getMessage());
+                    }
+
+                    if (i == 0 && upload) {
+                        fullName = fullName.substring(0, fullName.length() - 4); // take of ".png"
+                        fullName += ".jpg";
+                        si.fileName = fullName;
+                        try {
+                            // make lower-resolution jpg from image, then save and upload
+                            file = new File(this.folder + System.getProperty("file.separator") + fullName);
+                            ImageView iv = new ImageView(si.images[i]);
+                            Pane p = new Pane();
+                            p.getChildren().add(iv);
+                            p.setMinSize(1080 / 3 * 4, 1080);
+                            p.setMaxSize(1080 / 3 * 4, 1080);
+                            WritableImage wi = new WritableImage(1080 / 3 * 4, 1080);
+                            p.snapshot(null, wi);
+
+                            ImageIO.write(SwingFXUtils.fromFXImage(wi, null), "jpg", file);
+
+                            FileUpload.uploadFileAndMetaDataToServer(fullName,
+                                    this.operators,
+                                    Console.channelNames[si.capturedChannels[i]],
+                                    si.kv,
+                                    si.magnification,
+                                    si.wd);
+                        } catch (Exception ex) {
+                            System.out.println(ex.getMessage());
+                        }
                     }
                 }
             }
