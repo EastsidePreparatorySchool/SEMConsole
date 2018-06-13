@@ -41,6 +41,7 @@ public class SEMPort {
     int numOKs = 0;
     int lastBytes = 0;
     long lastTime = 0;
+    int maxLine =0;
 
     //int[] rawMultiChannelBuffer;
     private int rawLength = 0;
@@ -280,6 +281,7 @@ public class SEMPort {
                         numErrors = 0;
                         numOKs = 0;
                         lastBytes = 0;
+                        maxLine = 0;
 
                         // read channel count, width, height
                         buffer.rewind();
@@ -355,6 +357,8 @@ public class SEMPort {
                         checkSumRead = buffer.getInt();
                         // read line number (unsigned short)
                         int line = Short.toUnsignedInt(buffer.getShort());
+                        maxLine = line > maxLine? line:maxLine;
+                        //System.out.print(" "+line);
                         //System.out.println(line);
                         // read byte count (unsigned short)
                         int bytes = Short.toUnsignedInt(buffer.getShort());
@@ -435,7 +439,7 @@ public class SEMPort {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
-                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + si.maxLine);
+                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + maxLine);
                         // process the raw data
                         if (reasonEnd == 3) { // &&  si.maxLine > (si.height-10)) { // vsync normal
                             //this.si.parseAllLines();

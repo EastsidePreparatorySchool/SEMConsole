@@ -182,6 +182,7 @@ public class SEMImage {
 
     void fileDataLine(int line, int[] data, int count) {
         if (line < 0) {
+            System.out.println("Invalid line "+line);
             return;
         }
 
