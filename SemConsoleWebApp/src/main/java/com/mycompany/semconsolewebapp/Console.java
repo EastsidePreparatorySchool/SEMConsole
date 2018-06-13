@@ -122,7 +122,7 @@ public class Console extends Application {
     private static String operators = "unknown";
     final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
 
-    static boolean testMode = true;
+    static boolean testMode = false;
     final ArrayList<SEMImage> testPics = new ArrayList<>();
 
     static private ConsolePane cp;
@@ -136,7 +136,7 @@ public class Console extends Application {
     private Thread slideshowThread;
     private Alert slideshowAlert;
     private int slideshowSeconds = 5;
-    public static Database db = new Database();
+    public static Database db = null;//new Database();
 
     // main fx launcher
     public static void main(String[] args) {
@@ -593,7 +593,9 @@ public class Console extends Application {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
         String sessionName = dateFormat.format(date);
 
-        db.addSession(operators);
+        if (db != null) {
+            db.addSession(operators);
+        }
 
         TextInputDialog tid = new TextInputDialog(sessionName);
         tid.setTitle("New session");
@@ -620,6 +622,11 @@ public class Console extends Application {
 
         if (sessionName.startsWith("open ")) {
             sessionName = sessionName.substring(5).trim();
+            if (sessionName.equalsIgnoreCase("test")) {
+                testMode = true;
+                testModeInit();
+                return;
+            }
         } else {
             // create a session for new images to go to 
             createFolder(getImageDir(), sessionName);
@@ -629,8 +636,10 @@ public class Console extends Application {
         currentSession = new Session(this.session, this, this.operators);
 
         // read existing files
-        currentSession.readExistingFiles(this.pin, this.ltq, () -> {
-        });
+        if (!sessionName.equalsIgnoreCase("Default")) {
+            currentSession.readExistingFiles(this.pin, this.ltq, () -> {
+            });
+        }
     }
 
     private void startSlideShow() {
@@ -788,7 +797,7 @@ public class Console extends Application {
                 this.hideProgressIndicator();
                 displayImageSet(this.currentImageSet);
             } else {
-                // for large (photo button) images, displau photo on large screen
+                // for large (photo button) images, display photo on large screen
                 displayPhoto(si);
 
                 /// and add to session
@@ -813,6 +822,8 @@ public class Console extends Application {
             }
             this.masterPane.getChildren().add(this.pin);
         }
+        
+        this.pin.setVisible(true);
     }
 
     private void hideProgressIndicator() {
@@ -821,6 +832,7 @@ public class Console extends Application {
             this.masterPane.getChildren().remove(index);
         }
         this.pin.setProgress(0);
+        this.pin.setVisible(false);
     }
 
     private void updateScanning() {
