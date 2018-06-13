@@ -34,7 +34,7 @@ public class Database {
 
     Database() {
         try {
-            Class.forName("com.mysql.jdbc.Driver");
+            Class.forName("com.mysql.cj.jdbc.Driver");
             this.connect();
         } catch (ClassNotFoundException ex) {
             System.out.println(ex);
