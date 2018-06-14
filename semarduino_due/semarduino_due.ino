@@ -95,8 +95,8 @@ struct Resolution g_allRes[] = {
 #define REASON_DROP   2
 #define REASON_VSYNC  3
 
-int g_line1 = 0;
-int g_line2 = 0;
+int g_line1 = 0; 
+int g_line2 = 0; 
 int g_numChannels = 1;
 
 //
@@ -268,7 +268,7 @@ void setup() {
 
 
 
-void computeCheckSum(int bytes) {
+void computeCheckSum(int line, int bytes) {
   // compute checkSum
   long checkSum = 0;
   uint16_t *pWord = (uint16_t *)&g_pbp[1];
@@ -276,7 +276,8 @@ void computeCheckSum(int bytes) {
     checkSum += *pWord++;
   }
 
-  g_pbp->checkSum = checkSum + g_pbp->line + bytes;
+  g_pbp->checkSum = checkSum + line + bytes;
+  g_pbp->line = line;
   g_pbp->bytes = bytes;
 }
 
@@ -525,93 +526,93 @@ void initializeADC() {
   } else {
     // slow mode
     ADC->ADC_MR &= 0x7FFF0000;        // mode register "prescale" zeroed out to scan at highest speed
-    // no high bit indicates to NOT use sequence numbers
+                                      // no high bit indicates to NOT use sequence numbers
     ADC->ADC_CHER = 0x80 >> g_line1;  // enable ADC on selected pin
     ADC->ADC_MR |= 0x80;              // set free running mode on ADC
-  }
+ }
   g_adcInProgress = false;
 
 
   /*
-    Some help for those working with the sequence registers with the DUE ADC: 
-     
-    The ADC in the DUE is connected so that the Arduino pins A0,A1,A2,A3 correspond to the AVR ADC channels ch7, ch6, ch5, and ch4, respectively.  The converter can be programmed to acquire a sequence of channels with one trigger. Instructions for configuring the acquisition are given in section 43 of the SAM3x data sheet, but are rather confusing, in my opinion.
-    To use the registers that determine the sequence of channels that are acquired, follow these steps:
-     
-    How many acquisitions do you want in your sequence? You must enable this many channels in the ADC_CHER. (channel enable register) 
-    Which channels do you want in your sequence?  These channels must be included in the ones that you enable in ADC_CHER.
-    EXAMPLE:  Want to have a sequence with four acquisitions.  The channels to be acquired are only two, channel 7 and channel 6. (arduino A0 and A1) 
-    SOLUTIONS:  four bits must be set in ADC_CHER.  Of these 4, two must be channel 7 and channel 6, and the other two are arbitrary.
-                example SOL1:  CHER set up for    ch0,ch1 ch6,ch7       CHER= 0x00C3
-                example SOL2:  CHER  set up for   ch1, ch6, ch7, ch12  CHER= 0x10C2
-     
-    Now, write the channels that you want acquired into the sequence register positions for the channels that you have enabled.
-    Work in numerical order from the lowest numbered acquisition channel to the highest numbered acquisition channel. 
-    Note that the labels in the sequence register documentation are numbered from 1 instead of zero.  This is simply a confusion
-    (or error) in the documentation. (that is, for example, USCH1 corresponds to the adc channel #0....USCH10 corresponds to the adc channel #9) 
+   Some help for those working with the sequence registers with the DUE ADC: 
+ 
+The ADC in the DUE is connected so that the Arduino pins A0,A1,A2,A3 correspond to the AVR ADC channels ch7, ch6, ch5, and ch4, respectively.  The converter can be programmed to acquire a sequence of channels with one trigger. Instructions for configuring the acquisition are given in section 43 of the SAM3x data sheet, but are rather confusing, in my opinion.
+To use the registers that determine the sequence of channels that are acquired, follow these steps:
+ 
+How many acquisitions do you want in your sequence? You must enable this many channels in the ADC_CHER. (channel enable register) 
+Which channels do you want in your sequence?  These channels must be included in the ones that you enable in ADC_CHER.
+EXAMPLE:  Want to have a sequence with four acquisitions.  The channels to be acquired are only two, channel 7 and channel 6. (arduino A0 and A1) 
+SOLUTIONS:  four bits must be set in ADC_CHER.  Of these 4, two must be channel 7 and channel 6, and the other two are arbitrary.
+            example SOL1:  CHER set up for    ch0,ch1 ch6,ch7       CHER= 0x00C3
+            example SOL2:  CHER  set up for   ch1, ch6, ch7, ch12  CHER= 0x10C2
+ 
+Now, write the channels that you want acquired into the sequence register positions for the channels that you have enabled. 
+Work in numerical order from the lowest numbered acquisition channel to the highest numbered acquisition channel.  
+Note that the labels in the sequence register documentation are numbered from 1 instead of zero.  This is simply a confusion
+(or error) in the documentation. (that is, for example, USCH1 corresponds to the adc channel #0....USCH10 corresponds to the adc channel #9) 
 
-    EXAMPLE:  You want to acquire 7,7,6,6 with every trigger
-                      USING SOL1 (ch0,ch1,ch6,ch7)
-                                      SEQR1= (7<<0) | (7<<4) |(6<<24) |(6<<28); //=0x66000077
-                                USING SOL2 (ch1,ch6,ch7,ch12)
-                                    SEQR1= (7<<4) | (7<<24) |(6<<28);  //=0x67000070
-                                    SEQR2=(6<<16);                                  // =0x60000
-    EXAMPLE2:  You want to acquire 6,7,6,7 with every trigger 
-                      USING SOL1 (ch0,ch1,ch6,ch7)
-                                    SEQR1= (6<<0) | (7<<4) |(6<<24) |(7<<28);//=0x76000076
-                      USING SOL2 (ch1,ch6,ch7,ch12)
-                                   SEQR1= (6<<4) | (7<<24) |(6<<28);  //=0x67000060
-                                   SEQR2=(7<<16);                                   //=0x70000
-     
-       I have attached code that acquires A1,A0,A1,A0.... like the  SOL1, example 2 above.  The ADC runs in the background, always overwriting a length 4 data array.  (Note that in this code, the ADC is clock is slowed down below the recommended speed.)  
-     
-     
+EXAMPLE:  You want to acquire 7,7,6,6 with every trigger
+                  USING SOL1 (ch0,ch1,ch6,ch7)
+                                  SEQR1= (7<<0) | (7<<4) |(6<<24) |(6<<28); //=0x66000077
+                            USING SOL2 (ch1,ch6,ch7,ch12)
+                                SEQR1= (7<<4) | (7<<24) |(6<<28);  //=0x67000070
+                                SEQR2=(6<<16);                                  // =0x60000
+EXAMPLE2:  You want to acquire 6,7,6,7 with every trigger 
+                  USING SOL1 (ch0,ch1,ch6,ch7)
+                                SEQR1= (6<<0) | (7<<4) |(6<<24) |(7<<28);//=0x76000076
+                  USING SOL2 (ch1,ch6,ch7,ch12)
+                               SEQR1= (6<<4) | (7<<24) |(6<<28);  //=0x67000060
+                               SEQR2=(7<<16);                                   //=0x70000
+ 
+   I have attached code that acquires A1,A0,A1,A0.... like the  SOL1, example 2 above.  The ADC runs in the background, always overwriting a length 4 data array.  (Note that in this code, the ADC is clock is slowed down below the recommended speed.)  
+ 
+ 
+   * 
+   * 
+   * 
+   // Arduino Due ADC->DMA 
+// modified by contravalent from code on the  internet by "Stimmer"
+// this routine reads the two arduino channels A0 and A1
+// fills the array global_ADCounts_Array in the background, with data from the ADC  
+
+ pmc_enable_periph_clk(ID_ADC);   //power management controller told to turn on adc
+ ADC->ADC_CR |=1; //reset the adc
+ ADC->ADC_MR= 0x9038ff00;  //this setting is used by arduino. 
+  // prescale :  ADC clock is mck/((prescale+1)*2).  mck is 84MHZ. 
+  // prescale : 0xFF=255=164.0625KHz
+  ADC->ADC_MR &=0xFFFF00FF;   //mode register "prescale" zeroed out. 
+  ADC->ADC_MR |=0x0000ff00;   //slow down the adc clock so we don't interrupt so often . this divide sets it very slow
+  ADC->ADC_EMR |= (1<<24);    // turn on channel numbers
+  ADC->ADC_CHDR=0xFFFFFFFF;   // disable all channels   
+  ADC->ADC_CHER=0x00C3;       //   use channels 0,1, 6 and 7
+  ADC->ADC_MR |=0x80000000;   //USEQ bit set, saying use the sequence
+  ADC->ADC_SEQR1=0x76000076;  // use0->6, use1->7, use6->6, use7->7 
+  ADC->ADC_SEQR2=0x0000;
+  
+  NVIC_EnableIRQ(ADC_IRQn); // interrupt controller set to enable adc.
+  ADC->ADC_IDR=~((1<<27)); // interrupt disable register, disables all interrupts but ENDRX
+  ADC->ADC_IER=(1<<27);   // interrupt enable register, enables only ENDRX
+  Serial.println();
+  Serial.print("mode register ="); Serial.println(REG_ADC_MR, HEX); 
+  Serial.print("channel enabled register ="); Serial.println(REG_ADC_CHSR, HEX);
+  Serial.print("sequence register1 ="); Serial.println(REG_ADC_SEQR1, HEX); 
+  Serial.print("interrupts ="); Serial.println(REG_ADC_IMR, HEX); delay(5000);
+ // following are the DMA controller registers for this peripheral
+ // "receive buffer address" 
+ ADC->ADC_RPR=(uint32_t) global_ADCounts_Array;   // DMA receive pointer register  points to beginning of global_ADCount
+ // "receive count" 
+ ADC->ADC_RCR=NUM_CHANNELS;  //  receive counter set to 4
+ // "next-buffer address"
+ ADC->ADC_RNPR=(uint32_t)global_ADCounts_Array; // next receive pointer register DMA global_ADCounts_Arrayfer  points to second set of data 
+ // and "next count"
+ ADC->ADC_RNCR=NUM_CHANNELS;   //  and next counter is set to 4
+ // "transmit control register"
+ ADC->ADC_PTCR=1;  // transfer control register for the DMA is set to enable receiver channel requests
+ // now that all things are set up, it is safe to start the ADC.....
+ ADC->ADC_MR |=0x80; // mode register of adc bit seven, free run, set to free running. starts ADC
 
 
-
-    // Arduino Due ADC->DMA
-    // modified by contravalent from code on the  internet by "Stimmer"
-    // this routine reads the two arduino channels A0 and A1
-    // fills the array global_ADCounts_Array in the background, with data from the ADC
-
-    pmc_enable_periph_clk(ID_ADC);   //power management controller told to turn on adc
-    ADC->ADC_CR |=1; //reset the adc
-    ADC->ADC_MR= 0x9038ff00;  //this setting is used by arduino.
-    // prescale :  ADC clock is mck/((prescale+1)*2).  mck is 84MHZ.
-    // prescale : 0xFF=255=164.0625KHz
-    ADC->ADC_MR &=0xFFFF00FF;   //mode register "prescale" zeroed out.
-    ADC->ADC_MR |=0x0000ff00;   //slow down the adc clock so we don't interrupt so often . this divide sets it very slow
-    ADC->ADC_EMR |= (1<<24);    // turn on channel numbers
-    ADC->ADC_CHDR=0xFFFFFFFF;   // disable all channels
-    ADC->ADC_CHER=0x00C3;       //   use channels 0,1, 6 and 7
-    ADC->ADC_MR |=0x80000000;   //USEQ bit set, saying use the sequence
-    ADC->ADC_SEQR1=0x76000076;  // use0->6, use1->7, use6->6, use7->7
-    ADC->ADC_SEQR2=0x0000;
-
-    NVIC_EnableIRQ(ADC_IRQn); // interrupt controller set to enable adc.
-    ADC->ADC_IDR=~((1<<27)); // interrupt disable register, disables all interrupts but ENDRX
-    ADC->ADC_IER=(1<<27);   // interrupt enable register, enables only ENDRX
-    Serial.println();
-    Serial.print("mode register ="); Serial.println(REG_ADC_MR, HEX);
-    Serial.print("channel enabled register ="); Serial.println(REG_ADC_CHSR, HEX);
-    Serial.print("sequence register1 ="); Serial.println(REG_ADC_SEQR1, HEX);
-    Serial.print("interrupts ="); Serial.println(REG_ADC_IMR, HEX); delay(5000);
-    // following are the DMA controller registers for this peripheral
-    // "receive buffer address"
-    ADC->ADC_RPR=(uint32_t) global_ADCounts_Array;   // DMA receive pointer register  points to beginning of global_ADCount
-    // "receive count"
-    ADC->ADC_RCR=NUM_CHANNELS;  //  receive counter set to 4
-    // "next-buffer address"
-    ADC->ADC_RNPR=(uint32_t)global_ADCounts_Array; // next receive pointer register DMA global_ADCounts_Arrayfer  points to second set of data
-    // and "next count"
-    ADC->ADC_RNCR=NUM_CHANNELS;   //  and next counter is set to 4
-    // "transmit control register"
-    ADC->ADC_PTCR=1;  // transfer control register for the DMA is set to enable receiver channel requests
-    // now that all things are set up, it is safe to start the ADC.....
-    ADC->ADC_MR |=0x80; // mode register of adc bit seven, free run, set to free running. starts ADC
-
-
-  */
+   */
 }
 
 void ADC_Handler() {
@@ -737,7 +738,7 @@ void hsyncHandler() {
             value = 0;
             i = count;
             while (i--) {
-              value += ((ADC->ADC_CDR[7 - g_line1]) & 0x0FFF); // get values, no tag
+              value += ((ADC->ADC_CDR[7-g_line1]) & 0x0FFF);  // get values, no tag
             }
             *pDest++ = value; // tag as channel 0 and store
           }
@@ -861,13 +862,13 @@ void loop () {
   //
   while (g_phase == PHASE_SCANNING) {
     // wait for scan completion, get line out of the way of the DMA controller
-    scanAndCopyOneLine();
+    line = scanAndCopyOneLine();
 
     // keep track of maximum scan time (we report this so we can dial it in and get max possible pixel res)
     timeLineScan = max(timeLineScan, g_adcLineTime);
 
     // compute check sum and fill in line and bytes
-    computeCheckSum(g_lineBytes);
+    computeCheckSum(line, g_lineBytes);
 
     // send the line
     sendLine(g_lineBytes);
@@ -991,8 +992,8 @@ void readChannelSelection() {
       line2 = 0;
       numChannels = 1;
     }
-
-
+    
+    
     if (old1 != line1 || old2 != line2 || oldnum != numChannels) {
       noInterrupts();
       g_line1 = line1;
@@ -1000,15 +1001,15 @@ void readChannelSelection() {
       g_numChannels = numChannels;
       g_fResetRes = true;
       interrupts();
-      //      blinkBuiltInLED(g_numChannels);
-      //      if (g_numChannels != 4) {
-      //        delay(1000);
-      //        blinkBuiltInLED(g_line1 + 1);
-      //        if (g_numChannels == 2) {
-      //          delay(1000);
-      //          blinkBuiltInLED(g_line2 + 1);
-      //        }
-      //      }
+//      blinkBuiltInLED(g_numChannels);
+//      if (g_numChannels != 4) {
+//        delay(1000);
+//        blinkBuiltInLED(g_line1 + 1);
+//        if (g_numChannels == 2) {
+//          delay(1000);
+//          blinkBuiltInLED(g_line2 + 1);
+//        }
+//      }
     }
 
   }
@@ -1029,16 +1030,15 @@ void adjustToNewRes() {
 
 
 
-void scanAndCopyOneLine() {
+int scanAndCopyOneLine() {
   int line = g_numLines;
 
   if (g_fSlow) {
-    if (g_phase != PHASE_SCANNING) {
-      memset ((uint8_t *) g_pDest, 0, g_lineBytes);
-      return;
-    }
-
     while (!g_fLineReady) { // wait for scanned line
+      if (g_phase != PHASE_SCANNING) {
+        memset ((uint8_t *) g_pDest, 0, g_lineBytes);
+        return line;
+      }
     }
 
 
@@ -1047,7 +1047,7 @@ void scanAndCopyOneLine() {
     uint16_t *pDest = (uint16_t *) pSource;
     int factor = (g_pCurrentRes->numSamples);
     while (pixels--) {
-      *pDest++ = (*pSource++ / factor) | ((7 - g_line1) << 12); // divide by number of samples, add channel marker
+      *pDest++ = (*pSource++ / factor) | ((7-g_line1)<<12); // divide by number of samples, add channel marker
     }
     memcpy(((byte *)&g_pbp[1]) + g_lineBytes, sentinelTrailer, sizeof (sentinelTrailer));
     g_fLineReady = false;
@@ -1059,11 +1059,9 @@ void scanAndCopyOneLine() {
 
     // put the line somewhere safe from adc, just past the params header:
     memcpy(&g_pbp[1], padcBuffer[currentBuffer], g_lineBytes);
- 
     currentBuffer = NEXT_BUFFER(currentBuffer);                         // set next buffer for waiting
   }
-
-  g_pbp->line = line;
+  return line;
 }
 
 
