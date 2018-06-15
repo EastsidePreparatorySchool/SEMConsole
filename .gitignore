@@ -16,3 +16,4 @@ libs/*
 /FileUploadTest/build/
 /SemConsoleWebApp/target/
 *.class
+SignalFilterTest/nbproject/private/private.properties
