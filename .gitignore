@@ -17,3 +17,4 @@ libs/*
 /SemConsoleWebApp/target/
 *.class
 SignalFilterTest/nbproject/private/private.properties
+SignalFilterTest/nbproject/private/private.properties
