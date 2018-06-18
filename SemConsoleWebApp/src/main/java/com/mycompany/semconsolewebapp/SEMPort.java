@@ -357,8 +357,7 @@ public class SEMPort {
                         checkSumRead = buffer.getInt();
                         // read line number (unsigned short)
                         int line = Short.toUnsignedInt(buffer.getShort());
-                        maxLine = line > maxLine? line:maxLine;
-                        System.out.print(" "+line);
+                        ////System.out.print(" "+line);
                         //System.out.println(line);
                         // read byte count (unsigned short)
                         int bytes = Short.toUnsignedInt(buffer.getShort());
@@ -408,7 +407,7 @@ public class SEMPort {
                         break;
 
                     case "EPS_SEM_ENDFRAME":
-                        System.out.println("");
+                        //System.out.println("");
                         if (phase != SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
                             throw new SEMException(SEMError.ERROR_WRONG_PHASE);
                         }
