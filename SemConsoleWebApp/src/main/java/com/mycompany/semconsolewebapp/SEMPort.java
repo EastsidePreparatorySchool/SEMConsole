@@ -358,7 +358,7 @@ public class SEMPort {
                         // read line number (unsigned short)
                         int line = Short.toUnsignedInt(buffer.getShort());
                         maxLine = line > maxLine? line:maxLine;
-                        //System.out.print(" "+line);
+                        System.out.print(" "+line);
                         //System.out.println(line);
                         // read byte count (unsigned short)
                         int bytes = Short.toUnsignedInt(buffer.getShort());
@@ -367,6 +367,7 @@ public class SEMPort {
                         checkSum = bytes + line;
                         if (bytes != this.proposedBytes) {
                             dotCounter++;
+                            System.out.println("Checksum error");
 
                             throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                         }
@@ -401,6 +402,7 @@ public class SEMPort {
                         break;
 
                     case "EPS_SEM_ENDFRAME":
+                        System.out.println("");
                         if (phase != SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME) {
                             throw new SEMException(SEMError.ERROR_WRONG_PHASE);
                         }
@@ -439,7 +441,7 @@ public class SEMPort {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
-                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + maxLine);
+                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + maxLine +", si.ml: "+this.si.maxLine);
                         // process the raw data
                         if (reasonEnd == 3) { // &&  si.maxLine > (si.height-10)) { // vsync normal
                             //this.si.parseAllLines();
