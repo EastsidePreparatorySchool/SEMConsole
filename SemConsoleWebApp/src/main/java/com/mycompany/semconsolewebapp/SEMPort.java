@@ -41,7 +41,7 @@ public class SEMPort {
     int numOKs = 0;
     int lastBytes = 0;
     long lastTime = 0;
-    int maxLine =0;
+    int maxLine = 0;
 
     //int[] rawMultiChannelBuffer;
     private int rawLength = 0;
@@ -372,32 +372,38 @@ public class SEMPort {
                             throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                         }
 
-                        int word;
-                        int[] nextLineBuffer = this.si.getNextDataLine();
-                        if (nextLineBuffer != null) {
-                            for (int i = 0; i < bytes / 2; i++) {
-                                word = Short.toUnsignedInt(buffer.getShort());
-                                nextLineBuffer[i] = word;
-                                checkSum += word;
-                            }
+                        // some resolutions (rapid 2 10x) will produce duplicate line numbers. Ignore lines we have seen before (i.e. <= maxline)
+                        if (line > maxLine) {
+                            maxLine = line;
+                            int word;
+                            int[] nextLineBuffer = this.si.getNextDataLine();
+                            if (nextLineBuffer != null) {
+                                // have line buffer, read from serial
+                                for (int i = 0; i < bytes / 2; i++) {
+                                    word = Short.toUnsignedInt(buffer.getShort());
+                                    nextLineBuffer[i] = word;
+                                    checkSum += word;
+                                }
 
-                            if (checkSum != checkSumRead) {
-                                throw new SEMException(SEMError.ERROR_CHECK_SUM);
-                            }
+                                if (checkSum != checkSumRead) {
+                                    throw new SEMException(SEMError.ERROR_CHECK_SUM);
+                                }
 
-                            this.si.fileDataLine(line, nextLineBuffer, bytes / 2);
-                        }
-                        // print dot for successful lines, send "ok", process line
-                        if (++dotCounter % lines == 0) {
-                            if (this.si.height > 600) {
-                                Console.print(".");
-                                if (this.si.height > 1500) {
-                                    SEMThread.progress = ((double) line) / (double) si.height;
-                                    Platform.runLater(updateScanning);
+                                // file line away in image for later processing
+                                this.si.fileDataLine(line, nextLineBuffer, bytes / 2);
+                            }
+                            // print dot for successful lines, move progress indicator
+                            if (++dotCounter % lines == 0) {
+                                if (this.si.height > 600) {
+                                    Console.print(".");
+                                    if (this.si.height > 1500) {
+                                        SEMThread.progress = ((double) line) / (double) si.height;
+                                        Platform.runLater(updateScanning);
+                                    }
                                 }
                             }
+                            numOKs++;
                         }
-                        numOKs++;
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
                         break;
 
