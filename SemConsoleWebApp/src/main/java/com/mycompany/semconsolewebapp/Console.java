@@ -44,6 +44,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
@@ -127,6 +128,8 @@ public class Console extends Application {
 
     static private ConsolePane cp;
     static private boolean printOff = false;
+
+    static public double dNewWeight = 1.0;
 
     final static private String[] colorScheme1 = {"#accbe1", "#7c98b3", "#536b78", "#cee5f2", "#e2c044"};
     final static private String[] colorScheme2 = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
@@ -374,21 +377,21 @@ public class Console extends Application {
         res.getChildren().addAll(ch[0], ch[1], ch[2], ch[3]);
         res.setPadding(new Insets(6, 12, 6, 12));
 
-        metaKV = new Text("");
+        metaKV = new Text("nc");
         HBox metab1 = new HBox();
 
         metab1.getChildren().add(metaKV);
         metab1.setPrefWidth(100);
         metab1.setPadding(new Insets(6, 12, 6, 12));
 
-        metaMag = new Text("");
+        metaMag = new Text("nc");
         HBox metab2 = new HBox();
 
         metab2.getChildren().add(metaMag);
         metab2.setPrefWidth(100);
         metab2.setPadding(new Insets(6, 12, 6, 12));
 
-        metaWD = new Text("");
+        metaWD = new Text("nc");
         HBox metab3 = new HBox();
 
         metab3.getChildren().add(metaWD);
@@ -400,9 +403,25 @@ public class Console extends Application {
         meta.getChildren().addAll(metab1, metab2, metab3);
         meta.setPrefWidth(150);
 
+        // slider for cumulative mode
+        Slider slider = new Slider();
+
+        slider.valueProperty().addListener((f) -> {
+            Console.dNewWeight = slider.getValue();
+        });
+
+        slider.setPrefWidth(400);
+        slider.setMin(0);
+        slider.setMax(1.0);
+        slider.setValue(1.0);
+        slider.setShowTickMarks(true);
+        slider.setShowTickLabels(true);
+        slider.setMajorTickUnit(0.1);
+
+        // put the whole UI together
         top.setPadding(new Insets(15, 12, 15, 12));
         top.getChildren().addAll(newSession, new Text("  "), btnConnect, h, h2, new Text("  "),
-                stereoBox, new Text("  "), res, new Text(" "), meta);
+                stereoBox, new Text("  "), res, new Text(" "), meta, new Text(" Weight: "), slider);
         bp.setTop(top);
         cp = new ConsolePane();
 
@@ -750,7 +769,8 @@ public class Console extends Application {
         }
 
         // parse and create images if we have not done this before
-        si.makeImagesForDisplay();
+        // pass along the old imageset for cumulative mode
+        si.makeImagesForDisplay(Console.currentImageSet);
 
         // put the images in place, create metadata badges
         for (int i = 0; i < 4; i++) {
@@ -775,7 +795,7 @@ public class Console extends Application {
         }
 
         this.channels = channels;
-        this.currentImageSet = si;
+        Console.currentImageSet = si;
     }
 
     // called by SEMThread, passed as lambda
@@ -822,7 +842,7 @@ public class Console extends Application {
             }
             this.masterPane.getChildren().add(this.pin);
         }
-        
+
         this.pin.setVisible(true);
     }
 
@@ -1059,7 +1079,7 @@ public class Console extends Application {
         double compression;
         EventHandler<Event> eh = null;
 
-        si.makeImagesForDisplay();
+        si.makeImagesForDisplay(null);
 
         Image image = si.images[0];
 

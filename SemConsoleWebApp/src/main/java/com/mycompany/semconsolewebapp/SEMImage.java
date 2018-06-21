@@ -31,6 +31,7 @@ public class SEMImage {
     public int wd;
     public String operators;
 
+    private PixelReader[] readers;
     private PixelWriter[] writers;
     private PixelFormat pf;
     private WritablePixelFormat<IntBuffer> format;
@@ -70,6 +71,7 @@ public class SEMImage {
         this.rangeMaxLine = new int[channels];
 
         images = new WritableImage[channels];
+        readers = new PixelReader[channels];
         writers = new PixelWriter[channels];
         imageNames = new String[channels];
 
@@ -93,6 +95,7 @@ public class SEMImage {
         this.rangeMax = null;
         this.rangeMaxLine = null;
         this.writers = null;
+        this.readers = null;
 
         this.width = -1;
         this.height = -1;
@@ -132,6 +135,7 @@ public class SEMImage {
         for (int i = 0; i < channels; i++) {
             images[i] = new WritableImage(width, height);
             writers[i] = images[i].getPixelWriter();
+            readers[i] = images[i].getPixelReader();
         }
     }
 
@@ -182,7 +186,7 @@ public class SEMImage {
 
     void fileDataLine(int line, int[] data, int count) {
         if (line < 0) {
-            System.out.println("Invalid line "+line);
+            System.out.println("Invalid line " + line);
             return;
         }
 
@@ -222,7 +226,7 @@ public class SEMImage {
     //
     // extract separate image lines from one line of data
     //
-    void parseRawLineToWriters(int line, int[] data, int count) {
+    void parseRawLineToWriters(int line, int[] data, int count, SEMImage siOld) {
         int pixel;
         int capturedChannel;
         int writeChannel;
@@ -251,8 +255,16 @@ public class SEMImage {
                     break;
                 }
             }
-            // write rawBuffer into images[writeChannel]
+
             try {
+                // if we are in cumulative mode, find the right reader, combine buffers
+                if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width && height == siOld.height) {
+                    siOld.readers[writeChannel].getPixels(0, line, siOld.width, 1, siOld.format, siOld.lineBuffer, 0, siOld.width);
+                    for (int i = 0; i<lineBuffer.length; i++) {
+                        lineBuffer[i] = (int) (lineBuffer[i]*Console.dNewWeight + siOld.lineBuffer[i]* (1-Console.dNewWeight));
+                    }
+                }
+                // write rawBuffer into images[writeChannel]
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, lineBuffer, 0, this.width);
             } catch (Exception e) {
                 System.out.println("Write failed: " + line + ", " + height);
@@ -292,7 +304,7 @@ public class SEMImage {
         //Console.println(""+rangeMin[0]+" "+rangeMax[0]);
     }
 
-    public void makeImagesForDisplay() {
+    public void makeImagesForDisplay(SEMImage siOld) {
         if (aRawLineBuffers == null || aRawLineBuffers.isEmpty()) {
             return;
         }
@@ -311,6 +323,7 @@ public class SEMImage {
         for (int i = 0; i < channels; i++) {
             images[i] = new WritableImage(width, height);
             writers[i] = images[i].getPixelWriter();
+            readers[i] = images[i].getPixelReader();
         }
 
         // parse all lines, correcting data values for ranges
@@ -322,7 +335,7 @@ public class SEMImage {
                 line = 0;
             }
             while (++prevLine <= line) {
-                this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1);
+                this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1, siOld);
             }
             prevLine = line;
         }
