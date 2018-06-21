@@ -168,7 +168,7 @@ public class SEMImage {
                 prRight.getPixels(0, line, this.width, 1, this.format, rightBuffer, 0, 0);
 
                 for (int pixel = 0; pixel < this.width; pixel++) {
-                    leftBuffer[pixel] = combinePixels(leftBuffer[pixel], rightBuffer[pixel], this.capturedChannels[i]);
+                    leftBuffer[pixel] = combinePixels(leftBuffer[pixel], rightBuffer[pixel]);
                 }
 
                 pw.setPixels(0, line, this.width, 1, this.format, leftBuffer, 0, 0);
@@ -244,7 +244,7 @@ public class SEMImage {
                 intensity = getValue(data[i]);
                 intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
 
-                lineBuffer[pixel++] = grayScale(capturedChannel, intensity);
+                lineBuffer[pixel++] = intensity;
             }
 
             // find the right image to write into
@@ -260,9 +260,13 @@ public class SEMImage {
                 // if we are in cumulative mode, find the right reader, combine buffers
                 if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width && height == siOld.height) {
                     siOld.readers[writeChannel].getPixels(0, line, siOld.width, 1, siOld.format, siOld.lineBuffer, 0, siOld.width);
-                    for (int i = 0; i<lineBuffer.length; i++) {
-                        lineBuffer[i] = (int) (lineBuffer[i]*Console.dNewWeight + siOld.lineBuffer[i]* (1-Console.dNewWeight));
+                    for (int i = 0; i < lineBuffer.length; i++) {
+                        intensity = (int) (lineBuffer[i] * Console.dNewWeight + intensityFromARGB(siOld.lineBuffer[i]) * (1 - Console.dNewWeight));
                     }
+                }
+                // convert into ARGB
+                for (int i = 0; i < lineBuffer.length; i++) {
+                    lineBuffer[i] = ARGBFromIntensity(capturedChannel);
                 }
                 // write rawBuffer into images[writeChannel]
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, lineBuffer, 0, this.width);
@@ -374,7 +378,7 @@ public class SEMImage {
 
     // converts intensity into a kind of gray scale, 6 bits are distributed evenly, 2+2+2 divided up between the colors
     // that way, we can save and later parse all the data with no losses
-    int grayScale(int realChannel, int intensity) {
+    int ARGBFromIntensity(int intensity) {
         // todo: real gain calibration
         if (intensity > 4095) {
             intensity = 4095;
@@ -396,10 +400,16 @@ public class SEMImage {
                 + (highSix + b);         // blue
     }
 
+    int intensityFromARGB(int argb) {
+        return ((argb & 0xFF) << 4)
+                + ((argb & 0x300) >> 6)
+                + ((argb & 0x30000) >> 16);
+    }
+
     // makes a red/blu stereo pixel out of two source pixels
     // decodes intensities, put 8bit + 8bit back together again
     // presumes that source pixels were computed by grayScale() (see above)
-    int combinePixels(int left, int right, int realChannel) {
+    int combinePixels(int left, int right) {
         int intensityLeft = left & 0xFF; // blue contained the high 8 bits of intensity
         int intensityRight = right & 0xFF;
 
@@ -421,7 +431,6 @@ public class SEMImage {
         format = null;
         pf = null;
 
-        lineBuffer = null;
         aRawLineBuffers = null;
         LineBuffer.returnLineBuffer(this.lb);
 

@@ -377,21 +377,21 @@ public class Console extends Application {
         res.getChildren().addAll(ch[0], ch[1], ch[2], ch[3]);
         res.setPadding(new Insets(6, 12, 6, 12));
 
-        metaKV = new Text("nc");
+        metaKV = new Text("");
         HBox metab1 = new HBox();
 
         metab1.getChildren().add(metaKV);
         metab1.setPrefWidth(100);
         metab1.setPadding(new Insets(6, 12, 6, 12));
 
-        metaMag = new Text("nc");
+        metaMag = new Text("");
         HBox metab2 = new HBox();
 
         metab2.getChildren().add(metaMag);
         metab2.setPrefWidth(100);
         metab2.setPadding(new Insets(6, 12, 6, 12));
 
-        metaWD = new Text("nc");
+        metaWD = new Text("");
         HBox metab3 = new HBox();
 
         metab3.getChildren().add(metaWD);
@@ -410,7 +410,7 @@ public class Console extends Application {
             Console.dNewWeight = slider.getValue();
         });
 
-        slider.setPrefWidth(400);
+        slider.setPrefWidth(250);
         slider.setMin(0);
         slider.setMax(1.0);
         slider.setValue(1.0);
