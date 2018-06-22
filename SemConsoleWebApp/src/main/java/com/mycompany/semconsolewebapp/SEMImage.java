@@ -7,7 +7,6 @@ package com.mycompany.semconsolewebapp;
 
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import javafx.scene.image.Image;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelReader;
@@ -199,18 +198,6 @@ public class SEMImage {
 
     }
 
-    // keep track of min and max for a line, for all channels
-    void rangeLine(int line, int[] data, int count) {
-        int intensity;
-
-        for (int channel = 0; channel < this.channels; channel++) {
-            for (int i = channel; i < count; i += this.channels) {
-                intensity = getValue(data[i]);
-                recordRange(channel, line, intensity);
-            }
-        }
-    }
-
     //todo: is this what we want?
     int autoContrast(int value, int min, int max) {
         //return value;
@@ -237,12 +224,17 @@ public class SEMImage {
         }
 
         for (int channel = 0; channel < this.channels; channel++) {
-            // copy one line of pixels for a specific channel out of data into rawBuffer
+            // copy one line of pixels for a specific channel out of data into rawBuffer. record min and max.
             pixel = 0;
             capturedChannel = translateChannel(getEncodedChannel(data[channel]));
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
-                intensity = autoContrast(intensity, rangeMin[channel], rangeMax[channel]);
+                if (intensity < rangeMin[capturedChannel]) {
+                    rangeMin[capturedChannel] = intensity;
+                }
+                if (intensity > rangeMax[capturedChannel]) {
+                    rangeMax[capturedChannel] = intensity;
+                }
 
                 lineBuffer[pixel++] = intensity;
             }
@@ -259,10 +251,13 @@ public class SEMImage {
             try {
                 // if we are in cumulative mode, find the right reader, combine buffers
                 if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width && height == siOld.height) {
+                    // combine pixels by weight (dNewWeight)
+                    // todo: Allocating line2 should not be necessary, I should be able to reuse the oldSi.lineBuffer, but it just gives dark images. Try again.
                     int[] line2 = new int[lineBuffer.length];
                     siOld.readers[writeChannel].getPixels(0, line, siOld.width, 1, siOld.format, line2, 0, siOld.width);
                     for (int i = 0; i < lineBuffer.length; i++) {
                         lineBuffer[i] = (int) (lineBuffer[i] * Console.dNewWeight + intensityFromARGB(line2[i]) * (1 - Console.dNewWeight));
+
                     }
                 }
                 // convert into ARGB
@@ -279,36 +274,6 @@ public class SEMImage {
         }
     }
 
-    public void rangeImages() {
-        if (aRawLineBuffers.isEmpty()) {
-            return;
-        }
-
-        int size = aRawLineBuffers.size();
-
-//        if (maxLine + 1 > height) {
-//            this.height = maxLine + 1;
-//        }
-        for (int i = 0; i < channels; i++) {
-            rangeMin[i] = 4095;
-            rangeMax[i] = 0;
-        }
-
-        // compute ranges from first 75% of image. ignore duplicates as best we can
-        int prevLine = -1;
-        for (int i = 0; i < size; i++) {
-            int[] data = aRawLineBuffers.get(i);
-
-            int line = data[data.length - 1];
-            if (line != prevLine) {
-                rangeLine(line, data, data.length - 1); // don't range that last int, which is the line number
-            }
-            prevLine = line;
-        }
-        //Console.printOn();
-        //Console.println(""+rangeMin[0]+" "+rangeMax[0]);
-    }
-
     public void makeImagesForDisplay(SEMImage siOld) {
         if (aRawLineBuffers == null || aRawLineBuffers.isEmpty()) {
             return;
@@ -320,8 +285,6 @@ public class SEMImage {
         }
 
         // compute min and max for contrast
-        rangeImages();
-
         int size = aRawLineBuffers.size();
 
         // allocate images
@@ -331,7 +294,7 @@ public class SEMImage {
             readers[i] = images[i].getPixelReader();
         }
 
-        // parse all lines, correcting data values for ranges
+        // parse all lines, 
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
             int[] lineData = aRawLineBuffers.get(i);
@@ -345,17 +308,39 @@ public class SEMImage {
             prevLine = line;
         }
 
+        // need to perform autoContrast for every pixel
+        // todo: add brightness, add UI controls
+        for (int c = 0; c < channels; c++) {
+            int channel = capturedChannels[c];
+            rangeMin[c] = 0;
+            rangeMax[c] = 4095;
+
+            for (int line = 0; line < height; line++) {
+                int[] line2 = new int[width];
+                readers[channel].getPixels(0, line, width, 1, format, line2, 0, width);
+                for (int i = 0; i < width; i++) {
+                    int intensity = intensityFromARGB(line2[i]);
+                    intensity = autoContrast(intensity, rangeMin[c], rangeMax[c]);
+                    line2[i] = ARGBFromIntensity(intensity);
+                }
+                // write rawBuffer into images[c]
+                writers[channel].setPixels(0, line, this.width, 1, this.format, line2, 0, this.width);
+            }
+        }
+
         cleanUp();
     }
 
     // get the encoded channel number from a word in the data stream
-    int getEncodedChannel(int word) {
+    int getEncodedChannel(int word
+    ) {
         return (word >> 12);
 
     }
 
     // get the raw value of the ADC reading, and adjust it to fit into a byte
-    int getValue(int word) {
+    int getValue(int word
+    ) {
         word = ((word & 0xFFF));
         if (word > 4095) {
             word = 4095;
@@ -366,20 +351,10 @@ public class SEMImage {
         return word;
     }
 
-    void recordRange(int channel, int line, int intensity) {
-        if (intensity < rangeMin[channel]) {
-            rangeMin[channel] = intensity;
-        }
-
-        if (intensity > rangeMax[channel]) {
-            rangeMax[channel] = intensity;
-            rangeMaxLine[channel] = line;
-        }
-    }
-
     // converts intensity into a kind of gray scale, 6 bits are distributed evenly, 2+2+2 divided up between the colors
     // that way, we can save and later parse all the data with no losses
-    int ARGBFromIntensity(int intensity) {
+    int ARGBFromIntensity(int intensity
+    ) {
         // todo: real gain calibration
         if (intensity > 4095) {
             intensity = 4095;
@@ -401,7 +376,8 @@ public class SEMImage {
                 + (highSix + b);         // blue
     }
 
-    int intensityFromARGB(int argb) {
+    int intensityFromARGB(int argb
+    ) {
         return ((argb & 0xFF) << 4)
                 + ((argb & 0x300) >> 6)
                 + ((argb & 0x30000) >> 16);
@@ -410,7 +386,8 @@ public class SEMImage {
     // makes a red/blu stereo pixel out of two source pixels
     // decodes intensities, put 8bit + 8bit back together again
     // presumes that source pixels were computed by grayScale() (see above)
-    int combinePixels(int left, int right) {
+    int combinePixels(int left, int right
+    ) {
         int intensityLeft = left & 0xFF; // blue contained the high 8 bits of intensity
         int intensityRight = right & 0xFF;
 
@@ -420,7 +397,8 @@ public class SEMImage {
     }
 
 // maps encoded Arduino ADC channel tags into Ax input pin numbers (7 -> A0, 6-> A1 etc.)
-    int translateChannel(int word) {
+    int translateChannel(int word
+    ) {
         return 7 - word;
     }
 
