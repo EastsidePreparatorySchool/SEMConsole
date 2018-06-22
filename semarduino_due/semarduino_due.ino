@@ -53,8 +53,8 @@ struct Resolution g_allRes[] = {
   // scan line time, tolerance, pixels, channels, spec lines, samples
   {           160,    40,    200,        1,        182,     1 }, // RAPID2 mag 100
   {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
-  //  {          5790,   500,   2000,        1,        840,     1 }, // SLOW1
-  {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
+  {          5790,   500,   2000,        4,        840,     1 }, // SLOW1
+//{          5790,   500,   1000,        1,        840,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
   {         33326,   500,   4000,        1,       3000,    22 }, // H6V7
   {        240000, 11000,   4000,        1,       3000,    40 }  // H8V9
@@ -355,9 +355,9 @@ void sendFrameHeader() {
   switch (g_pCurrentRes->numChannels) {
     case 4:
       h.lines[0] = 0;
-      h.lines[1] = 0;
-      h.lines[2] = 0;
-      h.lines[3] = 0;
+      h.lines[1] = 1;
+      h.lines[2] = 2;
+      h.lines[3] = 3;
       break;
 
     case 2:
@@ -767,7 +767,7 @@ struct Resolution *getResolution(int lineTime) {
 
   for (i = 0; i < NUM_MODES; i++) {
     if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance)
-        && g_allRes[i].numChannels == g_numChannels) {
+        /*&& g_allRes[i].numChannels == g_numChannels*/) {
       return &g_allRes[i];
     }
   }
