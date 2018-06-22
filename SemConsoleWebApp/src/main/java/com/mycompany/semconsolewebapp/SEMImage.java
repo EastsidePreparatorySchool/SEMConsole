@@ -80,7 +80,7 @@ public class SEMImage {
         //
         // make line buffer pool
         //
-        this.lb = LineBuffer.grabLineBuffer(width, height);
+        this.lb = LineBuffer.grabLineBuffer(width, height, channels);
         this.lineCounter = 0;
     }
 
@@ -259,19 +259,20 @@ public class SEMImage {
             try {
                 // if we are in cumulative mode, find the right reader, combine buffers
                 if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width && height == siOld.height) {
-                    siOld.readers[writeChannel].getPixels(0, line, siOld.width, 1, siOld.format, siOld.lineBuffer, 0, siOld.width);
+                    int[] line2 = new int[lineBuffer.length];
+                    siOld.readers[writeChannel].getPixels(0, line, siOld.width, 1, siOld.format, line2, 0, siOld.width);
                     for (int i = 0; i < lineBuffer.length; i++) {
-                        intensity = (int) (lineBuffer[i] * Console.dNewWeight + intensityFromARGB(siOld.lineBuffer[i]) * (1 - Console.dNewWeight));
+                        lineBuffer[i] = (int) (lineBuffer[i] * Console.dNewWeight + intensityFromARGB(line2[i]) * (1 - Console.dNewWeight));
                     }
                 }
                 // convert into ARGB
                 for (int i = 0; i < lineBuffer.length; i++) {
-                    lineBuffer[i] = ARGBFromIntensity(capturedChannel);
+                    lineBuffer[i] = ARGBFromIntensity(lineBuffer[i]);
                 }
                 // write rawBuffer into images[writeChannel]
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, lineBuffer, 0, this.width);
             } catch (Exception e) {
-                System.out.println("Write failed: " + line + ", " + height);
+                System.out.println("pixel Write failed: " + line + ", " + height);
                 System.out.println(e.getStackTrace());
 
             }

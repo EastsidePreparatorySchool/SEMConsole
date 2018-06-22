@@ -115,6 +115,7 @@ public class SEMPort {
                     System.out.println("No answer.");
                 }
             } catch (Exception e) {
+                System.err.println("port init error");
                 Console.println(e.toString());
 
             }
@@ -158,6 +159,7 @@ public class SEMPort {
                         }
                         Thread.sleep(200);
                     } catch (Exception e) {
+                        System.err.println("port shutdown error");
                     }
                 }
                 port.close();
@@ -165,6 +167,7 @@ public class SEMPort {
             }
             name = "";
         } catch (Exception e) {
+            System.err.println("port shutdown error (2)");
         }
     }
 
@@ -378,10 +381,16 @@ public class SEMPort {
                             int[] nextLineBuffer = this.si.getNextDataLine();
                             if (nextLineBuffer != null) {
                                 // have line buffer, read from serial
-                                for (int i = 0; i < bytes / 2; i++) {
-                                    word = Short.toUnsignedInt(buffer.getShort());
-                                    nextLineBuffer[i] = word;
-                                    checkSum += word;
+                                int i=0;
+                                try {
+                                    for (i = 0; i < bytes / 2; i++) {
+                                        word = Short.toUnsignedInt(buffer.getShort());
+                                        nextLineBuffer[i] = word;
+                                        checkSum += word;
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println("line data parsing");
+                                    System.err.println("supposed words: "+bytes/2+" , illegal access: "+i);
                                 }
 
                                 if (checkSum != checkSumRead) {
@@ -446,7 +455,7 @@ public class SEMPort {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
                         Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
-                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + maxLine +", si.ml: "+this.si.maxLine);
+                        Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + maxLine + ", si.ml: " + this.si.maxLine);
                         // process the raw data
                         if (reasonEnd == 3) { // &&  si.maxLine > (si.height-10)) { // vsync normal
                             //this.si.parseAllLines();
@@ -484,9 +493,9 @@ public class SEMPort {
             result = phase;
             numErrors++;
         } catch (Exception e) {
-            System.out.println(e.toString());
+            System.err.println(e.toString());
             for (StackTraceElement s : e.getStackTrace()) {
-                System.out.println(s.toString());
+                System.err.println(s.toString());
             }
 
         }
@@ -548,6 +557,7 @@ public class SEMPort {
                 skipped += 16;
             } while (n > 0);
         } catch (Exception e) {
+            System.err.println("find sentinel error");
         }
         return false;
     }

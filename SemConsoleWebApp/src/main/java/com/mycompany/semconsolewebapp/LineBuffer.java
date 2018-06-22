@@ -19,22 +19,22 @@ public class LineBuffer {
 
     static ArrayList<LineBuffer> buffers = new ArrayList<>();
 
-    LineBuffer(int width, int height) {
+    LineBuffer(int width, int height, int channels) {
         this.width = width;
         this.height = height;
-        this.data = new int[height][width + 1];
+        this.data = new int[height][channels* width + 1];
     }
 
-    static LineBuffer grabLineBuffer(int width, int height) {
+    static LineBuffer grabLineBuffer(int width, int height, int channels) {
         LineBuffer lb;
         if (height > 300) {
-            return new LineBuffer(width, height);
+            return new LineBuffer(width, height, channels);
         }
 
         synchronized (buffers) {
             if (buffers.isEmpty()) {
                 System.out.println("New Line buffer");
-                return new LineBuffer(width, height);
+                return new LineBuffer(width, height, channels);
             }
             lb = buffers.remove(0);
         }
