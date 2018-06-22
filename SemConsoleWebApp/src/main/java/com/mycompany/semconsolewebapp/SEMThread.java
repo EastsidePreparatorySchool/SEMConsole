@@ -80,7 +80,8 @@ public class SEMThread extends Thread {
             }
         } catch (InterruptedException ie) {
         } catch (Exception e) {
-            System.out.println(e.toString());
+            System.err.println("general sem thread error");
+            System.err.println(e.toString());
         }
 
         if (semport != null) {

@@ -629,6 +629,7 @@ public class Console extends Application {
                     try {
                         this.slideshowSeconds = Integer.parseInt(arg);
                     } catch (Exception e) {
+                        System.err.println("Invalid length for slideshow");
                     }
                 }
                 startSlideShow();
@@ -768,10 +769,14 @@ public class Console extends Application {
             return;
         }
 
-        // parse and create images if we have not done this before
-        // pass along the old imageset for cumulative mode
-        si.makeImagesForDisplay(Console.currentImageSet);
-
+        try {
+            // parse and create images if we have not done this before
+            // pass along the old imageset for cumulative mode
+            si.makeImagesForDisplay(Console.currentImageSet);
+        } catch (Exception e) {
+            System.err.println("Make Images:" + e.getMessage());
+            e.printStackTrace(System.err);
+        }
         // put the images in place, create metadata badges
         for (int i = 0; i < 4; i++) {
             if (i < channels) {
@@ -810,24 +815,28 @@ public class Console extends Application {
         if (newImages.isEmpty()) {
             return;
         }
+        try {
+            for (SEMImage si : newImages) {
+                if (si.height < 1500) {
+                    this.currentImageSet = si;
+                    this.hideProgressIndicator();
+                    displayImageSet(this.currentImageSet);
+                } else {
+                    // for large (photo button) images, display photo on large screen
+                    displayPhoto(si);
 
-        for (SEMImage si : newImages) {
-            if (si.height < 1500) {
-                this.currentImageSet = si;
-                this.hideProgressIndicator();
-                displayImageSet(this.currentImageSet);
-            } else {
-                // for large (photo button) images, display photo on large screen
-                displayPhoto(si);
-
-                /// and add to session
-                if (currentSession != null) {
-                    this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+                    /// and add to session
+                    if (currentSession != null) {
+                        this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+                    }
+                    // check if we are in the process of taking a stereo pair, and do the right thing
+                    // this will also save images to the session
+                    this.checkForStereo(si);
                 }
-                // check if we are in the process of taking a stereo pair, and do the right thing
-                // this will also save images to the session
-                this.checkForStereo(si);
             }
+        } catch (Exception e) {
+            System.err.println("UpdateDisplay:" + e.getMessage());
+            e.printStackTrace(System.err);
         }
     }
 
@@ -959,6 +968,7 @@ public class Console extends Application {
                 semThread.start();
                 semThread.setPriority(Thread.MAX_PRIORITY);
             } catch (Exception e) {
+                System.err.println("Thread start");
                 System.out.println(e.getMessage());
             }
 
@@ -1222,6 +1232,7 @@ public class Console extends Application {
         try {
             return SwingFXUtils.fromFXImage(currentImageSet.images[0], null);
         } catch (Exception ex) {
+            System.err.println("Get current image");
             System.out.println(ex.getMessage());
         }
         return null;
@@ -1242,6 +1253,7 @@ public class Console extends Application {
                 ImageIO.write(SwingFXUtils.fromFXImage(si.images[0], null), "png", file);
                 Console.println("Image written to " + file.getName());
             } catch (Exception ex) {
+                System.err.println("image write");
                 System.out.println(ex.getMessage());
             }
         }
@@ -1258,6 +1270,7 @@ public class Console extends Application {
         try {
             fileName = "imageset_" + dateFormat.format(date);
         } catch (Exception e) {
+            System.err.println("could not create folder");
         }
 
         return fileName;

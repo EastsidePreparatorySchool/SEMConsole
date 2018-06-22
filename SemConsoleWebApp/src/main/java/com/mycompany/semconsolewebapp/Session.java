@@ -76,7 +76,8 @@ public class Session {
                         file = new File(this.folder + System.getProperty("file.separator") + fullName);
                         ImageIO.write(SwingFXUtils.fromFXImage(si.images[i], null), "png", file);
                     } catch (Exception ex) {
-                        System.out.println(ex.getMessage());
+                        System.err.println("session: write failed");
+                        System.err.println(ex.getMessage());
                     }
 
                     if (i == 0 && upload) {
@@ -103,6 +104,7 @@ public class Session {
                                     si.magnification,
                                     si.wd);
                         } catch (Exception ex) {
+                            System.err.println("jpg upload error");
                             System.out.println(ex.getMessage());
                         }
                     }
@@ -179,6 +181,7 @@ public class Session {
             si.width = (int) si.images[0].getWidth();
             si.height = (int) si.images[0].getHeight();
         } catch (Exception ex) {
+            System.err.println("session: file read error");
             System.err.println(ex.getMessage());
             si = null;
         }
@@ -213,7 +216,8 @@ public class Session {
                 }
             }
         } catch (Exception e) {
-            System.out.println(e.toString());
+            System.err.println("folder scan error");
+            System.err.println(e.toString());
         }
     }
 

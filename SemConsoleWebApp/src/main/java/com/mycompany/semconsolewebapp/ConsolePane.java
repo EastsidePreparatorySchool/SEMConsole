@@ -116,6 +116,7 @@ public class ConsolePane extends VBox {
         }
         Objects.requireNonNull(text, "text");
         runSafe(() -> textArea.appendText(text + System.lineSeparator()));
+        System.out.println("Console: " + text);
     }
 
     public void println() {
@@ -137,9 +138,10 @@ public class ConsolePane extends VBox {
 
             User32.INSTANCE.INSTANCE.MoveWindow(hwnd, 0, 0, 100, 100, true);
         } catch (Exception e) {
+            System.err.println("move system console");
         }
     }
-    
+
     /* another example:
   import com.sun.jna.*;
 import com.sun.jna.platform.win32.WinDef.HWND;
@@ -160,6 +162,5 @@ public class JnaTest {
       System.out.println(Native.toString(windowText));
    }
 }  
-*/
-
+     */
 }
