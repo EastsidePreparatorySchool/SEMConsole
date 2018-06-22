@@ -749,24 +749,21 @@ public class Console extends Application {
     }
 
     private void displayImageSet(SEMImage si) {
-        int channels = 0;
-        if (si != null) {
-            channels = si.channels;
+        // handle the null case
+        if (si == null) {
+            for (int i = 0; i < 4; i++) {
+                this.aViews[i].setImage(null);
+            }
+            return;
         }
+
+        int channels = si.channels;
 
         // set absent channel images to empty
         if (channels < 4) {
             for (int i = channels; i < 4; i++) {
                 this.aViews[i].setImage(null);
             }
-        }
-
-        if (si == null) {
-            for (int i = 0; i < 4; i++) {
-                this.aViews[i].setImage(null);
-            }
-
-            return;
         }
 
         try {
@@ -777,6 +774,10 @@ public class Console extends Application {
             System.err.println("Make Images:" + e.getMessage());
             e.printStackTrace(System.err);
         }
+
+        // record number of displayed channels globally
+        this.channels = channels;
+
         // put the images in place, create metadata badges
         for (int i = 0; i < 4; i++) {
             if (i < channels) {
@@ -799,7 +800,6 @@ public class Console extends Application {
             }
         }
 
-        this.channels = channels;
         Console.currentImageSet = si;
     }
 
