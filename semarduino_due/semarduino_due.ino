@@ -51,10 +51,10 @@ struct Resolution *g_pCurrentRes;
 // resolutions are stored in this array in ascending order of horizontal scan times
 struct Resolution g_allRes[] = {
   // scan line time, tolerance, pixels, channels, spec lines, samples
-  {           160,    40,    200,        1,        182,     1 }, // RAPID2 mag 100
-  {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
-  {          5790,   500,   2000,        4,        840,     1 }, // SLOW1
-  {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
+  {           160,    40,    200,        1,        170,     1 }, // RAPID2 mag 100
+  {          1183,   200,   1200,        1,        522,     1 }, // RAPID2 mag 10
+  {          5790,   500,   2000,        4,        860,     1 }, // SLOW1
+  {          5790,   500,   1000,        1,        860,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
   {         33326,   500,   4000,        1,       3000,    22 }, // H6V7
   {        240000, 11000,   4000,        1,       3000,    40 }  // H8V9
