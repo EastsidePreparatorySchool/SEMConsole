@@ -18,3 +18,5 @@ libs/*
 *.class
 SignalFilterTest/nbproject/private/private.properties
 SignalFilterTest/nbproject/private/private.properties
+SignalFilterTest/nbproject/private/configs/Run_as_WebStart.properties
+*.properties
