@@ -476,17 +476,23 @@ public class Console extends Application {
         dm.getChildren().addAll(rbdmNormal, rbdmOsc, rbdmHist, rbdmFreq);
         dm.setPadding(new Insets(6, 12, 6, 12));
 
+        // snapshot
+        Button snap = new Button("Snapshot");
+        snap.setPrefSize(100, 100);
+        snap.setOnAction((e) -> snapshot());
+
         // put the whole UI together
         top.setPadding(new Insets(15, 12, 15, 12));
         top.getChildren().addAll(newSession, new Text("  "), btnConnect, h, h2, new Text("  "),
                 stereoBox, new Text("  "), res, new Text(" "), meta, new Text(" "),
-                dm, new Text(" Weight: "), slider);
+                dm, new Text(" Weight: "), slider, snap);
         bp.setTop(top);
-        cp = new ConsolePane();
 
+        // output console
+        cp = new ConsolePane();
         cp.setPrefWidth(740);       // determines initial width of unmaximized window
 
-        //panes
+        // display panes
         this.aPanes = new StackPane[4];
         for (int i = 0;
                 i < 4; i++) {
@@ -920,6 +926,22 @@ public class Console extends Application {
             System.err.println("UpdateDisplay:" + e.getMessage());
             e.printStackTrace(System.err);
         }
+    }
+
+    private void snapshot() {
+        if (Console.currentImageSet == null) {
+            return;
+        }
+        displayPhoto(Console.currentImageSet);
+
+        /// and add to session
+        if (currentSession != null) {
+            this.currentSession.saveImageSetAndAdd(Console.currentImageSet, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+        }
+        // check if we are in the process of taking a stereo pair, and do the right thing
+        // this will also save images to the session
+        this.checkForStereo(Console.currentImageSet);
+
     }
 
     private void showProgressIndicator() {
