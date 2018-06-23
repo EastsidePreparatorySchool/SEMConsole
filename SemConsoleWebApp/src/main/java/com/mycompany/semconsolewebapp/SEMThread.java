@@ -51,6 +51,7 @@ public class SEMThread extends Thread {
     }
 
     SEMPort semport = null;
+    boolean initialized = false;
 
     public void run() {
         try {
@@ -67,6 +68,7 @@ public class SEMThread extends Thread {
             this.phase = Phase.WAITING_TO_CONNECT;
             semport = new SEMPort();
             semport.initialize();
+            initialized = true;
             Console.println("SEM Port initialized.");
 
             // main loop waiting for FRAME or BYTES or EFRAME messages
@@ -84,8 +86,11 @@ public class SEMThread extends Thread {
             System.err.println(e.toString());
         }
 
-        if (semport != null) {
+        if (semport != null && initialized) {
             semport.shutdown();
+            initialized = false;
+        } else {
+            Console.println("SEM Port: initialization failed.");
         }
 
         if (this.phase == Phase.ABORTED) {

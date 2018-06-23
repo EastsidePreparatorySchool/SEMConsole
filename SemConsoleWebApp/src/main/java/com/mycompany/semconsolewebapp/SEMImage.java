@@ -233,21 +233,51 @@ public class SEMImage {
         // need to perform autoContrast for every pixel
         // todo: add brightness, add UI controls
         for (int c = 0; c < channels; c++) {
-            rangeMin[c] = 0;
-            rangeMax[c] = 4095;
+
+            // deternine image ranges for each channel
+            rangeMin[c] = 4096;
+            rangeMax[c] = 0;
 
             for (int line = 0; line < height; line++) {
                 int[] line2 = new int[width];
-                readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
-                for (int i = 0; i < width; i++) {
-                    int intensity = intensityFromARGB(line2[i]);
-                    intensity = autoContrastValue(intensity, rangeMin[c], rangeMax[c]);
-                    line2[i] = ARGBFromIntensity(intensity);
+                try {
+                    readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
+                    for (int i = 0; i < width; i++) {
+                        int intensity = intensityFromARGB(line2[i]);
+                        rangeMin[c] = Math.min(rangeMin[c], intensity);
+                        rangeMax[c] = Math.max(rangeMax[c], intensity);
+                    }
+                } catch (Exception e) {
+                    System.err.println("autoContrast: range read failed, " + e.getMessage());
+                    e.printStackTrace(System.err);
+                    return;
                 }
-                // write rawBuffer into images[c]
-                writers[c].setPixels(0, line, this.width, 1, this.format, line2, 0, this.width);
             }
-        displayImages[c] = null;
+            Console.println("autoContrast: before: min: " + rangeMin[c] + " , max: " + rangeMax[c]);
+            // adjust all values
+            int min = 4096;
+            int max = 0;
+            for (int line = 0; line < height; line++) {
+                int[] line2 = new int[width];
+                try {
+                    readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
+                    for (int i = 0; i < width; i++) {
+                        int intensity = intensityFromARGB(line2[i]);
+                        intensity = autoContrastValue(intensity, rangeMin[c], rangeMax[c]);
+                        line2[i] = ARGBFromIntensity(intensity);
+                    }
+                    // write rawBuffer into images[c]
+                    writers[c].setPixels(0, line, this.width, 1, this.format, line2, 0, this.width);
+                } catch (Exception e) {
+                    System.err.println("autoContrast: read or write failed, " + e.getMessage());
+                    e.printStackTrace(System.err);
+                    return;
+                }
+            }
+            Console.println("autoContrast: after: min: " + min + " , max: " +max);
+
+            // no other processed images to display right now
+            displayImages[c] = null;
         }
     }
 
@@ -311,8 +341,9 @@ public class SEMImage {
                 int[] line2 = new int[width];
                 readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
                 for (int i = 0; i < width; i++) {
-                    data[line] = Math.max(data[line], intensityFromARGB(line2[i]) / 4095.0 * height);
+                    data[line] += intensityFromARGB(line2[i]) / 4095.0 * height;
                 }
+                data[line] /= width;
             }
             displayImages[c] = diagram("Oscilloscope view", data);
 
@@ -388,17 +419,17 @@ public class SEMImage {
         }
 
         for (int channel = 0; channel < this.channels; channel++) {
-            // copy one line of pixels for a specific channel out of data into rawBuffer. record min and max.
+            // copy one line of pixels for a specific channel out of data into rawBuffer
             pixel = 0;
             capturedChannel = translateChannel(getEncodedChannel(data[channel]));
             for (int i = channel; i < count; i += this.channels) {
                 intensity = getValue(data[i]);
-                if (intensity < rangeMin[capturedChannel]) {
-                    rangeMin[capturedChannel] = intensity;
-                }
-                if (intensity > rangeMax[capturedChannel]) {
-                    rangeMax[capturedChannel] = intensity;
-                }
+//                if (intensity < rangeMin[capturedChannel]) {
+//                    rangeMin[capturedChannel] = intensity;
+//                }
+//                if (intensity > rangeMax[capturedChannel]) {
+//                    rangeMax[capturedChannel] = intensity;
+//                }
 
                 lineBuffer[pixel++] = intensity;
             }
@@ -472,7 +503,7 @@ public class SEMImage {
             prevLine = line;
         }
 
-        cleanUp();
+        //cleanUp();
     }
 
     // get the encoded channel number from a word in the data stream
