@@ -132,7 +132,7 @@ public class Console extends Application {
     private static String operators = "unknown";
     final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI", "All"};
 
-    static boolean testMode = true;
+    static boolean testMode = false;
     final ArrayList<SEMImage> testPics = new ArrayList<>();
 
     static private ConsolePane cp;
@@ -1071,6 +1071,8 @@ public class Console extends Application {
         }
         btnConnect.setDisable(false);
         btnConnect.setTextFill(Color.BLACK);
+        this.pin.setProgress(1);
+        this.hideProgressIndicator();
     }
 
     public void runLaterAfterDelay(int ms, Runnable r) {

@@ -375,7 +375,7 @@ public class SEMPort {
                         }
 
                         // some resolutions (rapid 2 10x) will produce duplicate line numbers. Ignore lines we have seen before (i.e. <= maxline)
-                        if (line > maxLine) {
+                        if (line > maxLine || line > si.height) {
                             maxLine = line;
                             int word;
                             int[] nextLineBuffer = this.si.getNextDataLine();
