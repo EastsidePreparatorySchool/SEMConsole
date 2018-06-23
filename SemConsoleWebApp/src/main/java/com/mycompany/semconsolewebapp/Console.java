@@ -33,6 +33,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
@@ -46,6 +47,7 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -59,7 +61,6 @@ import javafx.scene.layout.BorderWidths;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -78,10 +79,18 @@ import spark.Route;
 
 /**
  *
- * @author shinson
+ * @author gm et al.
  */
 public class Console extends Application {
 
+    private enum DisplayMode {
+        NORMAL,
+        FFT,
+        HISTOGRAM,
+        OSCILLOSCOPE
+    }
+
+    private static DisplayMode displayMode = DisplayMode.NORMAL;
     private static SEMThread semThread;
     private Pane root;
     private HBox top;
@@ -119,11 +128,11 @@ public class Console extends Application {
     private Text metaKV;
     private Text metaMag;
     private Text metaWD;
-    private RadioButton[] ch = {null, null, null, null};
+    private RadioButton[] ch = {null, null, null, null, null};
     private static String operators = "unknown";
-    final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI"};
+    final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI", "All"};
 
-    static boolean testMode = false;
+    static boolean testMode = true;
     final ArrayList<SEMImage> testPics = new ArrayList<>();
 
     static private ConsolePane cp;
@@ -136,6 +145,7 @@ public class Console extends Application {
     final static private String[] colorScheme3 = {"#2e6266", "#6e8898", "#9fb1bc", "#d3d0cb", "#e2c044"};
     final static private String[] colorScheme4 = {"#d3d0cb", "#9fb1bc", "#6e8898", "#2e6266", "#e2c044"};
     final static private String[] colorScheme = colorScheme4;
+
     private Thread slideshowThread;
     private Alert slideshowAlert;
     private int slideshowSeconds = 5;
@@ -143,9 +153,9 @@ public class Console extends Application {
 
     // main fx launcher
     public static void main(String[] args) {
+
         //this line calls the function to insert the test images into the database
         //this has to be done anew with each run of the sql script
-
         //db.initializeTables(operators);
         //DROP SPARK ROUTE HANDLERS HERE
         staticFiles.location("/static");
@@ -198,7 +208,9 @@ public class Console extends Application {
                 }
             }
         }
-        Runtime.getRuntime().halt(0);
+
+        Runtime.getRuntime()
+                .halt(0);
     }
 
     //Cookie Handler here
@@ -311,10 +323,12 @@ public class Console extends Application {
         h.setPrefWidth(110);
         h.setPadding(new Insets(6, 12, 6, 12));
 
+        // auto upload checkbox
         autoUpload = new CheckBox("Auto upload");
         HBox h2 = new HBox();
         h2.getChildren().addAll(autoUpload);
         h2.setPadding(new Insets(6, 12, 6, 12));
+        autoUpload.setSelected(!testMode);
 
         // hbox for stereo controls
         HBox stereoLR = new HBox();
@@ -350,8 +364,6 @@ public class Console extends Application {
             this.ch[i] = new RadioButton(this.channelNames[i]);
         }
 
-//        this.ch[1].setDisable(true);
-//        this.ch[2].setDisable(true);
         this.ch[0].setSelected(true);
 
         for (int i = 0; i < 4; i++) {
@@ -373,10 +385,11 @@ public class Console extends Application {
             });
         }
 
-        HBox res = new HBox();
+        VBox res = new VBox();
         res.getChildren().addAll(ch[0], ch[1], ch[2], ch[3]);
         res.setPadding(new Insets(6, 12, 6, 12));
 
+        // metadata
         metaKV = new Text("");
         HBox metab1 = new HBox();
 
@@ -398,10 +411,10 @@ public class Console extends Application {
         metab3.setPrefWidth(100);
         metab3.setPadding(new Insets(6, 12, 6, 12));
 
-        HBox meta = new HBox();
+        VBox meta = new VBox();
 
         meta.getChildren().addAll(metab1, metab2, metab3);
-        meta.setPrefWidth(150);
+        meta.setPrefWidth(200);
 
         // slider for cumulative mode
         Slider slider = new Slider();
@@ -410,18 +423,50 @@ public class Console extends Application {
             Console.dNewWeight = slider.getValue();
         });
 
-        slider.setPrefWidth(250);
+        slider.setPrefHeight(80);
         slider.setMin(0);
         slider.setMax(1.0);
         slider.setValue(1.0);
         slider.setShowTickMarks(true);
         slider.setShowTickLabels(true);
         slider.setMajorTickUnit(0.1);
+        slider.setOrientation(Orientation.VERTICAL);
+
+        // display mode
+        ToggleGroup tg = new ToggleGroup();
+
+        RadioButton rbdmNormal = new RadioButton("Normal");
+        rbdmNormal.setToggleGroup(tg);
+        rbdmNormal.setSelected(true);
+        rbdmNormal.setOnAction((e) -> {
+            displayMode = DisplayMode.NORMAL;
+        });
+        RadioButton rbdmOsc = new RadioButton("Oscilloscope");
+        rbdmOsc.setToggleGroup(tg);
+        rbdmOsc.setOnAction((e) -> {
+            displayMode = DisplayMode.OSCILLOSCOPE;
+        });
+
+        RadioButton rbdmHist = new RadioButton("Histogram");
+        rbdmHist.setToggleGroup(tg);
+        rbdmHist.setOnAction((e) -> {
+            displayMode = DisplayMode.HISTOGRAM;
+        });
+        RadioButton rbdmFreq = new RadioButton("Frequencies");
+        rbdmFreq.setToggleGroup(tg);
+        rbdmFreq.setOnAction((e) -> {
+            displayMode = DisplayMode.FFT;
+        });
+
+        VBox dm = new VBox();
+        dm.getChildren().addAll(rbdmNormal, rbdmOsc, rbdmHist, rbdmFreq);
+        dm.setPadding(new Insets(6, 12, 6, 12));
 
         // put the whole UI together
         top.setPadding(new Insets(15, 12, 15, 12));
         top.getChildren().addAll(newSession, new Text("  "), btnConnect, h, h2, new Text("  "),
-                stereoBox, new Text("  "), res, new Text(" "), meta, new Text(" Weight: "), slider);
+                stereoBox, new Text("  "), res, new Text(" "), meta, new Text(" "),
+                dm, new Text(" Weight: "), slider);
         bp.setTop(top);
         cp = new ConsolePane();
 
@@ -555,6 +600,7 @@ public class Console extends Application {
 
     private void testModeInit() {
 
+        this.txt.setText("File test mode active");
         this.session = getImageDir() + "test";
         currentSession = new Session(this.session, this, this.operators);
         // read existing files
@@ -577,10 +623,7 @@ public class Console extends Application {
     }
 
     private void testModePostPic() {
-        Console.println("Loading test file ...");
-        Console.println();
-        Console.println();
-        Console.println();
+        Console.println("Posting test file ...");
         SEMImage si = null;
 
 //        SEMImage si = this.currentSession.loadFile("img-26_channel-0_kv-10_mag-100_wd-15_operators-unknown_.png");
@@ -603,7 +646,9 @@ public class Console extends Application {
             updateDisplay();
         }
 
-        runLaterAfterDelay(1000, () -> testModePostPic());
+        if (testMode) {
+            runLaterAfterDelay(1000, () -> testModePostPic());
+        }
     }
 
     private void startNewSession() {
@@ -663,6 +708,8 @@ public class Console extends Application {
     }
 
     private void startSlideShow() {
+        this.txt.setText("Slideshow active");
+
         // create a session to get images from 
         createFolder(getImageDir(), "favorites");
         this.session = getImageDir() + "favorites";
@@ -771,8 +818,26 @@ public class Console extends Application {
             // pass along the old imageset for cumulative mode
             si.makeImagesForDisplay(Console.currentImageSet);
         } catch (Exception e) {
-            System.err.println("Make Images:" + e.getMessage());
+            System.err.println("makeImages:" + e.getMessage());
             e.printStackTrace(System.err);
+        }
+
+        switch (Console.displayMode) {
+            case NORMAL:
+                si.autoContrast();
+                break;
+            case FFT:
+                si.fft();
+                break;
+            case HISTOGRAM:
+                si.histogram();
+                break;
+            case OSCILLOSCOPE:
+                si.oscilloscope();
+                break;
+            default:
+                System.err.println("Invalid DisplayMode");
+                break;
         }
 
         // record number of displayed channels globally
@@ -781,7 +846,7 @@ public class Console extends Application {
         // put the images in place, create metadata badges
         for (int i = 0; i < 4; i++) {
             if (i < channels) {
-                this.aViews[i].setImage(si.images[i]);
+                this.aViews[i].setImage(si.displayImages[i] != null ? si.displayImages[i] : si.images[i]);
             }
 
             // remove old meta badge
@@ -947,6 +1012,7 @@ public class Console extends Application {
     }
 
     private void startSEMThread() {
+        testMode = false;
         btnConnect.setDisable(true);
         btnConnect.setTextFill(Color.GRAY);
         this.pin.setProgress(-1);
@@ -1084,6 +1150,9 @@ public class Console extends Application {
     }
 
     public void displayPhoto(SEMImage si) {
+        if (testMode) {
+            return;
+        }
         List<Screen> allScreens = Screen.getScreens();
         MetaBadge mb;
         double compression;

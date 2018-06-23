@@ -180,6 +180,8 @@ public class Session {
 
             si.width = (int) si.images[0].getWidth();
             si.height = (int) si.images[0].getHeight();
+            si.readers[0] = si.images[0].getPixelReader();
+            si.writers[0] = si.images[0].getPixelWriter();
         } catch (Exception ex) {
             System.err.println("session: file read error");
             System.err.println(ex.getMessage());

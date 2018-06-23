@@ -5,14 +5,23 @@
  */
 package com.mycompany.semconsolewebapp;
 
+import static java.lang.Double.NaN;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import javafx.scene.Group;
+import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.WritablePixelFormat;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
 
 /**
  *
@@ -24,14 +33,16 @@ public class SEMImage {
     public int width;
     public int height;
     public WritableImage[] images;
+    public WritableImage[] displayImages;
+
     public int[] capturedChannels;
     public int kv;
     public int magnification;
     public int wd;
     public String operators;
 
-    private PixelReader[] readers;
-    private PixelWriter[] writers;
+    PixelReader[] readers;
+    PixelWriter[] writers;
     private PixelFormat pf;
     private WritablePixelFormat<IntBuffer> format;
 
@@ -73,6 +84,7 @@ public class SEMImage {
         readers = new PixelReader[channels];
         writers = new PixelWriter[channels];
         imageNames = new String[channels];
+        displayImages = new WritableImage[channels];
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
@@ -85,16 +97,13 @@ public class SEMImage {
 
     SEMImage(String fileName) {
         // img_<count>_channel-<capturedchannel>.png>
-        this.format = null;
+        this.format = WritablePixelFormat.getIntArgbInstance();;
         this.lb = null;
         this.lineCounter = 0;
         this.lineBuffer = null;
         this.aRawLineBuffers = null;
-        this.rangeMin = null;
-        this.rangeMax = null;
-        this.rangeMaxLine = null;
-        this.writers = null;
-        this.readers = null;
+        this.rangeMin = new int[4];
+        this.rangeMax = new int[4];
 
         this.width = -1;
         this.height = -1;
@@ -103,12 +112,19 @@ public class SEMImage {
         this.wd = -1;
         this.operators = null;
         this.channels = 1;
-        this.capturedChannels = new int[]{-1};
+        this.capturedChannels = new int[]{0};
 
         Session.parseFileName(fileName, this);
 
         this.images = new WritableImage[1];
+        this.displayImages = new WritableImage[1];
+
         this.imageNames = new String[]{fileName};
+        this.readers = new PixelReader[1];
+        this.readers[0] = null;
+        this.writers = new PixelWriter[1];
+        this.writers[0] = null;
+
     }
 
     SEMImage(SEMImage left, SEMImage right) {
@@ -199,7 +215,7 @@ public class SEMImage {
     }
 
     //todo: is this what we want?
-    int autoContrast(int value, int min, int max) {
+    int autoContrastValue(int value, int min, int max) {
         //return value;
         int newValue = (int) (((double) value - (double) min) * (double) 4095 / ((double) max - (double) min));
         if (newValue > 4095) {
@@ -208,6 +224,154 @@ public class SEMImage {
             newValue = 0;
         }
         return newValue;
+    }
+
+    //
+    // Auto contrast: expand contrast from the recorded ranges to max
+    //
+    void autoContrast() {
+        // need to perform autoContrast for every pixel
+        // todo: add brightness, add UI controls
+        for (int c = 0; c < channels; c++) {
+            rangeMin[c] = 0;
+            rangeMax[c] = 4095;
+
+            for (int line = 0; line < height; line++) {
+                int[] line2 = new int[width];
+                readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
+                for (int i = 0; i < width; i++) {
+                    int intensity = intensityFromARGB(line2[i]);
+                    intensity = autoContrastValue(intensity, rangeMin[c], rangeMax[c]);
+                    line2[i] = ARGBFromIntensity(intensity);
+                }
+                // write rawBuffer into images[c]
+                writers[c].setPixels(0, line, this.width, 1, this.format, line2, 0, this.width);
+            }
+        displayImages[c] = null;
+        }
+    }
+
+    //
+    // FFT: Create an image of the frequency spectrum of the image
+    //
+    void fft() {
+
+        for (int c = 0; c < channels; c++) {
+            double[] sum = new double[FFT.nextPower2(width)];
+
+            for (int line = 0; line < height; line++) {
+                double[] data = new double[FFT.nextPower2(width)];
+                int[] line2 = new int[width];
+                readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
+                for (int i = 0; i < width; i++) {
+                    data[i] = intensityFromARGB(line2[i]);
+                }
+
+                // transform
+                data = FFT.forward(data);
+
+                // add to other lines
+                for (int i = 0; i < data.length; i++) {
+                    sum[i] += data[i] / 1;
+                }
+            }
+
+            // compact
+            while (sum.length > 128) {
+                double[] sum2 = new double[sum.length / 2];
+                for (int i = 0; i < sum.length; i++) {
+                    sum2[i / 2] += sum[i];
+                }
+                sum = sum2;
+            }
+
+            // determine range
+            double max = 0;
+            for (int i = 0; i < sum.length; i++) {
+                max = Math.max(sum[i], max);
+            }
+
+            // normalize
+            for (int i = 0; i < sum.length; i++) {
+                sum[i] = sum[i] / max * height;
+            }
+            displayImages[c] = diagram("FFT view", sum);
+        }
+    }
+
+    //
+    // Oscilloscope: Create an image of the values as a time series
+    //
+    void oscilloscope() {
+
+        for (int c = 0; c < channels; c++) {
+            double[] data = new double[height];
+
+            for (int line = 0; line < height; line++) {
+                int[] line2 = new int[width];
+                readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
+                for (int i = 0; i < width; i++) {
+                    data[line] = Math.max(data[line], intensityFromARGB(line2[i]) / 4095.0 * height);
+                }
+            }
+            displayImages[c] = diagram("Oscilloscope view", data);
+
+        }
+    }
+
+    //
+    // histrogram: create a histogram of the intensity values
+    //
+    void histogram() {
+
+        for (int c = 0; c < channels; c++) {
+            double[] data = new double[100];
+
+            for (int line = 0; line < height; line++) {
+                int[] line2 = new int[width];
+                readers[c].getPixels(0, line, width, 1, format, line2, 0, width);
+                for (int i = 0; i < width; i++) {
+                    data[(int) (intensityFromARGB(line2[i]) / 4096.0 * 100)]++;
+                }
+            }
+
+            for (int i = 0; i < data.length; i++) {
+                data[i] /= width;
+            }
+            displayImages[c] = diagram("Histogram view", data);
+
+        }
+    }
+
+    WritableImage diagram(String title, double[] data) {
+        Group g = new Group();
+
+        Line xAxis = new Line(0, height / 2, width, height / 2);
+        xAxis.setStroke(Color.WHITE);
+        xAxis.setStrokeWidth(width * 0.002);
+
+        Line yAxis = new Line(width / 2, 0, width / 2, height);
+        yAxis.setStrokeWidth(height * 0.002);
+        yAxis.setStroke(Color.RED);
+
+        Text label = new Text(title);
+        label.setFill(Color.GOLDENROD);
+
+//        g.setTranslateY(height);
+        g.getChildren().addAll(xAxis, yAxis);
+
+        for (int i = 0; i < data.length; i++) {
+            if (data[i] > 0) {
+                Rectangle r = new Rectangle(i * (double) width / data.length, height - data[i], width / data.length, data[i]);
+                r.setFill(Color.GOLDENROD);
+//            r.setStrokeWidth(1.0);
+                g.getChildren().add(r);
+            }
+        }
+
+        new Scene(g, width, height, Color.BLACK);
+
+        return g.snapshot(null, null);
     }
 
     //
@@ -306,26 +470,6 @@ public class SEMImage {
                 this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1, siOld);
             }
             prevLine = line;
-        }
-
-        // need to perform autoContrast for every pixel
-        // todo: add brightness, add UI controls
-        for (int c = 0; c < channels; c++) {
-            int channel = capturedChannels[c];
-            rangeMin[c] = 0;
-            rangeMax[c] = 4095;
-
-            for (int line = 0; line < height; line++) {
-                int[] line2 = new int[width];
-                readers[channel].getPixels(0, line, width, 1, format, line2, 0, width);
-                for (int i = 0; i < width; i++) {
-                    int intensity = intensityFromARGB(line2[i]);
-                    intensity = autoContrast(intensity, rangeMin[c], rangeMax[c]);
-                    line2[i] = ARGBFromIntensity(intensity);
-                }
-                // write rawBuffer into images[c]
-                writers[channel].setPixels(0, line, this.width, 1, this.format, line2, 0, this.width);
-            }
         }
 
         cleanUp();
