@@ -54,7 +54,7 @@ struct Resolution g_allRes[] = {
   {           160,    40,    200,        1,        182,     1 }, // RAPID2 mag 100
   {          1183,   200,   1200,        1,        536,     1 }, // RAPID2 mag 10
   {          5790,   500,   2000,        4,        840,     1 }, // SLOW1
-//{          5790,   500,   1000,        1,        840,    16 }, // SLOW1
+  {          5790,   500,   1000,        1,        840,    16 }, // SLOW1
   {         10800,   500,   3200,        1,       2276,     8 }, // H3V5
   {         33326,   500,   4000,        1,       3000,    22 }, // H6V7
   {        240000, 11000,   4000,        1,       3000,    40 }  // H8V9
@@ -767,7 +767,7 @@ struct Resolution *getResolution(int lineTime) {
 
   for (i = 0; i < NUM_MODES; i++) {
     if (lineTime > (g_allRes[i].scanLineTime - g_allRes[i].tolerance) && lineTime < (g_allRes[i].scanLineTime + g_allRes[i].tolerance)
-        /*&& g_allRes[i].numChannels == g_numChannels*/) {
+        && g_allRes[i].numChannels == g_numChannels) {
       return &g_allRes[i];
     }
   }

@@ -360,7 +360,7 @@ public class Console extends Application {
         HBox stereoBox = new HBox();
         stereoBox.getChildren().addAll(stereoButton, stereoLR);
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             this.ch[i] = new RadioButton(this.channelNames[i]);
         }
 
@@ -385,8 +385,21 @@ public class Console extends Application {
             });
         }
 
+        this.ch[4].setOnAction((e) -> {
+            if (this.ch[4].isSelected()) {
+                for (RadioButton ch : this.ch) {
+                    if (ch != this.ch[4]) {
+                        ch.setSelected(false);
+                    }
+                }
+                SEMThread.channels = (byte) 0xF;
+            }
+            Console.printOn();
+            Console.println("Channels: " + SEMThread.channels);
+        });
+
         VBox res = new VBox();
-        res.getChildren().addAll(ch[0], ch[1], ch[2], ch[3]);
+        res.getChildren().addAll(ch);
         res.setPadding(new Insets(6, 12, 6, 12));
 
         // metadata
@@ -888,7 +901,9 @@ public class Console extends Application {
                     displayImageSet(this.currentImageSet);
                 } else {
                     // for large (photo button) images, display photo on large screen
-                    displayPhoto(si);
+                    if (!testMode) {
+                        displayPhoto(si);
+                    }
 
                     /// and add to session
                     if (currentSession != null) {
@@ -1150,9 +1165,7 @@ public class Console extends Application {
     }
 
     public void displayPhoto(SEMImage si) {
-        if (testMode) {
-            return;
-        }
+
         List<Screen> allScreens = Screen.getScreens();
         MetaBadge mb;
         double compression;
