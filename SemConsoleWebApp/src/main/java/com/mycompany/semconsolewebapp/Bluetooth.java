@@ -5,7 +5,10 @@
  */
 package com.mycompany.semconsolewebapp;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.bluetooth.DeviceClass;
 import javax.bluetooth.DiscoveryAgent;
 import javax.bluetooth.DiscoveryListener;
@@ -15,21 +18,32 @@ import javax.bluetooth.ServiceRecord;
 
 public class Bluetooth {
 
-    public static ArrayList<RemoteDevice> getDevices() {
-        /* Create Vector variable */
-        final ArrayList<RemoteDevice> devicesDiscovered = new ArrayList<>();
-        try {
-            final Object inquiryCompletedEvent = new Object();
-            /* Clear Vector variable */
-            devicesDiscovered.clear();
+   
 
+    public static void getDevices(ArrayList<String> operators, ArrayList<DeviceRegistration> registered) {
+        /* Create Vector variable */
+        final Object inquiryCompletedEvent = new Object();
+
+        try {
             /* Create an object of DiscoveryListener */
             DiscoveryListener listener = new DiscoveryListener() {
 
                 @Override
                 public void deviceDiscovered(RemoteDevice btDevice, DeviceClass cod) {
-                    /* Get devices paired with system or in range(Without Pair) */
-                    devicesDiscovered.add(btDevice);
+                    try {
+                        /* Get devices paired with system or in range(Without Pair) */
+                        String devName = btDevice.getFriendlyName(false) + " (" + btDevice.getBluetoothAddress() + ")";
+                        System.out.println("Device discovered: " + devName);
+                        for (DeviceRegistration dr : registered) {
+                            if (dr.deviceName.equals(devName)) {
+                                synchronized (operators) {
+                                    operators.add(dr.operatorInitials);
+                                }
+                            }
+                        }
+                    } catch (IOException ex) {
+                        System.err.println("Bluetooth remote device error");
+                    }
                 }
 
                 @Override
@@ -56,13 +70,13 @@ public class Bluetooth {
                 boolean started = LocalDevice.getLocalDevice().getDiscoveryAgent().startInquiry(DiscoveryAgent.GIAC, listener);
                 if (started) {
                     System.out.println("wait for device inquiry to complete...");
-                    inquiryCompletedEvent.wait();
+                    inquiryCompletedEvent.wait(60000);
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         /* Return list of devices */
-        return devicesDiscovered;
+        System.out.println("Discovery finished.");
     }
 }

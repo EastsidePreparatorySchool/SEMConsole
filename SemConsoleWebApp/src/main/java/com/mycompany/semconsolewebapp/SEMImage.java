@@ -234,7 +234,7 @@ public class SEMImage {
         // todo: add brightness, add UI controls
         for (int c = 0; c < channels; c++) {
 
-            // deternine image ranges for each channel
+            // determine image ranges for each channel
             rangeMin[c] = 4096;
             rangeMax[c] = 0;
 

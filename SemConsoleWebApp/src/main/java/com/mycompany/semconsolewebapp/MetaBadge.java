@@ -5,6 +5,7 @@
  */
 package com.mycompany.semconsolewebapp;
 
+import java.util.ArrayList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.layout.StackPane;
@@ -31,7 +32,7 @@ public class MetaBadge extends StackPane {
     Text ops;
     VBox vbox;
 
-    MetaBadge(int channel, int kv, int mag, int wd, String[] ops, double compression) {
+    MetaBadge(int channel, int kv, int mag, int wd, ArrayList<String> ops, double compression) {
         this.channel = new Text("Channel: " + (channel == -1 ? "unknown" : channelLabels[channel]));
         this.channel.setFill(Color.GOLD);
         this.kv = new Text("Accelerating Voltage: " + (kv == -1 ? "unknown" : kv + "kv"));
@@ -142,7 +143,7 @@ public class MetaBadge extends StackPane {
         super.setMaxSize(width + 40, height + 40);
     }
 
-    MetaBadge(SEMImage si, int channel, String[] ops, double compression) {
+    MetaBadge(SEMImage si, int channel, ArrayList<String> ops, double compression) {
         this(channel, si.kv, si.magnification, si.wd, ops, compression);
     }
 

@@ -83,6 +83,8 @@ import spark.Route;
  */
 public class Console extends Application {
 
+    static boolean testMode = true;
+
     private enum DisplayMode {
         NORMAL,
         FFT,
@@ -133,7 +135,6 @@ public class Console extends Application {
     private static String operators = "unknown";
     final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI", "All"};
 
-    static boolean testMode = false;
     final ArrayList<SEMImage> testPics = new ArrayList<>();
 
     static private ConsolePane cp;
@@ -622,7 +623,8 @@ public class Console extends Application {
 
         this.txt.setText("File test mode active");
         this.session = getImageDir() + "test";
-        currentSession = new Session(this.session, this, this.operators);
+        currentSession = new Session(this.session, this);
+        currentSession.initOperators();
         // read existing files
         currentSession.readExistingFiles(this.pin, this.ltq, () -> {
             synchronized (ltq) {
@@ -643,7 +645,7 @@ public class Console extends Application {
     }
 
     private void testModePostPic() {
-        Console.println("Posting test file ...");
+//        Console.println("Posting test file ...");
         SEMImage si = null;
 
 //        SEMImage si = this.currentSession.loadFile("img-26_channel-0_kv-10_mag-100_wd-15_operators-unknown_.png");
@@ -718,7 +720,13 @@ public class Console extends Application {
         }
 
         this.session = getImageDir() + sessionName;
-        currentSession = new Session(this.session, this, this.operators);
+        currentSession = new Session(this.session, this);
+        currentSession.initOperators();
+        
+        
+        //
+        // 
+        //
 
         // read existing files
         if (!sessionName.equalsIgnoreCase("Default")) {
@@ -733,7 +741,7 @@ public class Console extends Application {
         // create a session to get images from 
         createFolder(getImageDir(), "favorites");
         this.session = getImageDir() + "favorites";
-        currentSession = new Session(this.session, this, this.operators);
+        currentSession = new Session(this.session, this);
 
         String[] slideshowFiles = currentSession.gatherFiles();
         if (slideshowFiles.length > 0) {
@@ -879,7 +887,7 @@ public class Console extends Application {
 
             if (i < channels) {
                 double compression = si.width / this.aViews[i].getBoundsInLocal().getWidth();
-                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
+                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], currentSession.operators, compression);
                 StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
                 this.aPanes[i].getChildren().add(mb);
             }
@@ -1259,7 +1267,7 @@ public class Console extends Application {
         }
 
         // create meta badge and add it and view to pane
-        mb = new MetaBadge(si, si.capturedChannels[0], (si.operators == null ? new String[]{"unknown"} : new String[]{si.operators}), compression);
+        mb = new MetaBadge(si, si.capturedChannels[0], this.currentSession.operators, compression);
         StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
         this.bigSp.getChildren().addAll(this.bigView, mb);
 

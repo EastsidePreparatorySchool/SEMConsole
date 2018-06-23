@@ -32,14 +32,23 @@ public class Session {
     private ArrayList<SessionImage> asi;
     private int imgCounter;
     private Console consoleInstance;
-    private String operators;
+    public ArrayList<String> operators;
 
-    Session(String folderPath, Console instance, String operators) {
+    Session(String folderPath, Console instance) {
         this.folder = folderPath;
         this.imgCounter = 1;
         asi = new ArrayList<>();
         consoleInstance = instance;
-        this.operators = operators;
+        this.operators = new ArrayList<>();
+    }
+    
+    public void initOperators() {
+        // todo: read registered devices from file
+        
+        ArrayList<DeviceRegistration> registered = new ArrayList<>();
+        registered.add(new DeviceRegistration("Gunnar's iPhone (CC20E87237E7)", "Gunnar Mein", "GM"));
+        
+        new Thread(()->Bluetooth.getDevices(operators, registered)).start();
     }
 
     private void addFolderThumbnail(String imageFileName) {
@@ -98,7 +107,7 @@ public class Session {
                             ImageIO.write(SwingFXUtils.fromFXImage(wi, null), "jpg", file);
 
                             FileUpload.uploadFileAndMetaDataToServer(fullName,
-                                    this.operators,
+                                    this.getOperatorString(),
                                     Console.channelNames[si.capturedChannels[i]],
                                     si.kv,
                                     si.magnification,
@@ -114,13 +123,17 @@ public class Session {
         t.start();
 
     }
+    
+    public String getOperatorString() {
+        return String.join("&", operators);
+    }
 
-    public static String decorateFileName(String fileName, SEMImage si, int channel) {
+    public String decorateFileName(String fileName, SEMImage si, int channel) {
         return fileName + "_channel-" + si.capturedChannels[channel]
                 + "_kv-" + si.kv
                 + "_mag-" + si.magnification
                 + "_wd-" + si.wd
-                + "_operators-" + si.operators
+                + "_operators-" + getOperatorString()
                 + "_.png";
     }
 
