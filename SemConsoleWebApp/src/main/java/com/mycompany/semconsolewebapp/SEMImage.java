@@ -253,7 +253,7 @@ public class SEMImage {
                     return;
                 }
             }
-            Console.println("autoContrast: before: min: " + rangeMin[c] + " , max: " + rangeMax[c]);
+//            Console.println("autoContrast: before: min: " + rangeMin[c] + " , max: " + rangeMax[c]);
             // adjust all values
             int min = 4096;
             int max = 0;
@@ -264,6 +264,8 @@ public class SEMImage {
                     for (int i = 0; i < width; i++) {
                         int intensity = intensityFromARGB(line2[i]);
                         intensity = autoContrastValue(intensity, rangeMin[c], rangeMax[c]);
+                        min = Math.min(min, intensity);
+                        max = Math.max(max, intensity);
                         line2[i] = ARGBFromIntensity(intensity);
                     }
                     // write rawBuffer into images[c]
@@ -274,7 +276,7 @@ public class SEMImage {
                     return;
                 }
             }
-            Console.println("autoContrast: after: min: " + min + " , max: " +max);
+//            Console.println("autoContrast: after: min: " + min + " , max: " + max);
 
             // no other processed images to display right now
             displayImages[c] = null;
@@ -448,13 +450,20 @@ public class SEMImage {
                 if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width && height == siOld.height) {
                     // combine pixels by weight (dNewWeight)
                     // todo: Allocating line2 should not be necessary, I should be able to reuse the oldSi.lineBuffer, but it just gives dark images. Try again.
-                    int[] line2 = new int[lineBuffer.length];
-                    siOld.readers[writeChannel].getPixels(0, line, siOld.width, 1, siOld.format, line2, 0, siOld.width);
+                    int[] line2 = new int[width];
+                    boolean dataPresent = false;
+                    siOld.readers[writeChannel].getPixels(0, line, width, 1, format, line2, 0, width);
                     for (int i = 0; i < lineBuffer.length; i++) {
                         lineBuffer[i] = (int) (lineBuffer[i] * Console.dNewWeight + intensityFromARGB(line2[i]) * (1 - Console.dNewWeight));
-
+                        if (line2[i] != 0) {
+                            dataPresent = true;
+                        }
+                    }
+                    if (!dataPresent) {
+                        throw new Exception("no data in old image");
                     }
                 }
+
                 // convert into ARGB
                 for (int i = 0; i < lineBuffer.length; i++) {
                     lineBuffer[i] = ARGBFromIntensity(lineBuffer[i]);
@@ -462,8 +471,9 @@ public class SEMImage {
                 // write rawBuffer into images[writeChannel]
                 writers[writeChannel].setPixels(0, line, this.width, 1, this.format, lineBuffer, 0, this.width);
             } catch (Exception e) {
-                System.out.println("pixel Write failed: " + line + ", " + height);
-                System.out.println(e.getStackTrace());
+                System.err.println("parseRaw: " + line + ", " + height);
+                System.err.println(e.getMessage());
+                System.err.println(e.getStackTrace());
 
             }
         }
@@ -578,15 +588,15 @@ public class SEMImage {
     }
 
     void cleanUp() {
-        for (int i = 0; i < channels; i++) {
-            writers[i] = null;
-        }
-
-        format = null;
-        pf = null;
-
-        aRawLineBuffers = null;
-        LineBuffer.returnLineBuffer(this.lb);
+//        for (int i = 0; i < channels; i++) {
+//            writers[i] = null;
+//        }
+//
+//        format = null;
+//        pf = null;
+//
+//        aRawLineBuffers = null;
+//        LineBuffer.returnLineBuffer(this.lb);
 
     }
 }

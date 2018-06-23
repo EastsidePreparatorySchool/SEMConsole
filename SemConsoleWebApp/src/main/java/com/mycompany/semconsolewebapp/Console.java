@@ -105,6 +105,7 @@ public class Console extends Application {
     private StackPane right;
     final private LinkedTransferQueue<SEMImage> ltq = new LinkedTransferQueue<>();
     private static SEMImage currentImageSet = null;
+    public static SEMImage lastImageSet = null;
     private SEMImage siLeft = null;
     private SEMImage siRight = null;
     private Button btnConnect;
@@ -437,7 +438,7 @@ public class Console extends Application {
         });
 
         slider.setPrefHeight(80);
-        slider.setMin(0);
+        slider.setMin(0.05);
         slider.setMax(1.0);
         slider.setValue(1.0);
         slider.setShowTickMarks(true);
@@ -829,7 +830,7 @@ public class Console extends Application {
         try {
             // parse and create images if we have not done this before
             // pass along the old imageset for cumulative mode
-            si.makeImagesForDisplay(Console.currentImageSet);
+            si.makeImagesForDisplay(Console.lastImageSet);
         } catch (Exception e) {
             System.err.println("makeImages:" + e.getMessage());
             e.printStackTrace(System.err);
@@ -878,6 +879,7 @@ public class Console extends Application {
             }
         }
 
+        Console.lastImageSet = si;
         Console.currentImageSet = si;
     }
 
