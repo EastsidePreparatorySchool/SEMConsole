@@ -279,7 +279,7 @@ void computeCheckSum(int line, int bytes) {
     checkSum += *pWord++;
   }
 
-  g_pbp->checkSum = checkSum + line + bytes;
+  g_pbp->checkSum = checkSum + g_lineStartTime + bytes;
   g_pbp->lineStartTime = g_lineStartTime;
   g_pbp->bytes = bytes;
 }
@@ -428,7 +428,7 @@ struct EndFrame {
   uint32_t  frameTime;
 };
 
-void sendEndFrame(int lineTime, int frameTime, int reason) {
+void sendEndFrame(int lineTime, long frameTime, int reason) {
   static struct EndFrame h = {{'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'E', 'N', 'D', 'F', 'R', 'A', 'M', 'E'}, 0, 0};
 
   h.lineTime = lineTime;
@@ -804,6 +804,7 @@ void loop () {
   //
 
   while (g_phase == PHASE_READY_TO_MEASURE) {
+     g_frameStartTime = micros();
   }
 
   while (g_phase == PHASE_MEASURING) {
@@ -848,7 +849,7 @@ void loop () {
         g_count = g_pCurrentRes->numSamples;
         g_pixels = g_pCurrentRes->numPixels;
         lastLine = 0;
-        g_frameStartTime = micros();
+
         g_phase = PHASE_SCANNING;
       } else {
         g_phase = PHASE_CHECK;
@@ -906,9 +907,8 @@ void loop () {
   //
   if (g_phase == PHASE_IDLE) {
     if (g_fFrameInProgress) {
-      g_timeFrame = micros() - g_timeFrame;
       //flipLED();
-      sendEndFrame (timeLineScan, g_timeFrame, g_reason);
+      sendEndFrame (timeLineScan, micros()-g_frameStartTime, g_reason);
       g_fFrameInProgress = false;
     } else {
       // reasons
