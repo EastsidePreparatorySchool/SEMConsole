@@ -107,6 +107,8 @@ public class ConsolePane extends VBox {
     public void print(final String text) {
         Objects.requireNonNull(text, "text");
         runSafe(() -> textArea.appendText(text));
+        System.out.print(text);
+
     }
 
     public void println(final String text) {
@@ -116,7 +118,7 @@ public class ConsolePane extends VBox {
         }
         Objects.requireNonNull(text, "text");
         runSafe(() -> textArea.appendText(text + System.lineSeparator()));
-        System.out.println("Console: " + text);
+        System.out.println(text);
     }
 
     public void println() {

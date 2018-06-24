@@ -41,14 +41,15 @@ public class Session {
         consoleInstance = instance;
         this.operators = new ArrayList<>();
     }
-    
+
     public void initOperators() {
         // todo: read registered devices from file
-        
+
         ArrayList<DeviceRegistration> registered = new ArrayList<>();
         registered.add(new DeviceRegistration("Gunnar's iPhone (CC20E87237E7)", "Gunnar Mein", "GM"));
-        
-        new Thread(()->Bluetooth.getDevices(operators, registered)).start();
+
+        // todo: enable this after installing bluetooth adapter
+        //new Thread(()->Bluetooth.getDevices(operators, registered)).start();
     }
 
     private void addFolderThumbnail(String imageFileName) {
@@ -60,7 +61,7 @@ public class Session {
         return "img-" + this.imgCounter++;
     }
 
-    public void saveImageSetAndAdd(SEMImage si, final String partialName, final String suffix, boolean upload) {
+    public void saveImageSetAndAdd(SEMImage si, final String partialName, final String suffix, boolean upload, WritableImage wiJPG) {
         Thread t = new Thread(() -> {
             for (int i = 0; i < si.channels; i++) {
                 File file;
@@ -89,22 +90,16 @@ public class Session {
                         System.err.println(ex.getMessage());
                     }
 
-                    if (i == 0 && upload) {
+                    if (i == 0 && upload && wiJPG != null) {
                         fullName = fullName.substring(0, fullName.length() - 4); // take of ".png"
                         fullName += ".jpg";
                         si.fileName = fullName;
                         try {
                             // make lower-resolution jpg from image, then save and upload
                             file = new File(this.folder + System.getProperty("file.separator") + fullName);
-                            ImageView iv = new ImageView(si.images[i]);
-                            Pane p = new Pane();
-                            p.getChildren().add(iv);
-                            p.setMinSize(1080 / 3 * 4, 1080);
-                            p.setMaxSize(1080 / 3 * 4, 1080);
-                            WritableImage wi = new WritableImage(1080 / 3 * 4, 1080);
-                            p.snapshot(null, wi);
+                         
 
-                            ImageIO.write(SwingFXUtils.fromFXImage(wi, null), "jpg", file);
+                            ImageIO.write(SwingFXUtils.fromFXImage(wiJPG, null), "jpg", file);
 
                             FileUpload.uploadFileAndMetaDataToServer(fullName,
                                     this.getOperatorString(),
@@ -113,8 +108,8 @@ public class Session {
                                     si.magnification,
                                     si.wd);
                         } catch (Exception ex) {
-                            System.err.println("jpg upload error");
-                            System.out.println(ex.getMessage());
+                            System.err.println("jpg upload error: " + ex.getMessage());
+                            ex.printStackTrace(System.err);
                         }
                     }
                 }
@@ -123,7 +118,7 @@ public class Session {
         t.start();
 
     }
-    
+
     public String getOperatorString() {
         return String.join("&", operators);
     }
@@ -240,7 +235,7 @@ public class Session {
         SEMImage siStereo = new SEMImage(siLeft, siRight);
         siStereo.knitStereoImage();
         this.consoleInstance.displayPhoto(siStereo);
-        this.saveImageSetAndAdd(siStereo, name, null, upload);
+        this.saveImageSetAndAdd(siStereo, name, null, upload, null);
     }
 
     void readExistingFiles(ProgressIndicator pin, LinkedTransferQueue<SEMImage> ltq, Runnable updateDisplayLambda) {

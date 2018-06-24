@@ -51,6 +51,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.Border;
@@ -722,12 +723,10 @@ public class Console extends Application {
         this.session = getImageDir() + sessionName;
         currentSession = new Session(this.session, this);
         currentSession.initOperators();
-        
-        
+
         //
         // 
         //
-
         // read existing files
         if (!sessionName.equalsIgnoreCase("Default")) {
             currentSession.readExistingFiles(this.pin, this.ltq, () -> {
@@ -921,9 +920,18 @@ public class Console extends Application {
                         displayPhoto(si);
                     }
 
+                    // make a small jpg version
+                    ImageView iv = new ImageView(si.images[0]);
+                    Pane p = new Pane();
+                    p.getChildren().add(iv);
+                    p.setMinSize(1080 / 3 * 4, 1080);
+                    p.setMaxSize(1080 / 3 * 4, 1080);
+                    WritableImage wi = new WritableImage(1080 / 3 * 4, 1080);
+                    p.snapshot(null, wi);
+
                     /// and add to session
                     if (currentSession != null) {
-                        this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+                        this.currentSession.saveImageSetAndAdd(si, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected(), wi);
                     }
                     // check if we are in the process of taking a stereo pair, and do the right thing
                     // this will also save images to the session
@@ -944,7 +952,7 @@ public class Console extends Application {
 
         /// and add to session
         if (currentSession != null) {
-            this.currentSession.saveImageSetAndAdd(Console.currentImageSet, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected());
+            this.currentSession.saveImageSetAndAdd(Console.currentImageSet, this.stereoName, this.stereoSuffix, this.autoUpload.isSelected(), null);
         }
         // check if we are in the process of taking a stereo pair, and do the right thing
         // this will also save images to the session
