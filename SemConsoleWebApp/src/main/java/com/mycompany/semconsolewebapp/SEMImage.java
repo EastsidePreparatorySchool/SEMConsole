@@ -305,7 +305,7 @@ public class SEMImage {
 
                 // add to other lines
                 for (int i = 0; i < data.length; i++) {
-                    sum[i] += data[i] / 1;
+                    sum[i] += Math.log10(data[i]);
                 }
             }
 
