@@ -83,7 +83,7 @@ import spark.Route;
  */
 public class Console extends Application {
 
-    static boolean testMode = true;
+    static boolean testMode = false;
 
     private enum DisplayMode {
         NORMAL,

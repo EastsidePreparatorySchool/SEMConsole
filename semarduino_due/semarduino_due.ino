@@ -25,8 +25,9 @@ byte sentinelTrailer[SENTINEL_BYTES] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA, 0xB, 
 struct BytesParams {
   byte      headerBytes[16];
   uint32_t  checkSum;         // now includes everything from here on, to just before sentinel trailer
-  uint16_t  line;
+  uint32_t  lineStartTime;
   uint16_t  bytes;
+  uint16_t  padding;
 };
 
 struct BytesParams *g_pbp;
@@ -121,6 +122,8 @@ volatile int g_reason;
 volatile int g_argument;
 volatile int g_numLines;
 volatile int g_resFaults;
+volatile long g_lineStartTime;
+volatile long g_frameStartTime;
 int g_fResetRes;
 volatile int g_drop;
 struct Resolution *g_lastRes;
@@ -277,7 +280,7 @@ void computeCheckSum(int line, int bytes) {
   }
 
   g_pbp->checkSum = checkSum + line + bytes;
-  g_pbp->line = line;
+  g_pbp->lineStartTime = g_lineStartTime;
   g_pbp->bytes = bytes;
 }
 
@@ -421,14 +424,16 @@ void sendMeta() {
 struct EndFrame {
   uint8_t   header[16];
   uint16_t  lineTime;
-  uint16_t  frameTime;
+  uint16_t  reason;
+  uint32_t  frameTime;
 };
 
-void sendEndFrame(int lineTime, int frameTime) {
+void sendEndFrame(int lineTime, int frameTime, int reason) {
   static struct EndFrame h = {{'E', 'P', 'S', '_', 'S', 'E', 'M', '_', 'E', 'N', 'D', 'F', 'R', 'A', 'M', 'E'}, 0, 0};
 
   h.lineTime = lineTime;
   h.frameTime = frameTime;
+  h.reason = reason;
   if (okToWrite()) {
     SerialUSB.write((uint8_t *)&h, sizeof(h));     // send EFRAME (end frame), line time, frame time
   }
@@ -723,6 +728,8 @@ void hsyncHandler() {
         break;
 
       case PHASE_SCANNING:
+        g_lineStartTime = (int) micros()-g_frameStartTime;
+        
         if (!g_fSlow) {
           // start ADC (completion handled by ADC interrupt)
           startADC();
@@ -841,6 +848,7 @@ void loop () {
         g_count = g_pCurrentRes->numSamples;
         g_pixels = g_pCurrentRes->numPixels;
         lastLine = 0;
+        g_frameStartTime = micros();
         g_phase = PHASE_SCANNING;
       } else {
         g_phase = PHASE_CHECK;
@@ -898,9 +906,9 @@ void loop () {
   //
   if (g_phase == PHASE_IDLE) {
     if (g_fFrameInProgress) {
-      g_timeFrame = millis() - g_timeFrame;
+      g_timeFrame = micros() - g_timeFrame;
       //flipLED();
-      sendEndFrame (timeLineScan, g_reason);
+      sendEndFrame (timeLineScan, g_timeFrame, g_reason);
       g_fFrameInProgress = false;
     } else {
       // reasons

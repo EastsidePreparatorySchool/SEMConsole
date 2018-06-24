@@ -336,7 +336,7 @@ public class SEMPort {
                         }*/
                         this.si = new SEMImage(channelCount, capturedChannels, width, height, SEMThread.kv, SEMThread.mag, SEMThread.wd, SEMThread.operators);
                         result = SEMThread.Phase.WAITING_FOR_BYTES_OR_EFRAME;
-                        lastBytes = this.proposedBytes + 24;
+                        lastBytes = this.proposedBytes + 28;
                         break;
 
                     case "EPS_SEM_BYTES...":
@@ -359,14 +359,15 @@ public class SEMPort {
                         // read check sum
                         checkSumRead = buffer.getInt();
                         // read line number (unsigned short)
-                        int line = Short.toUnsignedInt(buffer.getShort());
+                        int lineTime = buffer.getInt();
                         ////System.out.print(" "+line);
                         //System.out.println(line);
                         // read byte count (unsigned short)
                         int bytes = Short.toUnsignedInt(buffer.getShort());
+                        buffer.getShort(); // skip padding
 
                         // read line bytes
-                        checkSum = bytes + line;
+                        checkSum = bytes + lineTime;
                         if (bytes != this.proposedBytes) {
                             dotCounter++;
                             System.out.println("Checksum error");
@@ -374,14 +375,14 @@ public class SEMPort {
                             throw new SEMException(SEMError.ERROR_BYTE_COUNT);
                         }
 
-                        // some resolutions (rapid 2 10x) will produce duplicate line numbers. Ignore lines we have seen before (i.e. <= maxline)
-                        if (line > maxLine || line > si.height) {
-                            maxLine = line;
+                        // some resolutions (rapid 2 10x) might produce duplicate line numbers. Ignore lines we have seen before (i.e. <= maxline)
+                        if (lineTime > maxLine) {
+                            maxLine++;
                             int word;
                             int[] nextLineBuffer = this.si.getNextDataLine();
                             if (nextLineBuffer != null) {
                                 // have line buffer, read from serial
-                                int i=0;
+                                int i = 0;
                                 try {
                                     for (i = 0; i < bytes / 2; i++) {
                                         word = Short.toUnsignedInt(buffer.getShort());
@@ -390,7 +391,7 @@ public class SEMPort {
                                     }
                                 } catch (Exception e) {
                                     System.err.println("line data parsing");
-                                    System.err.println("supposed words: "+bytes/2+" , illegal access: "+i);
+                                    System.err.println("supposed words: " + bytes / 2 + " , illegal access: " + i);
                                 }
 
                                 if (checkSum != checkSumRead) {
@@ -398,14 +399,14 @@ public class SEMPort {
                                 }
 
                                 // file line away in image for later processing
-                                this.si.fileDataLine(line, nextLineBuffer, bytes / 2);
+                                this.si.fileDataLine(lineTime, nextLineBuffer, bytes / 2);
                             }
                             // print dot for successful lines, move progress indicator
                             if (++dotCounter % lines == 0) {
                                 if (this.si.height > 600) {
                                     Console.print(".");
                                     if (this.si.height > 1500) {
-                                        SEMThread.progress = ((double) line) / (double) si.height;
+                                        SEMThread.progress = ((double) maxLine) / (double) si.height;
                                         Platform.runLater(updateScanning);
                                     }
                                 }
@@ -435,7 +436,9 @@ public class SEMPort {
                             //System.out.print("[read " + n + "bytes]");
                         }
                         short s = buffer.getShort();
-                        Console.print(Short.toUnsignedInt(s) + "us, frame send time: ");
+                        Console.print("" + Short.toUnsignedInt(s));
+
+                        // read reason
                         if (buffer.remaining() < 2) {
                             buffer.position(0);
                             buffer.limit(2);
@@ -443,7 +446,17 @@ public class SEMPort {
                             buffer.position(0);
                             //System.out.print("[read " + n + "bytes]");
                         }
-                        int reasonEnd = buffer.getShort(); //unused frame time from Arduino
+                        int reasonEnd = buffer.getShort();
+
+                        // read frame time
+                        if (buffer.remaining() < 4) {
+                            buffer.position(0);
+                            buffer.limit(4);
+                            n = channel.read(buffer);
+                            buffer.position(0);
+                            //System.out.print("[read " + n + "bytes]");
+                        }
+                        si.frameTime = buffer.getInt();
 
                         // acknowledge receipt by sending channel selection
                         commandChannelSelect.rewind();
@@ -454,7 +467,7 @@ public class SEMPort {
                         if (reasonEnd < 4) {
                             reasonS = (new String[]{"idle", "no res", "track", "vsync"})[reasonEnd];
                         }
-                        Console.print((System.currentTimeMillis() - frameStartTime) + "ms, reason: " + reasonS + ", OKs: ");
+                        Console.print(si.frameTime + "us, reason: " + reasonS + ", OKs: ");
                         Console.println(numOKs + ", errors: " + numErrors + ", maxline: " + maxLine + ", si.ml: " + this.si.maxLine);
                         // process the raw data
                         if (reasonEnd == 3) { // &&  si.maxLine > (si.height-10)) { // vsync normal

@@ -55,6 +55,7 @@ public class SEMImage {
     public String imageNames[];
     public LineBuffer lb;
     public int lineCounter;
+    public int frameTime;
 
     // for construction from stereo pairs only
     SEMImage left = null;
@@ -479,6 +480,10 @@ public class SEMImage {
         }
     }
 
+    private int lineNumberFromTime(int time) {
+        return (time*height)/frameTime;
+    }
+    
     public void makeImagesForDisplay(SEMImage siOld) {
         if (aRawLineBuffers == null || aRawLineBuffers.isEmpty()) {
             return;
@@ -489,7 +494,6 @@ public class SEMImage {
             return;
         }
 
-        // compute min and max for contrast
         int size = aRawLineBuffers.size();
 
         // allocate images
@@ -503,9 +507,15 @@ public class SEMImage {
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
             int[] lineData = aRawLineBuffers.get(i);
-            int line = (lineData[lineData.length - 1]) + (height - (maxLine + 1)); // correct for vsync jitter by aligning at bottom
+            
+            // convert the scan start times into line numbers
+            int line = lineNumberFromTime(lineData[lineData.length - 1]);
             if (line < 0) {
                 line = 0;
+            }
+            
+            if (line >= height) {
+                line = height-1;
             }
             while (++prevLine <= line) {
                 this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1, siOld);
