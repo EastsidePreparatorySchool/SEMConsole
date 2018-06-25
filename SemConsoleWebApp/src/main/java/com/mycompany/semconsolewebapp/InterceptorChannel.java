@@ -15,33 +15,36 @@ import java.nio.ByteBuffer;
  */
 public class InterceptorChannel implements SerialChannel {
     
-    SerialChannel port;
+    SerialChannel sc;
+    
+    InterceptorChannel(SerialChannel s) {
+        sc = s;
+    }
     
 
     @Override
     public void flush(boolean bln, boolean bln1) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        sc.flush(bln, bln1);
     }
 
     @Override
     public int read(ByteBuffer bb) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+       return sc.read(bb);
     }
 
     @Override
     public boolean isOpen() {
-        return super.i
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return sc.isOpen();
     }
 
     @Override
     public void close() throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        sc.close();
     }
 
     @Override
     public int write(ByteBuffer bb) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return sc.write(bb);
     }
 
     
