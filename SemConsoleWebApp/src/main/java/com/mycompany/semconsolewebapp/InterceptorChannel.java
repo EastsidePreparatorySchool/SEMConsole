@@ -14,13 +14,12 @@ import java.nio.ByteBuffer;
  * @author gmein
  */
 public class InterceptorChannel implements SerialChannel {
-    
+
     SerialChannel sc;
-    
+
     InterceptorChannel(SerialChannel s) {
         sc = s;
     }
-    
 
     @Override
     public void flush(boolean bln, boolean bln1) throws IOException {
@@ -29,7 +28,7 @@ public class InterceptorChannel implements SerialChannel {
 
     @Override
     public int read(ByteBuffer bb) throws IOException {
-       return sc.read(bb);
+        return sc.read(bb);
     }
 
     @Override
@@ -47,5 +46,4 @@ public class InterceptorChannel implements SerialChannel {
         return sc.write(bb);
     }
 
-    
 }
