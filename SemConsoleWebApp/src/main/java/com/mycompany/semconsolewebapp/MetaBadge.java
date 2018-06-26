@@ -32,7 +32,7 @@ public class MetaBadge extends StackPane {
     Text ops;
     VBox vbox;
 
-    MetaBadge(int channel, int kv, int mag, int wd, ArrayList<String> ops, double compression) {
+    MetaBadge(int channel, int kv, int mag, int wd, String ops, double compression) {
         this.channel = new Text("Channel: " + (channel == -1 ? "unknown" : channelLabels[channel]));
         this.channel.setFill(Color.GOLD);
         this.kv = new Text("Accelerating Voltage: " + (kv == -1 ? "unknown" : kv + "kv"));
@@ -41,11 +41,8 @@ public class MetaBadge extends StackPane {
         this.mag.setFill(Color.GOLD);
         this.wd = new Text("Working Depth: " + (wd == -1 ? "unknown" : wd + "mm"));
         this.wd.setFill(Color.GOLD);
-        String opsText = "Operators:";
-        for (String op : ops) {
-            opsText += " " + op;
-        }
-        this.ops = new Text(opsText);
+       
+        this.ops = new Text(ops);
         this.ops.setFill(Color.GOLD);
 
         this.vbox = new VBox();
@@ -69,7 +66,7 @@ public class MetaBadge extends StackPane {
 
         StackPane sp = new StackPane();
         sp.getChildren().addAll(this.badge, this.vbox);
-        sp.setPadding(new Insets(10, 10, 10, 10));
+        sp.setPadding(new Insets(8, 8, 8, 8));
 
         sp.setTranslateX(-2);
         sp.setTranslateY(-2);
@@ -143,8 +140,8 @@ public class MetaBadge extends StackPane {
         super.setMaxSize(width + 40, height + 40);
     }
 
-    MetaBadge(SEMImage si, int channel, ArrayList<String> ops, double compression) {
-        this(channel, si.kv, si.magnification, si.wd, ops, compression);
+    MetaBadge(SEMImage si, int channel, double compression) {
+        this(channel, si.kv, si.magnification, si.wd, si.operators, compression);
     }
 
     private static class ScaleData {

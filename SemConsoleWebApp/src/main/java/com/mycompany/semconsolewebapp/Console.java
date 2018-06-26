@@ -84,7 +84,7 @@ import spark.Route;
  */
 public class Console extends Application {
 
-    static boolean testMode = false;
+    static boolean testMode = true;
 
     private enum DisplayMode {
         NORMAL,
@@ -135,6 +135,7 @@ public class Console extends Application {
     private RadioButton[] ch = {null, null, null, null, null};
     private static String operators = "unknown";
     final static public String[] channelNames = {"SEI", "BEI1", "BEI2", "AEI", "All"};
+    public static SEMImageView siv = null;
 
     final ArrayList<SEMImage> testPics = new ArrayList<>();
 
@@ -144,7 +145,7 @@ public class Console extends Application {
     static public double dNewWeight = 1.0;
     static public double dContrast = -1.0;  //auto
     static public double dBrightness = -1.0;//auto
-    static public boolean autoContrast = true; 
+    static public boolean autoContrast = true;
 
     final static private String[] colorScheme1 = {"#accbe1", "#7c98b3", "#536b78", "#cee5f2", "#e2c044"};
     final static private String[] colorScheme2 = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
@@ -366,8 +367,12 @@ public class Console extends Application {
         HBox stereoBox = new HBox();
         stereoBox.getChildren().addAll(stereoButton, stereoLR);
 
+        // channel selection
+        ToggleGroup t1 = new ToggleGroup();
+
         for (int i = 0; i < 5; i++) {
             this.ch[i] = new RadioButton(this.channelNames[i]);
+            this.ch[i].setToggleGroup(t1);
         }
 
         this.ch[0].setSelected(true);
@@ -375,19 +380,11 @@ public class Console extends Application {
         for (int i = 0; i < 4; i++) {
             final int j = i;
             this.ch[i].setOnAction((e) -> {
-
                 if (this.ch[j].isSelected()) {
-                    for (RadioButton ch : this.ch) {
-                        if (ch != this.ch[j]) {
-                            ch.setSelected(false);
-                        }
-                    }
                     SEMThread.channels = (byte) (1 << j);
-                } else {
-                    SEMThread.channels &= ~(1 << j);
                 }
                 Console.printOn();
-                Console.println("Channels: " + SEMThread.channels);
+                Console.println("Channel selection: " + SEMThread.channels);
             });
         }
 
@@ -564,14 +561,8 @@ public class Console extends Application {
         vb.getChildren().addAll(hbUp, hbDown);
         hbDown.setAlignment(Pos.CENTER);
 
-        masterPane.getChildren().add(vb);
-        masterPane.setAlignment(vb, Pos.CENTER);
-
-        /*
-        MetaBadge mb = new MetaBadge(25, 100, 39, new String[]{"GM", "RPF"});
-        masterPane.getChildren().add(mb);
-        masterPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
-         */
+//        masterPane.getChildren().add(vb);
+//        masterPane.setAlignment(vb, Pos.CENTER);
         vb.setAlignment(Pos.CENTER);
 
         VBox vb2 = new VBox();
@@ -872,6 +863,7 @@ public class Console extends Application {
 
         // record number of displayed channels globally
         this.channels = channels;
+        si.operators = this.currentSession.getOperatorString();
 
         // put the images in place, create metadata badges
         for (int i = 0; i < 4; i++) {
@@ -889,7 +881,7 @@ public class Console extends Application {
 
             if (i < channels) {
                 double compression = si.width / this.aViews[i].getBoundsInLocal().getWidth();
-                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], currentSession.operators, compression);
+                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], compression);
                 StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
                 this.aPanes[i].getChildren().add(mb);
             }
@@ -897,9 +889,21 @@ public class Console extends Application {
 
         Console.lastImageSet = si;
         Console.currentImageSet = si;
-    }
 
+        // try new display
+        if (this.siv == null) {
+            this.siv = new SEMImageView(si, this.stage, false);
+            this.masterPane.getChildren().clear();
+            this.masterPane.getChildren().add(this.siv);
+        }
+        this.siv.setSEMImage(si);
+    }
+    
+    
+    
+    
     // called by SEMThread, passed as lambda
+
     private void updateDisplay() {
         ArrayList<SEMImage> newImages = new ArrayList<>();
         synchronized (this.ltq) {
@@ -1278,9 +1282,14 @@ public class Console extends Application {
         }
 
         // create meta badge and add it and view to pane
-        mb = new MetaBadge(si, si.capturedChannels[0], this.currentSession.operators, compression);
+        si.operators = this.currentSession.getOperatorString();
+        mb = new MetaBadge(si, si.capturedChannels[0], compression);
         StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+
         this.bigSp.getChildren().addAll(this.bigView, mb);
+        // trying new display
+//        SEMImageView siv = new SEMImageView(si, this.bigStage, true);
+//        this.bigSp.getChildren().add(siv);
 
         // squeeze image and adjust meta badge placement based on dimensions
         if (this.bigStage.getWidth() / this.bigStage.getHeight() > si.width / (double) si.height) {

@@ -6,6 +6,7 @@
 package com.mycompany.semconsolewebapp;
 
 import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Slider;
 import javafx.scene.effect.ColorAdjust;
@@ -15,6 +16,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 /**
  *
@@ -29,20 +31,23 @@ import javafx.scene.layout.VBox;
 public class SEMImageView extends AnchorPane {
 
     SEMImage si;
-    ImageView[] aiv;
-    StackPane[] asp;
+    ImageView[] aiv = new ImageView[4];
+    StackPane[] asp = new StackPane[4];
+    MiniBadge[] amb = new MiniBadge[4];
     MetaBadge mb;
+    Stage stage;
+    boolean isPhoto;
 
-    SEMImageView(SEMImage si, boolean isPhoto) {
+    SEMImageView(SEMImage si, Stage stage, boolean isPhoto) {
         this.si = si;
+        this.stage = stage;
+        this.isPhoto = isPhoto;
 
         for (int i = 0; i < si.channels; i++) {
             aiv[i] = new ImageView();
-            this.aiv[i] = new ImageView();
+            this.aiv[i] = new ImageView(si.images[i]);
             this.aiv[i].setSmooth(false);
             this.aiv[i].setCache(true);
-
-            setSizeNormal(this.aiv[i], i);
 
             // make the 3 secondary views appear in a slightly different color effect
             if (i != 0) {
@@ -58,15 +63,21 @@ public class SEMImageView extends AnchorPane {
             this.asp[i] = new StackPane();
             asp[i].getChildren().add(this.aiv[i]);
 
-            MiniBadge mb = new MiniBadge(this.si.capturedChannels[i]);
-            asp[i].getChildren().add(mb);
-
+          
         }
 
         // add 4 StackPanes to the grid pane, anchor gridpane at top left
         GridPane gp = new GridPane();
-        gp.addRow(0, asp[0], asp[1]);
-        gp.addRow(1, asp[2], asp[3]);
+        gp.add(asp[0], 0, 0);
+        if (asp[1] != null) {
+            gp.add(asp[1], 1, 0);
+        }
+        if (asp[2] != null) {
+            gp.add(asp[2], 0, 1);
+        }
+        if (asp[3] != null) {
+            gp.add(asp[3], 1, 1);
+        }
         gp.setHgap(4.0);
         gp.setVgap(4.0);
 
@@ -74,70 +85,132 @@ public class SEMImageView extends AnchorPane {
         AnchorPane.setBottomAnchor(gp, 4.0);
         super.getChildren().add(gp);
 
-        // weight, contrast and brightness controls
+        // contrast and brightness controls
         Slider weight = new Slider();
-        weight.valueProperty().addListener((f) -> {
-            Console.dNewWeight = weight.getValue();
-        });
-        weight.setPrefHeight(80);
-        weight.setMin(0.05);
-        weight.setMax(1.0);
-        weight.setValue(1.0);
-        weight.setShowTickMarks(true);
-        weight.setShowTickLabels(true);
-        weight.setMajorTickUnit(0.1);
-        weight.setOrientation(Orientation.VERTICAL);
+        if (!isPhoto) {
+            weight.valueProperty().addListener((f) -> {
+                si.dContrast = weight.getValue();
+                if (!isPhoto) {
+                    Console.dContrast = weight.getValue();
+                }
+            });
+            weight.setPrefHeight(300);
+            weight.setMin(0.002);
+            weight.setMax(1.0);
+            weight.setValue(isPhoto ? si.dContrast : Console.dContrast);
+            weight.setShowTickMarks(true);
+            weight.setShowTickLabels(true);
+            weight.setMajorTickUnit(0.1);
+            weight.setOrientation(Orientation.VERTICAL);
+        }
 
         Slider contrast = new Slider();
-        weight.valueProperty().addListener((f) -> {
+        contrast.valueProperty().addListener((f) -> {
             si.dContrast = contrast.getValue();
             if (!isPhoto) {
-                si.dContrast = contrast.getValue();
+                Console.dContrast = contrast.getValue();
             }
         });
-        contrast.setPrefHeight(80);
+        contrast.setPrefHeight(300);
         contrast.setMin(0.0);
         contrast.setMax(1.0);
         contrast.setValue(isPhoto ? si.dContrast : Console.dContrast);
-        contrast.setShowTickMarks(true);
+        contrast.setShowTickMarks(false);
         contrast.setShowTickLabels(false);
         contrast.setMajorTickUnit(0.1);
         contrast.setOrientation(Orientation.VERTICAL);
+        contrast.setDisable(Console.autoContrast);
 
         Slider brightness = new Slider();
-        weight.valueProperty().addListener((f) -> {
-            Console.dNewWeight = weight.getValue();
+        brightness.valueProperty().addListener((f) -> {
+            si.dBrightness = brightness.getValue();
+            if (!isPhoto) {
+                Console.dBrightness = brightness.getValue();
+            }
 
         });
-        brightness.setPrefHeight(80);
-        brightness.setMin(0.05);
+        brightness.setPrefHeight(300);
+        brightness.setMin(0.0);
         brightness.setMax(1.0);
         brightness.setValue(isPhoto ? si.dBrightness : Console.dBrightness);
-        brightness.setShowTickMarks(true);
-        brightness.setShowTickLabels(true);
+        brightness.setShowTickMarks(false);
+        brightness.setShowTickLabels(false);
         brightness.setMajorTickUnit(0.1);
         brightness.setOrientation(Orientation.VERTICAL);
+        brightness.setDisable(Console.autoContrast);
 
         // put the controls together just so
         CheckBox auto = new CheckBox("Auto");
         auto.setSelected(true);
-        auto.setOnAction((e) -> {
+        auto.selectedProperty().addListener((e) -> {
             Console.autoContrast = auto.isSelected();
+            contrast.setDisable(Console.autoContrast);
+            brightness.setDisable(Console.autoContrast);
         });
         HBox cb = new HBox();
         cb.getChildren().addAll(contrast, brightness);
         VBox cba = new VBox();
         cba.getChildren().addAll(cb, auto);
         HBox controls = new HBox();
-        controls.getChildren().addAll(weight, cba);
+        controls.getChildren().addAll(cba);
+        if (!isPhoto) {
+            controls.getChildren().addAll(weight);
+        }
+
+        AnchorPane.setTopAnchor(controls, 4.0);
+        AnchorPane.setRightAnchor(controls, 4.0);
+        super.getChildren().add(controls);
+
+        // metabadge for bottom right corner
+        double compression = si.width / this.aiv[0].getBoundsInLocal().getWidth();
+        this.mb = new MetaBadge(si, si.channels > 1 ? -1 : si.capturedChannels[0], compression);
+        AnchorPane.setBottomAnchor(mb, 4.0);
+        AnchorPane.setRightAnchor(mb, 4.0);
+        super.getChildren().add(mb);
+        
+//        this.setSEMImage(si);
     }
 
-    private void setSizeNormal(ImageView iv, int channel) {
+    public void setSEMImage(SEMImage si) {
+        this.si = si;
+
+        // get rid of stale channel badges
+        for (int i = 0; i < 4; i++) {
+            if (amb[i] != null) {
+                asp[i].getChildren().remove(amb[i]);
+            }
+        }
+
+        // set images and make new mini badges
+        for (int i = 0; i < si.channels; i++) {
+            this.aiv[i].setImage(si.images[i]);
+
+            if (si.channels > 1) {
+                MiniBadge mb = new MiniBadge(this.si.capturedChannels[i]);
+                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+                asp[i].getChildren().add(mb);
+            }
+
+            setSizeNormal(this.aiv[i], i, this.stage);
+        }
+
+        // metabadge for bottom right corner
+        if (this.mb != null) {
+            this.getChildren().remove(this.mb);
+        }
+        double compression = si.width / this.aiv[0].getBoundsInLocal().getWidth();
+        this.mb = new MetaBadge(si, si.channels > 1 ? -1 : si.capturedChannels[0], compression);
+        AnchorPane.setBottomAnchor(mb, 4.0);
+        AnchorPane.setRightAnchor(mb, 4.0);
+        super.getChildren().add(mb);
+    }
+
+    private void setSizeNormal(ImageView iv, int channel, Stage stage) {
         switch (this.si.channels) {
             case 2:
                 if (channel < 2) {
-                    iv.fitHeightProperty().bind(this.widthProperty().subtract(300).multiply(3).divide(8));
-                    iv.fitWidthProperty().bind(this.widthProperty().subtract(300).divide(2));
+                    iv.fitHeightProperty().bind(stage.widthProperty().subtract(300).multiply(3).divide(8));
+                    iv.fitWidthProperty().bind(stage.widthProperty().subtract(300).divide(2));
                 } else {
                     iv.fitHeightProperty().unbind();
                     iv.fitWidthProperty().unbind();
@@ -147,8 +220,8 @@ public class SEMImageView extends AnchorPane {
                 break;
             case 1:
                 if (channel < 1) {
-                    iv.fitHeightProperty().bind(this.heightProperty().subtract(260));
-                    iv.fitWidthProperty().bind(this.heightProperty().subtract(260).multiply(4).divide(3));
+                    iv.fitHeightProperty().bind(stage.heightProperty().subtract(260));
+                    iv.fitWidthProperty().bind(stage.heightProperty().subtract(260).multiply(4).divide(3));
                 } else {
                     iv.fitHeightProperty().unbind();
                     iv.fitWidthProperty().unbind();
@@ -157,8 +230,8 @@ public class SEMImageView extends AnchorPane {
                 }
                 break;
             default:
-                iv.fitHeightProperty().bind(this.heightProperty().subtract(260).divide(2));
-                iv.fitWidthProperty().bind(this.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
+                iv.fitHeightProperty().bind(stage.heightProperty().subtract(260).divide(2));
+                iv.fitWidthProperty().bind(stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
                 break;
         }
     }

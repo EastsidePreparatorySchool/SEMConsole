@@ -21,8 +21,8 @@ import javafx.scene.text.Text;
  */
 public class MiniBadge extends StackPane {
 
-    private final int width = 200;
-    private final int height = 110;
+    private final int width = 100;
+    private final int height = 20;
     private final String[] channelLabels = {"SEI", "BEI1", "BEI2", "AEI"};
     private final Rectangle badge;
     private final Text channel;
@@ -38,13 +38,9 @@ public class MiniBadge extends StackPane {
         this.badge.setArcHeight(10);
 
         super.getChildren().addAll(this.badge, this.channel);
-        super.setPadding(new Insets(10, 10, 10, 10));
+        super.setPadding(new Insets(8, 8, 8, 8));
 
-        super.setTranslateX(-2);
-        super.setTranslateY(-2);
-
-        super.setMinSize(width + 40, height + 40);
-        super.setMaxSize(width + 40, height + 40);
+        super.setMaxSize(width, height);
     }
 
 
