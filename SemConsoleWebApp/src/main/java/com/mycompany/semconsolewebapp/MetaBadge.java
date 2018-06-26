@@ -59,7 +59,7 @@ public class MetaBadge extends StackPane {
         this.badge.setArcHeight(10);
 
         Rectangle bigBadge = new Rectangle(width + 20, height + 20);
-        bigBadge.setFill(Color.LIGHTBLUE);
+        bigBadge.setFill(Color.GOLD);
         bigBadge.setOpacity(0.4);
         bigBadge.setArcWidth(10);
         bigBadge.setArcHeight(10);
@@ -93,7 +93,7 @@ public class MetaBadge extends StackPane {
         l.setStartY(0);
         l.setEndX(sd.pixelX);
         l.setEndY(0);
-        l.setStroke(Color.GOLD);
+        l.setStroke(Color.BLACK);
         l.setTranslateX(42);
         l.setTranslateY(9);
 

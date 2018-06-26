@@ -819,20 +819,10 @@ public class Console extends Application {
     private void displayImageSet(SEMImage si) {
         // handle the null case
         if (si == null) {
-            for (int i = 0; i < 4; i++) {
-                this.aViews[i].setImage(null);
-            }
             return;
         }
 
         int channels = si.channels;
-
-        // set absent channel images to empty
-        if (channels < 4) {
-            for (int i = channels; i < 4; i++) {
-                this.aViews[i].setImage(null);
-            }
-        }
 
         try {
             // parse and create images if we have not done this before
@@ -865,31 +855,11 @@ public class Console extends Application {
         this.channels = channels;
         si.operators = this.currentSession.getOperatorString();
 
-        // put the images in place, create metadata badges
-        for (int i = 0; i < 4; i++) {
-            if (i < channels) {
-                this.aViews[i].setImage(si.displayImages[i] != null ? si.displayImages[i] : si.images[i]);
-            }
-
-            // remove old meta badge
-            if (this.aPanes[i].getChildren().size() > 1) {
-                this.aPanes[i].getChildren().remove(1);
-            }
-
-            // adjust all of their sizes
-            setSizeNormal(aViews[i], i);
-
-            if (i < channels) {
-                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], 300);
-                StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
-                this.aPanes[i].getChildren().add(mb);
-            }
-        }
-
         Console.lastImageSet = si;
         Console.currentImageSet = si;
 
-        // try new display
+
+       // try new display
         double dpi = Screen.getScreens().get(0).getDpi();
 
         if (this.siv == null) {

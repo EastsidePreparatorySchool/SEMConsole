@@ -183,7 +183,7 @@ public class SEMImageView extends AnchorPane {
 
         // set images and make new mini badges
         for (int i = 0; i < si.channels; i++) {
-            this.aiv[i].setImage(si.images[i]);
+            this.aiv[i].setImage(si.displayImages[i] != null? si.displayImages[i]:si.images[i]);
 
             if (si.channels > 1) {
                 MiniBadge mb = new MiniBadge(this.si.capturedChannels[i]);
