@@ -5,11 +5,16 @@
  */
 package com.mycompany.semconsolewebapp;
 
+import javafx.geometry.Orientation;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Slider;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 
 /**
  *
@@ -28,7 +33,7 @@ public class SEMImageView extends AnchorPane {
     StackPane[] asp;
     MetaBadge mb;
 
-    SEMImageView(SEMImage si) {
+    SEMImageView(SEMImage si, boolean isPhoto) {
         this.si = si;
 
         for (int i = 0; i < si.channels; i++) {
@@ -69,6 +74,62 @@ public class SEMImageView extends AnchorPane {
         AnchorPane.setBottomAnchor(gp, 4.0);
         super.getChildren().add(gp);
 
+        // weight, contrast and brightness controls
+        Slider weight = new Slider();
+        weight.valueProperty().addListener((f) -> {
+            Console.dNewWeight = weight.getValue();
+        });
+        weight.setPrefHeight(80);
+        weight.setMin(0.05);
+        weight.setMax(1.0);
+        weight.setValue(1.0);
+        weight.setShowTickMarks(true);
+        weight.setShowTickLabels(true);
+        weight.setMajorTickUnit(0.1);
+        weight.setOrientation(Orientation.VERTICAL);
+
+        Slider contrast = new Slider();
+        weight.valueProperty().addListener((f) -> {
+            si.dContrast = contrast.getValue();
+            if (!isPhoto) {
+                si.dContrast = contrast.getValue();
+            }
+        });
+        contrast.setPrefHeight(80);
+        contrast.setMin(0.0);
+        contrast.setMax(1.0);
+        contrast.setValue(isPhoto ? si.dContrast : Console.dContrast);
+        contrast.setShowTickMarks(true);
+        contrast.setShowTickLabels(false);
+        contrast.setMajorTickUnit(0.1);
+        contrast.setOrientation(Orientation.VERTICAL);
+
+        Slider brightness = new Slider();
+        weight.valueProperty().addListener((f) -> {
+            Console.dNewWeight = weight.getValue();
+
+        });
+        brightness.setPrefHeight(80);
+        brightness.setMin(0.05);
+        brightness.setMax(1.0);
+        brightness.setValue(isPhoto ? si.dBrightness : Console.dBrightness);
+        brightness.setShowTickMarks(true);
+        brightness.setShowTickLabels(true);
+        brightness.setMajorTickUnit(0.1);
+        brightness.setOrientation(Orientation.VERTICAL);
+
+        // put the controls together just so
+        CheckBox auto = new CheckBox("Auto");
+        auto.setSelected(true);
+        auto.setOnAction((e) -> {
+            Console.autoContrast = auto.isSelected();
+        });
+        HBox cb = new HBox();
+        cb.getChildren().addAll(contrast, brightness);
+        VBox cba = new VBox();
+        cba.getChildren().addAll(cb, auto);
+        HBox controls = new HBox();
+        controls.getChildren().addAll(weight, cba);
     }
 
     private void setSizeNormal(ImageView iv, int channel) {

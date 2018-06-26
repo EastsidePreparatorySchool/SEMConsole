@@ -40,6 +40,9 @@ public class SEMImage {
     public int magnification;
     public int wd;
     public String operators;
+    
+    public double dContrast;
+    public double dBrightness;
 
     PixelReader[] readers;
     PixelWriter[] writers;

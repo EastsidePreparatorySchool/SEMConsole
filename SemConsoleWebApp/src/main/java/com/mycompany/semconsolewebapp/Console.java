@@ -142,6 +142,9 @@ public class Console extends Application {
     static private boolean printOff = false;
 
     static public double dNewWeight = 1.0;
+    static public double dContrast = -1.0;  //auto
+    static public double dBrightness = -1.0;//auto
+    static public boolean autoContrast = true; 
 
     final static private String[] colorScheme1 = {"#accbe1", "#7c98b3", "#536b78", "#cee5f2", "#e2c044"};
     final static private String[] colorScheme2 = {"#536b78", "#7c98b3", "#accbe1", "#cee5f2", "#e2c044"};
