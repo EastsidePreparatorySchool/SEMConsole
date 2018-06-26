@@ -36,12 +36,14 @@ public class SEMImageView extends AnchorPane {
     MiniBadge[] amb = new MiniBadge[4];
     MetaBadge mb;
     Stage stage;
+    double dpi;
     boolean isPhoto;
 
-    SEMImageView(SEMImage si, Stage stage, boolean isPhoto) {
+    SEMImageView(SEMImage si, Stage stage, double dpi, boolean isPhoto) {
         this.si = si;
         this.stage = stage;
         this.isPhoto = isPhoto;
+        this.dpi = dpi;
 
         for (int i = 0; i < si.channels; i++) {
             aiv[i] = new ImageView();
@@ -95,6 +97,7 @@ public class SEMImageView extends AnchorPane {
                 }
             });
             weight.setPrefHeight(300);
+            weight.prefHeightProperty().bind(stage.heightProperty().subtract(450));
             weight.setMin(0.002);
             weight.setMax(1.0);
             weight.setValue(isPhoto ? si.dContrast : Console.dContrast);
@@ -111,7 +114,7 @@ public class SEMImageView extends AnchorPane {
                 Console.dContrast = contrast.getValue();
             }
         });
-        contrast.setPrefHeight(300);
+        contrast.prefHeightProperty().bind(stage.heightProperty().subtract(500));
         contrast.setMin(0.0);
         contrast.setMax(1.0);
         contrast.setValue(isPhoto ? si.dContrast : Console.dContrast);
@@ -129,7 +132,7 @@ public class SEMImageView extends AnchorPane {
             }
 
         });
-        brightness.setPrefHeight(300);
+        brightness.prefHeightProperty().bind(stage.heightProperty().subtract(500));
         brightness.setMin(0.0);
         brightness.setMax(1.0);
         brightness.setValue(isPhoto ? si.dBrightness : Console.dBrightness);
@@ -162,13 +165,10 @@ public class SEMImageView extends AnchorPane {
         super.getChildren().add(controls);
 
         // metabadge for bottom right corner
-        double compression = si.width / this.aiv[0].getBoundsInLocal().getWidth();
-        this.mb = new MetaBadge(si, si.channels > 1 ? -1 : si.capturedChannels[0], compression);
+        this.mb = new MetaBadge(si, si.channels > 1 ? -1 : si.capturedChannels[0], dpi);
         AnchorPane.setBottomAnchor(mb, 4.0);
         AnchorPane.setRightAnchor(mb, 4.0);
         super.getChildren().add(mb);
-        
-//        this.setSEMImage(si);
     }
 
     public void setSEMImage(SEMImage si) {
@@ -198,8 +198,7 @@ public class SEMImageView extends AnchorPane {
         if (this.mb != null) {
             this.getChildren().remove(this.mb);
         }
-        double compression = si.width / this.aiv[0].getBoundsInLocal().getWidth();
-        this.mb = new MetaBadge(si, si.channels > 1 ? -1 : si.capturedChannels[0], compression);
+        this.mb = new MetaBadge(si, si.channels > 1 ? -1 : si.capturedChannels[0], dpi);
         AnchorPane.setBottomAnchor(mb, 4.0);
         AnchorPane.setRightAnchor(mb, 4.0);
         super.getChildren().add(mb);

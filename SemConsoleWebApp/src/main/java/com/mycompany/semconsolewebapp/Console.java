@@ -880,8 +880,7 @@ public class Console extends Application {
             setSizeNormal(aViews[i], i);
 
             if (i < channels) {
-                double compression = si.width / this.aViews[i].getBoundsInLocal().getWidth();
-                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], compression);
+                MetaBadge mb = new MetaBadge(si, si.capturedChannels[i], 300);
                 StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
                 this.aPanes[i].getChildren().add(mb);
             }
@@ -891,19 +890,17 @@ public class Console extends Application {
         Console.currentImageSet = si;
 
         // try new display
+        double dpi = Screen.getScreens().get(0).getDpi();
+
         if (this.siv == null) {
-            this.siv = new SEMImageView(si, this.stage, false);
+            this.siv = new SEMImageView(si, this.stage, dpi, false);
             this.masterPane.getChildren().clear();
             this.masterPane.getChildren().add(this.siv);
         }
         this.siv.setSEMImage(si);
     }
-    
-    
-    
-    
-    // called by SEMThread, passed as lambda
 
+    // called by SEMThread, passed as lambda
     private void updateDisplay() {
         ArrayList<SEMImage> newImages = new ArrayList<>();
         synchronized (this.ltq) {
@@ -1217,6 +1214,7 @@ public class Console extends Application {
 
         List<Screen> allScreens = Screen.getScreens();
         MetaBadge mb;
+        double dpi;
         double compression;
         EventHandler<Event> eh = null;
 
@@ -1234,6 +1232,7 @@ public class Console extends Application {
             // two screens or more
             Screen secondaryScreen = allScreens.get(1);
             Rectangle2D bounds = secondaryScreen.getVisualBounds();
+            dpi = secondaryScreen.getDpi();
 
             if (this.bigStage == null) {
                 this.bigStage = new Stage();
@@ -1254,6 +1253,7 @@ public class Console extends Application {
             // One screen only
             Screen screen = allScreens.get(0);
             Rectangle2D bounds = screen.getVisualBounds();
+            dpi = screen.getDpi();
 
             if (this.bigStage == null) {
                 this.bigStage = new Stage();
@@ -1283,7 +1283,7 @@ public class Console extends Application {
 
         // create meta badge and add it and view to pane
         si.operators = this.currentSession.getOperatorString();
-        mb = new MetaBadge(si, si.capturedChannels[0], compression);
+        mb = new MetaBadge(si, si.capturedChannels[0], dpi);
         StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
 
         this.bigSp.getChildren().addAll(this.bigView, mb);

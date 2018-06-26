@@ -21,7 +21,7 @@ import javafx.scene.text.Text;
  */
 public class MetaBadge extends StackPane {
 
-    private final int width = 200;
+    private final int width = 230;
     private final int height = 110;
     private final String[] channelLabels = {"SEI", "BEI1", "BEI2", "AEI"};
     Rectangle badge;
@@ -32,16 +32,16 @@ public class MetaBadge extends StackPane {
     Text ops;
     VBox vbox;
 
-    MetaBadge(int channel, int kv, int mag, int wd, String ops, double compression) {
+    MetaBadge(int channel, int kv, int mag, int wd, String ops, double dpi) {
         this.channel = new Text("Channel: " + (channel == -1 ? "unknown" : channelLabels[channel]));
         this.channel.setFill(Color.GOLD);
         this.kv = new Text("Accelerating Voltage: " + (kv == -1 ? "unknown" : kv + "kv"));
         this.kv.setFill(Color.GOLD);
-        this.mag = new Text("Magnification: " + (mag == -1 ? "unknown" : mag + "x"));
+        this.mag = new Text("Magnification: Nom: " + (mag == -1 ? "unknown" : mag) + "x");
         this.mag.setFill(Color.GOLD);
         this.wd = new Text("Working Depth: " + (wd == -1 ? "unknown" : wd + "mm"));
         this.wd.setFill(Color.GOLD);
-       
+
         this.ops = new Text(ops);
         this.ops.setFill(Color.GOLD);
 
@@ -72,13 +72,21 @@ public class MetaBadge extends StackPane {
         sp.setTranslateY(-2);
 
         ScaleData sd = ScaleData.findScaleData(mag);
-        sd.pixelX /= compression;
-        sd.pixelY /= compression;
         sd.fitScale((int) ((width - 32)), (int) (height - 8));
         Text scale = new Text(sd.findScaleText());
-        scale.setFill(Color.GOLD);
+        scale.setFill(Color.BLACK);
         scale.setTranslateX(3);
         scale.setTranslateY(0);
+        
+        if (Double.toString(sd.scale).endsWith("5")) {
+            int i = 1;
+        }
+        double amag = sd.pixelX; // length of scale bar in pixels
+        amag /= dpi; // gives us length of scale bar in inches
+        amag *= 25.4; // gives us length of scale bar in mm
+        amag /= sd.scale; // gives us apparent magnification
+        this.mag.setText(this.mag.getText()+", App: " +  (Math.round(amag * 1000)/1000)+"x");
+
 
         Line l = new Line();
         l.setStartX(0);
@@ -94,7 +102,7 @@ public class MetaBadge extends StackPane {
         l2.setStartY(0);
         l2.setEndX(0);
         l2.setEndY(6);
-        l2.setStroke(Color.GOLD);
+        l2.setStroke(Color.BLACK);
         l2.setTranslateX(42);
         l2.setTranslateY(6);
 
@@ -103,7 +111,7 @@ public class MetaBadge extends StackPane {
         l3.setStartY(0);
         l3.setEndX(0);
         l3.setEndY(6);
-        l3.setStroke(Color.GOLD);
+        l3.setStroke(Color.BLACK);
         l3.setTranslateX(42 + sd.pixelX);
         l3.setTranslateY(6);
 
@@ -112,7 +120,7 @@ public class MetaBadge extends StackPane {
         l4.setStartY(0);
         l4.setEndX(0);
         l4.setEndY(sd.pixelY);
-        l4.setStroke(Color.GOLD);
+        l4.setStroke(Color.BLACK);
         l4.setTranslateX(8);
         l4.setTranslateY(20);
 
@@ -121,7 +129,7 @@ public class MetaBadge extends StackPane {
         l5.setStartY(0);
         l5.setEndX(6);
         l5.setEndY(0);
-        l5.setStroke(Color.GOLD);
+        l5.setStroke(Color.BLACK);
         l5.setTranslateX(5);
         l5.setTranslateY(20);
 
@@ -130,7 +138,7 @@ public class MetaBadge extends StackPane {
         l6.setStartY(0);
         l6.setEndX(6);
         l6.setEndY(0);
-        l6.setStroke(Color.GOLD);
+        l6.setStroke(Color.BLACK);
         l6.setTranslateX(5);
         l6.setTranslateY(20 + sd.pixelY);
 
@@ -140,8 +148,8 @@ public class MetaBadge extends StackPane {
         super.setMaxSize(width + 40, height + 40);
     }
 
-    MetaBadge(SEMImage si, int channel, double compression) {
-        this(channel, si.kv, si.magnification, si.wd, si.operators, compression);
+    MetaBadge(SEMImage si, int channel, double dpi) {
+        this(channel, si.kv, si.magnification, si.wd, si.operators, dpi);
     }
 
     private static class ScaleData {
@@ -173,7 +181,7 @@ public class MetaBadge extends StackPane {
         }
 
         void fitScale(int maxx, int maxy) {
-            double factor = 1;
+            double factor;
             while (this.pixelY > maxy || this.pixelX > maxx) {
                 if (Double.toString(this.scale).endsWith("5")) {
                     factor = 2.5;
