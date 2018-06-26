@@ -516,56 +516,15 @@ public class Console extends Application {
         this.pin.setMaxHeight(400);
 
         ScrollPane scp = new ScrollPane(thumbnails);
-
         scp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-
         scp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-
         scp.setMinWidth(240);
         scp.setPrefHeight(1000);
         scp.getStyleClass().add("edge-to-edge");
-
         this.left.getChildren().addAll(/*sp1,*/scp);
 
         this.right = new StackPane();
-
         this.right.setPadding(new Insets(4, 4, 4, 4));
-
-        // img
-        this.aViews = new ImageView[4];
-        for (int i = 0; i < 4; i++) {
-            this.aViews[i] = new ImageView();
-            this.aViews[i].setSmooth(false);
-            this.aViews[i].setCache(true);
-            this.aPanes[i].getChildren().add(this.aViews[i]);
-            final int lambdaParam = i;
-
-            if (i != 0) {
-                ColorAdjust colorAdjust = new ColorAdjust();
-                colorAdjust.setHue(new double[]{0, -1, -0.2, 0.3}[i]);
-//                colorAdjust.setBrightness(0.1);
-//                colorAdjust.setSaturation(0.2);
-//                colorAdjust.setContrast(0.1);
-                this.aViews[i].setEffect(colorAdjust);
-            }
-        }
-
-        HBox hbUp = new HBox();
-        HBox hbDown = new HBox();
-        VBox vb = new VBox();
-
-        hbUp.getChildren().addAll(this.aPanes[0], this.aPanes[1]);
-        hbUp.setAlignment(Pos.CENTER);
-
-        hbDown.getChildren().addAll(this.aPanes[2], this.aPanes[3]);
-        vb.getChildren().addAll(hbUp, hbDown);
-        hbDown.setAlignment(Pos.CENTER);
-
-//        masterPane.getChildren().add(vb);
-//        masterPane.setAlignment(vb, Pos.CENTER);
-        vb.setAlignment(Pos.CENTER);
-
-        VBox vb2 = new VBox();
 
         this.bp.setStyle("-fx-background-color: " + colorScheme[0] + ";");
         scp.setStyle("-fx-background: " + colorScheme[1] + ";");
@@ -584,15 +543,9 @@ public class Console extends Application {
         bp.setAlignment(this.masterPane, Pos.CENTER);
 
         this.scene = new Scene(bp, 1200, 900);
-
         primaryStage.setScene(scene);
-
         primaryStage.setMaximized(true);
         primaryStage.show();
-
-        for (int i = 0; i < 4; i++) {
-            setSizeNormal(aViews[i], i);
-        }
 
         cp.prefWidthProperty().bind(this.stage.widthProperty().subtract(16));
         left.prefHeightProperty().bind(this.stage.heightProperty().subtract(300));
@@ -858,8 +811,7 @@ public class Console extends Application {
         Console.lastImageSet = si;
         Console.currentImageSet = si;
 
-
-       // try new display
+        // try new display
         double dpi = Screen.getScreens().get(0).getDpi();
 
         if (this.siv == null) {
@@ -1183,20 +1135,11 @@ public class Console extends Application {
     public void displayPhoto(SEMImage si) {
 
         List<Screen> allScreens = Screen.getScreens();
-        MetaBadge mb;
         double dpi;
-        double compression;
         EventHandler<Event> eh = null;
 
+        // parse raw images and do other processing
         si.makeImagesForDisplay(null);
-
-        Image image = si.images[0];
-
-        // create large display window
-        this.bigView = new ImageView(image);
-        bigView.setSmooth(true);
-        this.bigView.setImage(image);
-        this.bigSp = new StackPane();
 
         if (allScreens.size() > 1) {
             // two screens or more
@@ -1214,11 +1157,7 @@ public class Console extends Application {
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.NONE);
                 this.bigStage.setFullScreenExitHint("");
-                Scene sc = new Scene(this.bigSp);
-                this.bigStage.setScene(sc);
             }
-
-            compression = si.height / bounds.getHeight();
         } else {
             // One screen only
             Screen screen = allScreens.get(0);
@@ -1232,11 +1171,7 @@ public class Console extends Application {
                 this.bigStage.initStyle(StageStyle.UNDECORATED);
                 this.bigStage.initModality(Modality.APPLICATION_MODAL);
                 this.bigStage.setFullScreenExitHint("");
-                Scene sc = new Scene(this.bigSp);
-                this.bigStage.setScene(sc);
             }
-
-            compression = si.height / bounds.getHeight();
 
             // create an event that will close the stage
             eh = (e) -> {
@@ -1248,31 +1183,18 @@ public class Console extends Application {
                 }
                 e.consume();
             };
-
         }
 
-        // create meta badge and add it and view to pane
-        si.operators = this.currentSession.getOperatorString();
-        mb = new MetaBadge(si, si.capturedChannels[0], dpi);
-        StackPane.setAlignment(mb, Pos.BOTTOM_RIGHT);
+        // create an image viewer
+        SEMImageView siv = new SEMImageView(si, this.bigStage, dpi, true);
+        siv.setSEMImage(si);
 
-        this.bigSp.getChildren().addAll(this.bigView, mb);
-        // trying new display
-//        SEMImageView siv = new SEMImageView(si, this.bigStage, true);
-//        this.bigSp.getChildren().add(siv);
+        // set scene and stage
+        Scene sc = new Scene(siv);
+        sc.setOnMouseClicked(eh);
+        sc.setOnKeyTyped(eh);
 
-        // squeeze image and adjust meta badge placement based on dimensions
-        if (this.bigStage.getWidth() / this.bigStage.getHeight() > si.width / (double) si.height) {
-            this.bigView.setFitHeight(this.bigStage.getHeight());
-            this.bigView.setFitWidth(this.bigStage.getHeight() / si.height * si.width);
-            mb.setTranslateX(((this.bigStage.getHeight() / si.height * si.width) - this.bigStage.getWidth()) / 2);
-        } else {
-            // todo: should code here for the case that image is wider (in aspect) than screen
-        }
-
-        this.bigStage.getScene().setRoot(this.bigSp);
-        this.bigStage.getScene().setOnMouseClicked(eh);
-        this.bigStage.getScene().setOnKeyTyped(eh);
+        this.bigStage.setScene(sc);
         this.bigStage.setFullScreen(true);
         this.bigStage.show();
     }

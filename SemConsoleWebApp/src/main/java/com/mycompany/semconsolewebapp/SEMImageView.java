@@ -191,7 +191,7 @@ public class SEMImageView extends AnchorPane {
                 asp[i].getChildren().add(mb);
             }
 
-            setSizeNormal(this.aiv[i], i, this.stage);
+            setSizeNormal(this.aiv[i], i, this.stage, this.isPhoto);
         }
 
         // metabadge for bottom right corner
@@ -204,12 +204,13 @@ public class SEMImageView extends AnchorPane {
         super.getChildren().add(mb);
     }
 
-    private void setSizeNormal(ImageView iv, int channel, Stage stage) {
+    private void setSizeNormal(ImageView iv, int channel, Stage stage, boolean isPhoto) {
+        double margin = isPhoto?0:260;
         switch (this.si.channels) {
             case 2:
                 if (channel < 2) {
-                    iv.fitHeightProperty().bind(stage.widthProperty().subtract(300).multiply(3).divide(8));
-                    iv.fitWidthProperty().bind(stage.widthProperty().subtract(300).divide(2));
+                    iv.fitHeightProperty().bind(stage.widthProperty().subtract(margin).multiply(3).divide(8));
+                    iv.fitWidthProperty().bind(stage.widthProperty().subtract(margin).divide(2));
                 } else {
                     iv.fitHeightProperty().unbind();
                     iv.fitWidthProperty().unbind();
@@ -219,8 +220,8 @@ public class SEMImageView extends AnchorPane {
                 break;
             case 1:
                 if (channel < 1) {
-                    iv.fitHeightProperty().bind(stage.heightProperty().subtract(260));
-                    iv.fitWidthProperty().bind(stage.heightProperty().subtract(260).multiply(4).divide(3));
+                    iv.fitHeightProperty().bind(stage.heightProperty().subtract(margin));
+                    iv.fitWidthProperty().bind(stage.heightProperty().subtract(margin).multiply(4).divide(3));
                 } else {
                     iv.fitHeightProperty().unbind();
                     iv.fitWidthProperty().unbind();
@@ -229,8 +230,8 @@ public class SEMImageView extends AnchorPane {
                 }
                 break;
             default:
-                iv.fitHeightProperty().bind(stage.heightProperty().subtract(260).divide(2));
-                iv.fitWidthProperty().bind(stage.heightProperty().subtract(300).divide(2).multiply(4).divide(3));
+                iv.fitHeightProperty().bind(stage.heightProperty().subtract(margin).divide(2));
+                iv.fitWidthProperty().bind(stage.heightProperty().subtract(margin).divide(2).multiply(4).divide(3));
                 break;
         }
     }
