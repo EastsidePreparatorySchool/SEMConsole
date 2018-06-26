@@ -17,7 +17,7 @@ import javafx.scene.layout.StackPane;
  */
 //
 // concept:
-// A SEMImageView is an AnchorPane with a GridPane for the images, a VBox on the right side for data view (osc etc), 
+// A SEMImageView is an AnchorPane with a GridPane for the images, a sliders on the right side for contrast and brightness, 
 // and a metabadge in the bottom right corner. The GridPane holds up to 4 StackPanes with an ImageView and a 
 // channel-only or full metabadge
 //
@@ -48,18 +48,27 @@ public class SEMImageView extends AnchorPane {
 //                colorAdjust.setContrast(0.1);
                 this.aiv[i].setEffect(colorAdjust);
             }
-            
+
             // add to their own StackPane so we can slap a MetaBadge on top
             this.asp[i] = new StackPane();
             asp[i].getChildren().add(this.aiv[i]);
+
+            MiniBadge mb = new MiniBadge(this.si.capturedChannels[i]);
+            asp[i].getChildren().add(mb);
+
         }
-        
-        // add 4 StackPaness to the grid pane
+
+        // add 4 StackPanes to the grid pane, anchor gridpane at top left
         GridPane gp = new GridPane();
         gp.addRow(0, asp[0], asp[1]);
         gp.addRow(1, asp[2], asp[3]);
         gp.setHgap(4.0);
         gp.setVgap(4.0);
+
+        AnchorPane.setTopAnchor(gp, 4.0);
+        AnchorPane.setBottomAnchor(gp, 4.0);
+        super.getChildren().add(gp);
+
     }
 
     private void setSizeNormal(ImageView iv, int channel) {
