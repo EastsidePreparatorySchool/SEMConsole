@@ -34,20 +34,21 @@ public class SEMImage {
     public int height;
     public WritableImage[] images;
     public WritableImage[] displayImages;
+    public WritableImage[] originalImages;
 
     public int[] capturedChannels;
     public int kv;
     public int magnification;
     public int wd;
     public String operators;
-    
+
     public double dContrast;
     public double dBrightness;
 
     PixelReader[] readers;
     PixelWriter[] writers;
-    private PixelFormat pf;
-    private WritablePixelFormat<IntBuffer> format;
+    public PixelFormat pf;
+    public WritablePixelFormat<IntBuffer> format;
 
     private int[] lineBuffer;
     ArrayList<int[]> aRawLineBuffers;
@@ -89,6 +90,7 @@ public class SEMImage {
         writers = new PixelWriter[channels];
         imageNames = new String[channels];
         displayImages = new WritableImage[channels];
+        originalImages = new WritableImage[channels];
 
         System.arraycopy(capturedChannels, 0, this.capturedChannels, 0, channels);
 
@@ -122,6 +124,7 @@ public class SEMImage {
 
         this.images = new WritableImage[1];
         this.displayImages = new WritableImage[1];
+        originalImages = new WritableImage[1];
 
         this.imageNames = new String[]{fileName};
         this.readers = new PixelReader[1];
@@ -390,13 +393,11 @@ public class SEMImage {
 //        Line yAxis = new Line(width / 2, 0, width / 2, height);
 //        yAxis.setStrokeWidth(height * 0.002);
 //        yAxis.setStroke(Color.RED);
-
         Text label = new Text(title);
         label.setFill(Color.GOLD);
 
 //        g.setTranslateY(height);
 //        g.getChildren().addAll(xAxis, yAxis);
-
         for (int i = 0; i < data.length; i++) {
             if (data[i] > 0) {
                 Rectangle r = new Rectangle(i * (double) width / data.length, height - data[i], width / data.length, data[i]);
@@ -484,9 +485,9 @@ public class SEMImage {
     }
 
     private int lineNumberFromTime(int time) {
-        return (time*height)/frameTime;
+        return (time * height) / frameTime;
     }
-    
+
     public void makeImagesForDisplay(SEMImage siOld) {
         if (aRawLineBuffers == null || aRawLineBuffers.isEmpty()) {
             return;
@@ -502,6 +503,7 @@ public class SEMImage {
         // allocate images
         for (int i = 0; i < channels; i++) {
             images[i] = new WritableImage(width, height);
+            originalImages[i] = images[i];
             writers[i] = images[i].getPixelWriter();
             readers[i] = images[i].getPixelReader();
         }
@@ -510,15 +512,15 @@ public class SEMImage {
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
             int[] lineData = aRawLineBuffers.get(i);
-            
+
             // convert the scan start times into line numbers
             int line = lineNumberFromTime(lineData[lineData.length - 1]);
             if (line < 0) {
                 line = 0;
             }
-            
+
             if (line >= height) {
-                line = height-1;
+                line = height - 1;
             }
             while (++prevLine <= line) {
                 this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1, siOld);

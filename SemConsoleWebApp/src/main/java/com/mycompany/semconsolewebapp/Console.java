@@ -640,7 +640,7 @@ public class Console extends Application {
         }
 
         if (testMode) {
-            runLaterAfterDelay(1000, () -> testModePostPic());
+            //runLaterAfterDelay(1000, () -> testModePostPic());
         }
     }
 
@@ -797,6 +797,15 @@ public class Console extends Application {
             return;
         }
 
+        // construct viewer
+        if (this.siv == null) {
+            double dpi = Screen.getScreens().get(0).getDpi();
+
+            this.siv = new SEMImageView(si, this.stage, dpi, false);
+            this.masterPane.getChildren().clear();
+            this.masterPane.getChildren().add(this.siv);
+        }
+
         int channels = si.channels;
 
         try {
@@ -810,7 +819,7 @@ public class Console extends Application {
 
         switch (Console.displayMode) {
             case NORMAL:
-                si.autoContrast();
+                siv.autoContrast2();
                 break;
             case FFT:
                 si.fft();
@@ -834,13 +843,6 @@ public class Console extends Application {
         Console.currentImageSet = si;
 
         // try new display
-        double dpi = Screen.getScreens().get(0).getDpi();
-
-        if (this.siv == null) {
-            this.siv = new SEMImageView(si, this.stage, dpi, false);
-            this.masterPane.getChildren().clear();
-            this.masterPane.getChildren().add(this.siv);
-        }
         this.siv.setSEMImage(si);
     }
 

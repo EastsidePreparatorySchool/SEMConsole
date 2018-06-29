@@ -11,6 +11,8 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Slider;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -65,7 +67,6 @@ public class SEMImageView extends AnchorPane {
             this.asp[i] = new StackPane();
             asp[i].getChildren().add(this.aiv[i]);
 
-          
         }
 
         // add 4 StackPanes to the grid pane, anchor gridpane at top left
@@ -112,15 +113,17 @@ public class SEMImageView extends AnchorPane {
             si.dContrast = contrast.getValue();
             if (!isPhoto) {
                 Console.dContrast = contrast.getValue();
+                autoContrast2();
+                setSEMImage(si);
             }
         });
         contrast.prefHeightProperty().bind(stage.heightProperty().subtract(500));
         contrast.setMin(0.0);
-        contrast.setMax(1.0);
+        contrast.setMax(5.0);
         contrast.setValue(isPhoto ? si.dContrast : Console.dContrast);
-        contrast.setShowTickMarks(false);
-        contrast.setShowTickLabels(false);
-        contrast.setMajorTickUnit(0.1);
+        contrast.setShowTickMarks(true);
+        contrast.setShowTickLabels(true);
+        contrast.setMajorTickUnit(1.0);
         contrast.setOrientation(Orientation.VERTICAL);
         contrast.setDisable(Console.autoContrast);
 
@@ -129,6 +132,8 @@ public class SEMImageView extends AnchorPane {
             si.dBrightness = brightness.getValue();
             if (!isPhoto) {
                 Console.dBrightness = brightness.getValue();
+                autoContrast2();
+                setSEMImage(si);
             }
 
         });
@@ -136,8 +141,8 @@ public class SEMImageView extends AnchorPane {
         brightness.setMin(0.0);
         brightness.setMax(1.0);
         brightness.setValue(isPhoto ? si.dBrightness : Console.dBrightness);
-        brightness.setShowTickMarks(false);
-        brightness.setShowTickLabels(false);
+        brightness.setShowTickMarks(true);
+        brightness.setShowTickLabels(true);
         brightness.setMajorTickUnit(0.1);
         brightness.setOrientation(Orientation.VERTICAL);
         brightness.setDisable(Console.autoContrast);
@@ -183,7 +188,7 @@ public class SEMImageView extends AnchorPane {
 
         // set images and make new mini badges
         for (int i = 0; i < si.channels; i++) {
-            this.aiv[i].setImage(si.displayImages[i] != null? si.displayImages[i]:si.images[i]);
+            this.aiv[i].setImage(si.displayImages[i] != null ? si.displayImages[i] : si.images[i]);
 
             if (si.channels > 1) {
                 MiniBadge mb = new MiniBadge(this.si.capturedChannels[i]);
@@ -205,7 +210,7 @@ public class SEMImageView extends AnchorPane {
     }
 
     private void setSizeNormal(ImageView iv, int channel, Stage stage, boolean isPhoto) {
-        double margin = isPhoto?0:260;
+        double margin = isPhoto ? 0 : 260;
         switch (this.si.channels) {
             case 2:
                 if (channel < 2) {
@@ -234,6 +239,82 @@ public class SEMImageView extends AnchorPane {
                 iv.fitWidthProperty().bind(stage.heightProperty().subtract(margin).divide(2).multiply(4).divide(3));
                 break;
         }
+    }
+
+    int adjustPixelValue(int value, double contrast, double brightness) {
+        //return value;
+        int newValue = (int) (((double) value) * contrast + brightness * 4096);
+        if (newValue > 4095) {
+            newValue = 4095;
+        } else if (newValue < 0) {
+            newValue = 0;
+        }
+        return newValue;
+    }
+
+    void adjustLevels(double contrast, double brightness) {
+        for (int c = 0; c < si.channels; c++) {
+
+            WritableImage newImage = new WritableImage(si.width, si.height);
+            PixelWriter pw = newImage.getPixelWriter();
+
+            for (int line = 0; line < si.height; line++) {
+                int[] line2 = new int[si.width];
+                try {
+                    si.readers[c].getPixels(0, line, si.width, 1, si.format, line2, 0, si.width);
+                    for (int i = 0; i < si.width; i++) {
+                        int intensity = si.intensityFromARGB(line2[i]);
+                        intensity = adjustPixelValue(intensity, contrast, brightness);
+                        line2[i] = si.ARGBFromIntensity(intensity);
+                    }
+                    // write rawBuffer into images[c]
+                    pw.setPixels(0, line, si.width, 1, si.format, line2, 0, si.width);
+                } catch (Exception e) {
+                    System.err.println("adjustLevels: write failed, " + e.getMessage());
+                    e.printStackTrace(System.err);
+                    return;
+                }
+            }
+
+            si.images[c] = newImage;
+            si.displayImages[c] = null;
+        }
+    }
+
+    void determineLevels() {
+        // need to perform autoContrast for every pixel
+        // todo: add brightness, add UI controls
+        for (int c = 0; c < si.channels; c++) {
+
+            // determine image ranges for each channel
+            si.rangeMin[c] = 4096;
+            si.rangeMax[c] = 0;
+
+            for (int line = 0; line < si.height; line++) {
+                int[] line2 = new int[si.width];
+                try {
+                    si.readers[c].getPixels(0, line, si.width, 1, si.format, line2, 0, si.width);
+                    for (int i = 0; i < si.width; i++) {
+                        int intensity = si.intensityFromARGB(line2[i]);
+                        si.rangeMin[c] = Math.min(si.rangeMin[c], intensity);
+                        si.rangeMax[c] = Math.max(si.rangeMax[c], intensity);
+                    }
+                } catch (Exception e) {
+                    System.err.println("determineLevels: range read failed, " + e.getMessage());
+                    e.printStackTrace(System.err);
+                    return;
+                }
+            }
+        }
+    }
+
+    void autoContrast2() {
+        if (Console.autoContrast) {
+            determineLevels();
+            Console.dContrast = 4096 / (double) (si.rangeMax[0] - si.rangeMin[0]);
+            Console.dBrightness = Math.max(0, 500 - si.rangeMin[0]) / (double) 4096;
+        }
+        adjustLevels(Console.dContrast, Console.dBrightness);
     }
 
 }
