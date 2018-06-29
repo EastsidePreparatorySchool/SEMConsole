@@ -8,14 +8,17 @@ package com.mycompany.semconsolewebapp;
 
 import static spark.Spark.*;
 import com.github.sarxos.webcam.Webcam;
+import com.google.gson.Gson;
 
 //java fx imports for SEM Console
 import java.awt.Robot;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -157,6 +160,8 @@ public class Console extends Application {
     private Alert slideshowAlert;
     private int slideshowSeconds = 5;
     public static Database db = null;//new Database();
+
+    public static List<DeviceRegistration> registered = null;
 
     // main fx launcher
     public static void main(String[] args) {
@@ -567,12 +572,30 @@ public class Console extends Application {
         }
     }
 
-    private void testModeInit() {
+    public void initOperators() {
+        // todo: read registered devices from file
 
+        Gson gson = new Gson();
+        FileReader fr = null;
+        DeviceRegistration[] adr = {};
+        try {
+            fr = new FileReader("operators.json");
+            adr = gson.fromJson(fr, DeviceRegistration[].class);
+        } catch (Exception e) {
+            System.err.println("Error reading operators file");
+            e.printStackTrace(System.err);
+        }
+
+        Console.registered = Arrays.asList(adr);
+
+        // todo: enable this after installing bluetooth adapter
+    }
+
+    private void testModeInit() {
+        initOperators();
         this.txt.setText("File test mode active");
         this.session = getImageDir() + "test";
         currentSession = new Session(this.session, this);
-        currentSession.initOperators();
         // read existing files
         currentSession.readExistingFiles(this.pin, this.ltq, () -> {
             synchronized (ltq) {
@@ -669,7 +692,6 @@ public class Console extends Application {
 
         this.session = getImageDir() + sessionName;
         currentSession = new Session(this.session, this);
-        currentSession.initOperators();
 
         //
         // 

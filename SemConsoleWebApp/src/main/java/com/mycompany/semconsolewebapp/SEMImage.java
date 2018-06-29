@@ -383,30 +383,30 @@ public class SEMImage {
     WritableImage diagram(String title, double[] data) {
         Group g = new Group();
 
-        Line xAxis = new Line(0, height / 2, width, height / 2);
-        xAxis.setStroke(Color.WHITE);
-        xAxis.setStrokeWidth(width * 0.002);
-
-        Line yAxis = new Line(width / 2, 0, width / 2, height);
-        yAxis.setStrokeWidth(height * 0.002);
-        yAxis.setStroke(Color.RED);
+//        Line xAxis = new Line(0, height / 2, width, height / 2);
+//        xAxis.setStroke(Color.WHITE);
+//        xAxis.setStrokeWidth(width * 0.002);
+//
+//        Line yAxis = new Line(width / 2, 0, width / 2, height);
+//        yAxis.setStrokeWidth(height * 0.002);
+//        yAxis.setStroke(Color.RED);
 
         Text label = new Text(title);
-        label.setFill(Color.GOLDENROD);
+        label.setFill(Color.GOLD);
 
 //        g.setTranslateY(height);
-        g.getChildren().addAll(xAxis, yAxis);
+//        g.getChildren().addAll(xAxis, yAxis);
 
         for (int i = 0; i < data.length; i++) {
             if (data[i] > 0) {
                 Rectangle r = new Rectangle(i * (double) width / data.length, height - data[i], width / data.length, data[i]);
-                r.setFill(Color.GOLDENROD);
+                r.setFill(Color.GOLD);
 //            r.setStrokeWidth(1.0);
                 g.getChildren().add(r);
             }
         }
 
-        new Scene(g, width, height, Color.BLACK);
+        Scene sc = new Scene(g, width, height, Color.BLACK);
 
         return g.snapshot(null, null);
     }

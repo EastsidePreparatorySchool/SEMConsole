@@ -8,9 +8,7 @@ import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
-import javafx.scene.layout.Pane;
 import javax.imageio.ImageIO;
 
 public class Session {
@@ -40,18 +38,11 @@ public class Session {
         asi = new ArrayList<>();
         consoleInstance = instance;
         this.operators = new ArrayList<>();
+        
+        new Thread(()->Bluetooth.getDevices(operators, Console.registered)).start();
     }
 
-    public void initOperators() {
-        // todo: read registered devices from file
-
-        ArrayList<DeviceRegistration> registered = new ArrayList<>();
-        registered.add(new DeviceRegistration("Gunnar's iPhone (CC20E87237E7)", "Gunnar Mein", "GM"));
-
-        // todo: enable this after installing bluetooth adapter
-        //new Thread(()->Bluetooth.getDevices(operators, registered)).start();
-    }
-
+  
     private void addFolderThumbnail(String imageFileName) {
         Image thumbnail = new Image(imageFileName, 400, 300, false, false);
 
@@ -97,7 +88,6 @@ public class Session {
                         try {
                             // make lower-resolution jpg from image, then save and upload
                             file = new File(this.folder + System.getProperty("file.separator") + fullName);
-                         
 
                             ImageIO.write(SwingFXUtils.fromFXImage(wiJPG, null), "jpg", file);
 

@@ -7,6 +7,7 @@ package com.mycompany.semconsolewebapp;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.bluetooth.DeviceClass;
@@ -20,7 +21,7 @@ public class Bluetooth {
 
    
 
-    public static void getDevices(ArrayList<String> operators, ArrayList<DeviceRegistration> registered) {
+    public static void getDevices(ArrayList<String> operators, List<DeviceRegistration> registered) {
         /* Create Vector variable */
         final Object inquiryCompletedEvent = new Object();
 
@@ -74,7 +75,8 @@ public class Bluetooth {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Bluetooth exception, operator detection aborted");
+            e.printStackTrace(System.err);
         }
         /* Return list of devices */
         System.out.println("Discovery finished.");
