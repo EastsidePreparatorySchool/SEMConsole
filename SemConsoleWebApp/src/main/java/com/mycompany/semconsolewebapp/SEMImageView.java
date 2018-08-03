@@ -113,8 +113,8 @@ public class SEMImageView extends AnchorPane {
             si.dContrast = contrast.getValue();
             if (!isPhoto) {
                 Console.dContrast = contrast.getValue();
-                autoContrast2();
                 setSEMImage(si);
+                autoContrast2();
             }
         });
         contrast.prefHeightProperty().bind(stage.heightProperty().subtract(500));
@@ -132,8 +132,8 @@ public class SEMImageView extends AnchorPane {
             si.dBrightness = brightness.getValue();
             if (!isPhoto) {
                 Console.dBrightness = brightness.getValue();
-                autoContrast2();
                 setSEMImage(si);
+                autoContrast2();
             }
 
         });
@@ -301,6 +301,10 @@ public class SEMImageView extends AnchorPane {
                     }
                 } catch (Exception e) {
                     System.err.println("determineLevels: range read failed, " + e.getMessage());
+                    System.err.println("  si:"+si);
+                    System.err.println("  si.readers[c]:"+si.readers[c]);
+                    System.err.println("  si.format:"+si.format);
+                    
                     e.printStackTrace(System.err);
                     return;
                 }

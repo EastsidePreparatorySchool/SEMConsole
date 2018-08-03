@@ -87,7 +87,7 @@ import spark.Route;
  */
 public class Console extends Application {
 
-    static boolean testMode = true;
+    static boolean testMode = false;
 
     private enum DisplayMode {
         NORMAL,
@@ -797,6 +797,15 @@ public class Console extends Application {
             return;
         }
 
+        try {
+            // parse and create images if we have not done this before
+            // pass along the old imageset for cumulative mode
+            si.makeImagesForDisplay(Console.lastImageSet);
+        } catch (Exception e) {
+            System.err.println("makeImages:" + e.getMessage());
+            e.printStackTrace(System.err);
+        }
+
         // construct viewer
         if (this.siv == null) {
             double dpi = Screen.getScreens().get(0).getDpi();
@@ -807,15 +816,6 @@ public class Console extends Application {
         }
 
         int channels = si.channels;
-
-        try {
-            // parse and create images if we have not done this before
-            // pass along the old imageset for cumulative mode
-            si.makeImagesForDisplay(Console.lastImageSet);
-        } catch (Exception e) {
-            System.err.println("makeImages:" + e.getMessage());
-            e.printStackTrace(System.err);
-        }
 
         switch (Console.displayMode) {
             case NORMAL:

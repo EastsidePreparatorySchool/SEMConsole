@@ -428,9 +428,11 @@ public class SEMImage {
         for (int channel = 0; channel < this.channels; channel++) {
             // copy one line of pixels for a specific channel out of data into rawBuffer
             pixel = 0;
-            capturedChannel = translateChannel(getEncodedChannel(data[channel]));
-            for (int i = channel; i < count; i += this.channels) {
-                intensity = getValue(data[i]);
+            if (data != null) {
+                capturedChannel = translateChannel(getEncodedChannel(data[0 + channel]));
+
+                for (int i = channel; i < count; i += this.channels) {
+                    intensity = getValue(data[i]);
 //                if (intensity < rangeMin[capturedChannel]) {
 //                    rangeMin[capturedChannel] = intensity;
 //                }
@@ -438,21 +440,25 @@ public class SEMImage {
 //                    rangeMax[capturedChannel] = intensity;
 //                }
 
-                lineBuffer[pixel++] = intensity;
-            }
-
-            // find the right image to write into
-            writeChannel = 0;
-            for (int i = 0; i < this.channels; i++) {
-                if (this.capturedChannels[i] == capturedChannel) {
-                    writeChannel = i;
-                    break;
+                    lineBuffer[pixel++] = intensity;
                 }
+
+                // find the right image to write into
+                writeChannel = 0;
+                for (int i = 0; i < this.channels; i++) {
+                    if (this.capturedChannels[i] == capturedChannel) {
+                        writeChannel = i;
+                        break;
+                    }
+                }
+            } else {
+                writeChannel = channel;
+                lineBuffer = new int[width + 1];
             }
 
             try {
                 // if we are in cumulative mode, find the right reader, combine buffers
-                if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width && height == siOld.height) {
+                if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width) {
                     // combine pixels by weight (dNewWeight)
                     // todo: Allocating line2 should not be necessary, I should be able to reuse the oldSi.lineBuffer, but it just gives dark images. Try again.
                     int[] line2 = new int[width];
@@ -485,7 +491,7 @@ public class SEMImage {
     }
 
     private int lineNumberFromTime(int time) {
-        return (time * height) / frameTime;
+        return (int)((time * (long)height) / frameTime);
     }
 
     public void makeImagesForDisplay(SEMImage siOld) {
@@ -499,6 +505,9 @@ public class SEMImage {
         }
 
         int size = aRawLineBuffers.size();
+        if (siOld != null && Console.dNewWeight < 1.0 && width == siOld.width) {
+            height = Math.max(height, siOld.height);
+        }
 
         // allocate images
         for (int i = 0; i < channels; i++) {
@@ -511,21 +520,30 @@ public class SEMImage {
         // parse all lines, 
         int prevLine = -1;
         for (int i = 0; i < size; i++) {
+            int line;
             int[] lineData = aRawLineBuffers.get(i);
 
             // convert the scan start times into line numbers
-            int line = lineNumberFromTime(lineData[lineData.length - 1]);
-            if (line < 0) {
-                line = 0;
-            }
+            if (lineData != null) {
+                line = lineNumberFromTime(lineData[lineData.length - 1]);
+                if (line < 0) {
+                    line = 0;
+                }
 
-            if (line >= height) {
-                line = height - 1;
+                if (line >= height) {
+                    line = height - 1;
+                }
+            } else {
+                line = prevLine + 1;
             }
             while (++prevLine <= line) {
                 this.parseRawLineToWriters(prevLine, lineData, lineData.length - 1, siOld);
             }
             prevLine = line;
+        }
+        while (prevLine < height) {
+            this.parseRawLineToWriters(prevLine, null, width, siOld);
+            ++prevLine;
         }
 
         //cleanUp();
