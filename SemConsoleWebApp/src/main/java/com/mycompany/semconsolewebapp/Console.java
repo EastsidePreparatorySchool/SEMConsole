@@ -808,7 +808,10 @@ public class Console extends Application {
 
         // construct viewer
         if (this.siv == null) {
-            double dpi = Screen.getScreens().get(0).getDpi();
+            double dpi = Screen.getPrimary().getDpi();
+            if (dpi < 1) {
+                dpi = 1280 / 8.5;
+            }
 
             this.siv = new SEMImageView(si, this.stage, dpi, false);
             this.masterPane.getChildren().clear();
@@ -1170,6 +1173,9 @@ public class Console extends Application {
             Screen secondaryScreen = allScreens.get(1);
             Rectangle2D bounds = secondaryScreen.getVisualBounds();
             dpi = secondaryScreen.getDpi();
+            if (dpi < 1) {
+                dpi = 1920 / 41.5;
+            }
 
             if (this.bigStage == null) {
                 this.bigStage = new Stage();
@@ -1187,6 +1193,9 @@ public class Console extends Application {
             Screen screen = allScreens.get(0);
             Rectangle2D bounds = screen.getVisualBounds();
             dpi = screen.getDpi();
+            if (dpi < 1) {
+                dpi = 1280 / 8.5;
+            }
 
             if (this.bigStage == null) {
                 this.bigStage = new Stage();
