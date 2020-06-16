@@ -27,9 +27,8 @@ import javafx.scene.layout.HBox;
  */
 public class App extends Application {
 
-
     ArrayList<Offset> offsets = new ArrayList<>();
-    Rectangle2D viewportRect ;
+    Rectangle2D viewportRect;
     double originX;
     double originY;
 
@@ -41,9 +40,11 @@ public class App extends Application {
         InputStream is = App.class.getResourceAsStream("/offsets.csv");
         Scanner sc = new Scanner(is);
         while (sc.hasNextLine()) {
-            String line = sc.nextLine();
-            String[] numbers = line.split(",");
-            offsets.add(new Offset(Integer.parseInt(numbers[0]), Integer.parseInt(numbers[1])));
+            String line = sc.nextLine().trim();
+            if (!line.equals("")) {
+                String[] numbers = line.split(",");
+                offsets.add(new Offset(Integer.parseInt(numbers[0]), Integer.parseInt(numbers[1])));
+            }
         }
 
         // load src image
@@ -83,7 +84,7 @@ public class App extends Application {
         bLeft.setPrefWidth(200);
         Button bSave = new Button("Save");
         bSave.setPrefWidth(200);
-        bSave.setOnAction((e)->saveToFile(img2, offsets));
+        bSave.setOnAction((e) -> saveToFile(img2, offsets));
         VBox controls = new VBox();
         controls.getChildren().addAll(l, tf, bRight, bLeft, bSave);
 
@@ -94,22 +95,22 @@ public class App extends Application {
             y = y / 500 * viewportRect.getHeight() + viewportRect.getMinY();
             tf.setText("" + (int) y);
         });
-        
-        iv1.setOnMousePressed((e)->{
-            originX = e.getX()/ 500 * viewportRect.getHeight();
-            originY = e.getY()/ 500 * viewportRect.getHeight();
+
+        iv1.setOnMousePressed((e) -> {
+            originX = e.getX() / 500 * viewportRect.getHeight();
+            originY = e.getY() / 500 * viewportRect.getHeight();
         });
-        
-        iv1.setOnMouseDragged((e)->{
+
+        iv1.setOnMouseDragged((e) -> {
             viewportRect = new Rectangle2D(
-                    viewportRect.getMinX() + originX - e.getX()/ 500 * viewportRect.getHeight(), 
-                    viewportRect.getMinY() + originY - e.getY()/ 500 * viewportRect.getHeight(), 
-                    viewportRect.getWidth(), 
+                    viewportRect.getMinX() + originX - e.getX() / 500 * viewportRect.getHeight(),
+                    viewportRect.getMinY() + originY - e.getY() / 500 * viewportRect.getHeight(),
+                    viewportRect.getWidth(),
                     viewportRect.getHeight());
             iv1.setViewport(viewportRect);
             iv2.setViewport(viewportRect);
-            originX = e.getX()/ 500 * viewportRect.getHeight();
-            originY = e.getY()/ 500 * viewportRect.getHeight();
+            originX = e.getX() / 500 * viewportRect.getHeight();
+            originY = e.getY() / 500 * viewportRect.getHeight();
         });
 
         HBox hb = new HBox();
@@ -196,14 +197,13 @@ public class App extends Application {
         } catch (IOException e) {
             System.out.println("Saving image had exception");
         }
-       
-        
+
         fileName = System.getProperty("user.home") + "\\desktop\\offsets.csv";
         System.out.println(fileName);
         outputFile = new File(fileName);
         try {
             PrintStream ps = new PrintStream(outputFile);
-            for (Offset o:offsets) {
+            for (Offset o : offsets) {
                 ps.println(o);
             }
         } catch (IOException e) {
