@@ -27,7 +27,11 @@ import javafx.scene.layout.HBox;
  */
 public class App extends Application {
 
+
     ArrayList<Offset> offsets = new ArrayList<>();
+    Rectangle2D viewportRect ;
+    double originX;
+    double originY;
 
     @Override
     public void start(Stage stage) {
@@ -54,7 +58,7 @@ public class App extends Application {
         ImageView iv2 = new ImageView(img2);
 
         // configure the visible region
-        Rectangle2D viewportRect = new Rectangle2D(1750, 150, 100, 100);
+        viewportRect = new Rectangle2D(1750, 150, 100, 100);
         iv1.setViewport(viewportRect);
         iv1.setFitHeight(500);
         iv1.setPreserveRatio(true);
@@ -83,12 +87,29 @@ public class App extends Application {
         VBox controls = new VBox();
         controls.getChildren().addAll(l, tf, bRight, bLeft, bSave);
 
-        // wire up the mouse event
+        // wire up the mouse click event to populate the line number
         iv1.setOnMouseClicked((e) -> {
-            System.out.println(e);
+            //System.out.println(e);
             double y = e.getY();
             y = y / 500 * viewportRect.getHeight() + viewportRect.getMinY();
             tf.setText("" + (int) y);
+        });
+        
+        iv1.setOnMousePressed((e)->{
+            originX = e.getX()/ 500 * viewportRect.getHeight();
+            originY = e.getY()/ 500 * viewportRect.getHeight();
+        });
+        
+        iv1.setOnMouseDragged((e)->{
+            viewportRect = new Rectangle2D(
+                    viewportRect.getMinX() + originX - e.getX()/ 500 * viewportRect.getHeight(), 
+                    viewportRect.getMinY() + originY - e.getY()/ 500 * viewportRect.getHeight(), 
+                    viewportRect.getWidth(), 
+                    viewportRect.getHeight());
+            iv1.setViewport(viewportRect);
+            iv2.setViewport(viewportRect);
+            originX = e.getX()/ 500 * viewportRect.getHeight();
+            originY = e.getY()/ 500 * viewportRect.getHeight();
         });
 
         HBox hb = new HBox();
