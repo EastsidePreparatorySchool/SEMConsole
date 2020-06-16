@@ -210,4 +210,34 @@ public class App extends Application {
             throw new RuntimeException(e);
         }
     }
+
+    int decode(int pixel) {
+        int highsix = (pixel & 0xFC) >> 2;
+        int lowsix = (pixel & 0x03) << 4;
+        lowsix += ((pixel & 0x300) >> 8) << 2;
+        lowsix += (pixel & 0x30000) >> 16;
+        return (highsix << 6) + lowsix;
+    }
+
+    int encode(int intensity) {
+        if (intensity > 4095) {
+            intensity = 4095;
+        } else if (intensity < 0) {
+            intensity = 0;
+        }
+
+        int highSix = ((intensity >> 6) & 0x3F) << 2;
+        int lowSix = intensity & 0x3F;
+        int r = lowSix & 0x3;
+        lowSix >>= 2;
+        int g = lowSix & 0x3;
+        lowSix >>= 2;
+        int b = lowSix & 0x3;
+
+        return 0xFF000000 // full alpha
+                + ((highSix + r) << 16) // red
+                + ((highSix + g) << 8) // green
+                + (highSix + b);         // blue
+    }
+
 }
