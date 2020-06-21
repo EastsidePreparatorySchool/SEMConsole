@@ -72,21 +72,31 @@ public class App extends Application {
         // control box
         Label l = new Label("Line:");
         TextField tf = new TextField();
+
         Button bRight = new Button("->");
         bRight.setOnAction((e) -> {
             adjustOffset(img2, offsets, Integer.parseInt(tf.getText()), 1);
         });
         bRight.setPrefWidth(200);
+
         Button bLeft = new Button("<-");
         bLeft.setOnAction((e) -> {
             adjustOffset(img2, offsets, Integer.parseInt(tf.getText()), -1);
         });
         bLeft.setPrefWidth(200);
+
+        Button bFix = new Button("Fixify");
+        bFix.setOnAction((e) -> {
+            calculateAndApplyOffsets(img2);
+        });
+        bFix.setPrefWidth(200);
+
         Button bSave = new Button("Save");
-        bSave.setPrefWidth(200);
         bSave.setOnAction((e) -> saveToFile(img2, offsets));
+        bSave.setPrefWidth(200);
+
         VBox controls = new VBox();
-        controls.getChildren().addAll(l, tf, bRight, bLeft, bSave);
+        controls.getChildren().addAll(l, tf, bRight, bLeft, bSave, bFix);
 
         // wire up the mouse click event to populate the line number
         iv1.setOnMouseClicked((e) -> {
@@ -119,6 +129,67 @@ public class App extends Application {
         var scene = new Scene(hb);
         stage.setScene(scene);
         stage.show();
+    }
+
+    int errorFunction(String errorType, int[] line1, int[] line2) {
+
+        if (errorType.equals("LSE")) {//least squared error
+            int errorSum = 0;
+            for (int i = 0; i < line1.length; i++) {
+                errorSum += (line1[i] - line2[i]) * * 2;
+            }
+            return errorSum
+        }
+        return -1;//all errors are non negative 
+    }
+
+    void calculateAndApplyOffsets(WritableImage img) {
+        int maxOffset = 10;
+        int errorType = "LSE";
+
+        int width = (int) img.getWidth();
+        int height = (int) img.getHeight();
+
+        PixelReader reader = img.getPixelReader();
+        PixelWriter writer = img.getPixelWriter();
+        WritablePixelFormat<IntBuffer> format
+                = WritablePixelFormat.getIntArgbInstance();
+
+        int[] line1 = new int[width];
+        int[] line2 = new int[width];
+        int[] errors = new int[maxOffset * 2 + 1];
+
+        for (int line = 0; line < height - 1; line++) {
+            //shift -10 to 10 pixels in each direction, keep the one with smallest error
+
+            for (int o = -maxOffset; o <= maxOffset; o++) {
+                //yucky, could optimize later
+                if (o > 0) {
+                    reader.getPixels(0, line, width, 1, format, line1, 0, 0);
+                    writer.setPixels(o, line, width - o, 1, format, line1, 0, 0);
+                } else {
+                    reader.getPixels(-o, line, width + o, 1, format, line1, 0, 0);
+                    writer.setPixels(0, line, width + o, 1, format, line1, 0, 0);
+                }
+
+                reader.getPixels(0, line, width, 1, format, line2, 0, 0);
+                errors[o + maxOffset] = errorFunction(errorType, line1, line2)//offset of -max should go to 0, offset of max should go to end of array
+            }
+
+            int bestOffset = -maxOffset;
+            for (int i = 0; i < errors.length; i++) {
+                if (errors[i] < errors[bestOffset + maxOffset]) {
+                    bestOffset = i - maxOffset;
+                }
+            }
+            if (bestOffset > 0) {
+                reader.getPixels(0, line, width, 1, format, line1, 0, 0);
+                writer.setPixels(bestOffset, line, width - bestOffset, 1, format, line1, 0, 0);
+            } else {
+                reader.getPixels(-bestOffset, line, width + bestOffset, 1, format, line1, 0, 0);
+                writer.setPixels(0, line, width + bestOffset, 1, format, line1, 0, 0);
+            }
+        }
     }
 
     void applyOffsets(WritableImage img, ArrayList<Offset> offsets) {
