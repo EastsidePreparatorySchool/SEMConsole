@@ -152,9 +152,8 @@ public class App extends Application {
                 double error = Math.abs(line1[i] - line2[i]);
 
                 //if (error > 0) {
-                    //System.out.println("individual error" + error );
+                //System.out.println("individual error" + error );
                 //}
-
                 errorSum += error;
             }
             return errorSum;
@@ -195,6 +194,13 @@ public class App extends Application {
                     }
 
                     reader.getPixels(0, line, width, 1, format, line2, 0, 0);
+
+                    System.out.println("    line info for lines" + line + " " + (line + 1));
+                    System.out.println("        line1 length: " + line1.length);
+                    System.out.println("        line2 length: " + line2.length);
+                    System.out.println("        line1 first 5: " + line1[0]+ line1[1]+ line1[2]+ line1[3]+ line1[4]);
+                    System.out.println("        line2 first 5: " + line2[0]+ line2[1]+ line2[2]+ line2[3]+ line2[4]);
+
                     errors[o + maxOffset] = errorFunction(errorType, line1, line2);//offset of -max should go to 0, offset of max should go to end of array
                     if (o == 0) {
                         System.out.println("    original error: " + errorFunction(errorType, line1, line2));
