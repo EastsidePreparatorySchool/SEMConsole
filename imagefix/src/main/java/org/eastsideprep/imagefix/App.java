@@ -93,7 +93,7 @@ public class App extends Application {
 
         Button bTest = new Button("test funcs");
         bTest.setOnAction((e) -> {
-            errorTest();
+            test_sad_things();
         });
         bTest.setPrefWidth(200);
 
@@ -137,11 +137,12 @@ public class App extends Application {
         stage.show();
     }
 
-    void errorTest() {
-        System.out.println("error function tests");
+    void test_sad_things() {
+
         int[] a = {1, 2, 3, 4, 5, 6};
-        int[] b = {1, 2, 3, 4, 5, 7};
-        System.out.println(errorFunction("LSE", a, b));
+        for (int i = 0; i < 100; i++) {
+            System.out.println(i + " " + decode(i));
+        }
     }
 
     double errorFunction(String errorType, int[] line1, int[] line2) {
@@ -149,7 +150,7 @@ public class App extends Application {
         if (errorType.equals("LSE")) {//least squared error
             double errorSum = 0;
             for (int i = 0; i < line1.length; i++) {
-                double error = Math.abs(line1[i] - line2[i]);
+                double error = Math.abs(decode(line1[i] - line2[i]));
 
                 //if (error > 0) {
                 //System.out.println("individual error" + error );
@@ -198,8 +199,8 @@ public class App extends Application {
                     System.out.println("    line info for lines" + line + " " + (line + 1));
                     System.out.println("        line1 length: " + line1.length);
                     System.out.println("        line2 length: " + line2.length);
-                    System.out.println("        line1 first 5: " + line1[0]+ line1[1]+ line1[2]+ line1[3]+ line1[4]);
-                    System.out.println("        line2 first 5: " + line2[0]+ line2[1]+ line2[2]+ line2[3]+ line2[4]);
+                    System.out.println("        line1 first 5: " + line1[0] + line1[1] + line1[2] + line1[3] + line1[4]);
+                    System.out.println("        line2 first 5: " + line2[0] + line2[1] + line2[2] + line2[3] + line2[4]);
 
                     errors[o + maxOffset] = errorFunction(errorType, line1, line2);//offset of -max should go to 0, offset of max should go to end of array
                     if (o == 0) {
@@ -317,11 +318,12 @@ public class App extends Application {
     }
 
     int decode(int pixel) {
-        int highsix = (pixel & 0xFC) >> 2;
-        int lowsix = (pixel & 0x03) << 4;
-        lowsix += ((pixel & 0x300) >> 8) << 2;
-        lowsix += (pixel & 0x30000) >> 16;
+        int highsix = (pixel & 0xFC) >> 2; // and yikes1 and divide by 4
+        int lowsix = (pixel & 0x03) << 4; // and yikes2 and multiply by 16
+        lowsix += ((pixel & 0x300) >> 8) << 2; // and yikes3 divide by 128, then multiply by 4??
+        lowsix += (pixel & 0x30000) >> 16; // and yikes4 divide by 2^16 ????????
         return (highsix << 6) + lowsix;
+        //https://www.dcode.fr/binary-image ???
     }
 
     int encode(int intensity) {
