@@ -93,7 +93,7 @@ public class App extends Application {
 
         Button bTest = new Button("test funcs");
         bTest.setOnAction((e) -> {
-            test_sad_things();
+            test_sad_things(img2);
         });
         bTest.setPrefWidth(200);
 
@@ -137,11 +137,21 @@ public class App extends Application {
         stage.show();
     }
 
-    void test_sad_things() {
+    void test_sad_things(WritableImage img) {
 
-        int[] a = {1, 2, 3, 4, 5, 6};
-        for (int i = 0; i < 100; i++) {
-            System.out.println(i + " " + decode(i));
+        int width = (int) img.getWidth();
+        int height = (int) img.getHeight();
+
+        PixelReader reader = img.getPixelReader();
+        PixelWriter writer = img.getPixelWriter();
+        WritablePixelFormat<IntBuffer> format
+                = WritablePixelFormat.getIntArgbInstance();
+        int line = 200;
+        int[] line1 = new int[width];
+        reader.getPixels(0, line, width, 1, format, line1, 0, 0);
+
+        for (int i = 0; i < line1.length; i++) {
+            System.out.println(line1[i] + " " + decode(line1[i]));
         }
     }
 
@@ -150,7 +160,7 @@ public class App extends Application {
         if (errorType.equals("LSE")) {//least squared error
             double errorSum = 0;
             for (int i = 0; i < line1.length; i++) {
-                double error = Math.abs(decode(line1[i] - line2[i]));
+                double error = Math.abs(decode(line1[i]) - decode(line2[i]));
 
                 //if (error > 0) {
                 //System.out.println("individual error" + error );
@@ -184,6 +194,8 @@ public class App extends Application {
             if (line < 200) {
                 System.out.println("looking at lines " + line + " " + (line + 1));
 
+                reader.getPixels(0, line, width, 1, format, line2, 0, 0);
+
                 for (int o = -maxOffset; o <= maxOffset; o++) {
                     //yucky, could optimize later
                     if (o > 0) {
@@ -193,20 +205,10 @@ public class App extends Application {
                         reader.getPixels(-o, line, width + o, 1, format, line1, 0, 0);
                         writer.setPixels(0, line, width + o, 1, format, line1, 0, 0);
                     }
-
-                    reader.getPixels(0, line, width, 1, format, line2, 0, 0);
-
-                    System.out.println("    line info for lines" + line + " " + (line + 1));
-                    System.out.println("        line1 length: " + line1.length);
-                    System.out.println("        line2 length: " + line2.length);
-                    System.out.println("        line1 first 5: " + line1[0] + line1[1] + line1[2] + line1[3] + line1[4]);
-                    System.out.println("        line2 first 5: " + line2[0] + line2[1] + line2[2] + line2[3] + line2[4]);
-
                     errors[o + maxOffset] = errorFunction(errorType, line1, line2);//offset of -max should go to 0, offset of max should go to end of array
-                    if (o == 0) {
-                        System.out.println("    original error: " + errorFunction(errorType, line1, line2));
-                    }
+
                 }
+                System.out.println("    original error: " + errors[0]);
 
                 int bestOffset = -maxOffset;
                 for (int i = 0; i < errors.length; i++) {
@@ -221,7 +223,7 @@ public class App extends Application {
                     reader.getPixels(-bestOffset, line, width + bestOffset, 1, format, line1, 0, 0);
                     writer.setPixels(0, line, width + bestOffset, 1, format, line1, 0, 0);
                 }
-                System.out.println("    improved error: " + errorFunction(errorType, line1, line2));
+                System.out.println("    improved error: " + errors[bestOffset + maxOffset]);
             }
         }
     }
