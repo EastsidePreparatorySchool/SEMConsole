@@ -1,0 +1,5 @@
+org\eastsideprep\imagefix\SystemInfo.class
+module-info.class
+org\eastsideprep\imagefix\Main.class
+org\eastsideprep\imagefix\App.class
+org\eastsideprep\imagefix\Offset.class

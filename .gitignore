@@ -21,3 +21,7 @@ SignalFilterTest/nbproject/private/private.properties
 SignalFilterTest/nbproject/private/configs/Run_as_WebStart.properties
 *.properties
 /SignalFilterTest/nbproject/private/
+Console/lib/CopyLibs/org-netbeans-modules-java-j2seproject-copylibstask.jar
+Console/lib/nblibraries.properties
+Console/nbproject/build-impl.xml
+Console/nbproject/genfiles.properties
